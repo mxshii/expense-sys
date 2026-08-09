@@ -12,7 +12,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "yeetSecretDoNotDeployToTheMoonWith
 app.use(express.json());
 app.use(cookieParser());
 
-if (!process.env.VERCEL) {
+if (process.env.NODE_ENV !== "production") {
   app.use(express.static(path.join(__dirname, "..", "public")));
 }
 

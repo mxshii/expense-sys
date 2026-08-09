@@ -1,0 +1,15 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+# Send all /api/* requests to the serverless function
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# Fallback: serve index.html for any unmatched route (SPA-style)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
