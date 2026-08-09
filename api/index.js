@@ -18,6 +18,9 @@ if (process.env.NODE_ENV !== "production") {
 
 const CATEGORIES = ["Ads", "Printing", "Packaging", "Delivery"];
 
+// ─── DB SEEDING ───────────────────────────────────────────────────────────────
+// Lazy seeding — only runs on routes that actually need the DB.
+// This way /api/me and /api/logout always respond instantly.
 let seeded = false;
 async function ensureFounderSeeded() {
   if (seeded) return;
@@ -31,7 +34,6 @@ async function ensureFounderSeeded() {
     });
     await saveDB(db);
   }
-  // Migrate old DBs that don't have expenses yet
   if (!db.expenses) {
     db.expenses = [];
     await saveDB(db);
@@ -39,14 +41,16 @@ async function ensureFounderSeeded() {
   seeded = true;
 }
 
-app.use(async (req, res, next) => {
+// Middleware applied only to routes that need the DB
+async function withDB(req, res, next) {
   try {
     await ensureFounderSeeded();
     next();
   } catch (err) {
+    console.error("DB error:", err.message);
     next(err);
   }
-});
+}
 
 function requireLogin(req, res, next) {
   const token = req.cookies.token;
@@ -75,8 +79,29 @@ function cookieOptions() {
   };
 }
 
-// ─── AUTH ───────────────────────────────────────────────────────────────────
-app.post("/api/login", async (req, res) => {
+// ─── HEALTH CHECK (no DB needed) ─────────────────────────────────────────────
+app.get("/api/ping", (req, res) => {
+  res.json({ ok: true });
+});
+
+// ─── AUTH (no DB needed for /me and /logout) ─────────────────────────────────
+app.get("/api/me", (req, res) => {
+  const token = req.cookies.token;
+  if (!token) return res.json({ user: null });
+  try {
+    res.json({ user: jwt.verify(token, JWT_SECRET) });
+  } catch {
+    res.json({ user: null });
+  }
+});
+
+app.post("/api/logout", (req, res) => {
+  res.clearCookie("token");
+  res.json({ ok: true });
+});
+
+// ─── AUTH (DB needed) ────────────────────────────────────────────────────────
+app.post("/api/login", withDB, async (req, res) => {
   const { username, password } = req.body;
   const db = await loadDB();
   const user = db.users.find((u) => u.username === username);
@@ -89,22 +114,7 @@ app.post("/api/login", async (req, res) => {
   res.json({ user: payload });
 });
 
-app.post("/api/logout", (req, res) => {
-  res.clearCookie("token");
-  res.json({ ok: true });
-});
-
-app.get("/api/me", (req, res) => {
-  const token = req.cookies.token;
-  if (!token) return res.json({ user: null });
-  try {
-    res.json({ user: jwt.verify(token, JWT_SECRET) });
-  } catch {
-    res.json({ user: null });
-  }
-});
-
-app.post("/api/change-password", requireLogin, async (req, res) => {
+app.post("/api/change-password", requireLogin, withDB, async (req, res) => {
   const { oldPassword, newPassword } = req.body;
   if (!oldPassword || !newPassword) return res.status(400).json({ error: "need both old and new password" });
   if (newPassword.length < 6) return res.status(400).json({ error: "new password must be 6+ characters" });
@@ -119,12 +129,12 @@ app.post("/api/change-password", requireLogin, async (req, res) => {
 });
 
 // ─── USERS ───────────────────────────────────────────────────────────────────
-app.get("/api/users", requireLogin, requireFounder, async (req, res) => {
+app.get("/api/users", requireLogin, requireFounder, withDB, async (req, res) => {
   const db = await loadDB();
   res.json(db.users.map(({ passwordHash, ...safe }) => safe));
 });
 
-app.post("/api/users", requireLogin, requireFounder, async (req, res) => {
+app.post("/api/users", requireLogin, requireFounder, withDB, async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: "need a username and password" });
   const db = await loadDB();
@@ -143,7 +153,7 @@ app.post("/api/users", requireLogin, requireFounder, async (req, res) => {
   res.json(safe);
 });
 
-app.delete("/api/users/:id", requireLogin, requireFounder, async (req, res) => {
+app.delete("/api/users/:id", requireLogin, requireFounder, withDB, async (req, res) => {
   const db = await loadDB();
   const target = db.users.find((u) => u.id === req.params.id);
   if (target?.role === "founder") return res.status(400).json({ error: "cannot delete the founder account" });
@@ -153,12 +163,12 @@ app.delete("/api/users/:id", requireLogin, requireFounder, async (req, res) => {
 });
 
 // ─── EXPENSES ────────────────────────────────────────────────────────────────
-app.get("/api/expenses", requireLogin, async (req, res) => {
+app.get("/api/expenses", requireLogin, withDB, async (req, res) => {
   const db = await loadDB();
   res.json(db.expenses || []);
 });
 
-app.post("/api/expenses", requireLogin, async (req, res) => {
+app.post("/api/expenses", requireLogin, withDB, async (req, res) => {
   const { category, description, amount, note } = req.body;
   if (!category || !CATEGORIES.includes(category)) {
     return res.status(400).json({ error: "pick a valid category" });
@@ -184,7 +194,7 @@ app.post("/api/expenses", requireLogin, async (req, res) => {
   res.json(expense);
 });
 
-app.delete("/api/expenses/:id", requireLogin, requireFounder, async (req, res) => {
+app.delete("/api/expenses/:id", requireLogin, requireFounder, withDB, async (req, res) => {
   const db = await loadDB();
   db.expenses = db.expenses.filter((e) => e.id !== req.params.id);
   await saveDB(db);
@@ -192,3 +202,4 @@ app.delete("/api/expenses/:id", requireLogin, requireFounder, async (req, res) =
 });
 
 module.exports = app;
+
