@@ -484,6 +484,11 @@ select.delivery-select {
   overflow-y: auto;
   box-shadow: 0 8px 40px rgba(0,0,0,0.22);
   transition: background 0.25s, border-color 0.25s;
+  animation: modalScaleIn 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes modalScaleIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 .wide-modal { width: 620px; }
 
@@ -821,7 +826,10 @@ select.delivery-select {
   .modal {
     align-items: flex-end;
     padding: 0;
+    animation: fadeInBg 0.25s ease-out;
   }
+  @keyframes fadeInBg { from { opacity: 0; } to { opacity: 1; } }
+
   .modal-card,
   .wide-modal {
     width: 100%;
@@ -831,6 +839,11 @@ select.delivery-select {
     overflow-y: auto;
     /* Safe area for iPhone home indicator */
     padding-bottom: env(safe-area-inset-bottom, 16px);
+    animation: slideUpSheet 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  @keyframes slideUpSheet {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
   }
   .modal-header { padding: 16px 18px 12px; }
   .modal-card form { padding: 14px 18px 24px; }
@@ -867,11 +880,14 @@ select.delivery-select {
   .inline-form button { width: 100%; margin-top: 4px; }
   .add-staff-card { padding: 16px; }
 
-  /* ── Inputs slightly taller for thumbs ── */
-  input, select { padding: 11px 13px; font-size: 15px; }
+  /* ── CRITICAL: Font-size 16px prevents iOS Safari from zooming in on focus! ── */
+  input, select, textarea { padding: 12px 13px; font-size: 16px; }
+  .item-row .item-qty { font-size: 16px; }
+  .inline-select { font-size: 16px; padding: 9px 10px; }
 
-  /* ── Buttons ── */
-  .primary-btn { padding: 11px 18px; font-size: 13px; }
+  /* ── Buttons tactile feedback ── */
+  .primary-btn, .ghost-btn { padding: 12px 18px; font-size: 14px; }
+  .primary-btn:active, .ghost-btn:active { transform: scale(0.97); }
 
   /* ── Summary grid 2-col ── */
   .summary-grid { gap: 10px; }

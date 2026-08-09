@@ -43,6 +43,17 @@ const $ = (sel) => document.querySelector(sel);
     btn.addEventListener("click", () => { if (isMobile()) closeMobile(); });
   });
 
+  // Native swipe-to-close for mobile
+  let touchStartX = 0;
+  sidebar.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
+  sidebar.addEventListener('touchend', e => {
+    if (isMobile() && touchStartX - e.changedTouches[0].screenX > 50) closeMobile();
+  }, {passive: true});
+  backdrop.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
+  backdrop.addEventListener('touchend', e => {
+    if (isMobile() && touchStartX - e.changedTouches[0].screenX > 50) closeMobile();
+  }, {passive: true});
+
   window.addEventListener("resize", () => {
     if (!isMobile()) {
       closeMobile();
