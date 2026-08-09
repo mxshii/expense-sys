@@ -102,12 +102,19 @@ function applyDarkMode(dark) {
     });
   }
 
-  const { user } = await api("/api/me");
-  if (user) {
-    me = user;
-    enterApp();
-  } else {
+  try {
+    const { user } = await api("/api/me");
+    if (user) {
+      me = user;
+      enterApp();
+    } else {
+      $("#loginScreen").classList.remove("hidden");
+    }
+  } catch (err) {
+    // Show login screen anyway — better than a blank page
     $("#loginScreen").classList.remove("hidden");
+    $("#loginError").textContent = "Could not reach server. Please refresh.";
+    console.error("Boot error:", err);
   }
 })();
 
