@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>STATIC — Expense Tracker</title>
+<meta name="description" content="Internal expense tracker for Static brand — log ads, printing, packaging and delivery spend." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <div class="brand">
+        <img src="img/1111-removebg-preview.png" alt="Logo" class="brand-logo" />
+        <div>
+          <h1>STATIC ADMIN</h1>
+          <p class="tagline">expense tracker · keep the money straight</p>
+        </div>
+      </div>
+      <form id="loginForm">
+        <label>Username</label>
+        <input type="text" id="loginUsername" autocomplete="username" placeholder="your username" required />
+        <label>Password</label>
+        <input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••" required />
+        <button type="submit">Log in</button>
+        <p id="loginError" class="error-text"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="app" class="app hidden">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="img/1111-removebg-preview.png" alt="Logo" class="sidebar-logo" />
+        <div class="sidebar-brand-text">
+          <span class="sidebar-title">STATIC</span>
+          <span class="sidebar-sub">Expense Tracker</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="expenses" id="navExpenses">
+          <!-- receipt icon -->
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v4H4V6zm0 6h3v2H4v-2zm5 0h3v2H9v-2zm5 0h2v2h-2v-2z" clip-rule="evenodd"/></svg>
+          <span>Expenses</span>
+        </button>
+        <button class="nav-item founder-only hidden" data-tab="team" id="navTeam">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
+          <span>Team</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-sync">
+          <span class="pulse"></span>
+          <span id="syncTime">just now</span>
+        </div>
+        <div class="sidebar-user">
+          <div class="user-avatar" id="userAvatarLetter">?</div>
+          <div class="user-info">
+            <span id="meUsername" class="user-name">—</span>
+            <span id="meRole" class="role-badge">—</span>
+          </div>
+        </div>
+        <div class="sidebar-actions">
+          <button id="darkModeToggle" class="sidebar-action-btn" title="Toggle dark mode">
+            <svg id="darkModeIcon" viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:6px"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
+            Dark mode
+          </button>
+          <button id="openChangePassword" class="sidebar-action-btn">
+            <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:6px"><path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clip-rule="evenodd"/></svg>
+            Change password
+          </button>
+          <button id="logoutBtn" class="sidebar-action-btn danger">
+            <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:6px"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/></svg>
+            Log out
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+      <!-- TOPBAR -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button id="sidebarToggle" class="sidebar-toggle-btn" aria-label="Toggle sidebar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          <div id="pageTitle" class="page-title">Expenses</div>
+        </div>
+        <div class="topbar-right">
+          <div class="topbar-date" id="topbarDate"></div>
+        </div>
+      </header>
+
+      <!-- ── EXPENSES TAB ── -->
+      <section id="tab-expenses" class="tab-panel active">
+
+        <!-- Summary cards -->
+        <div class="summary-grid" id="summaryGrid">
+          <div class="summary-card" data-cat="all">
+            <div class="summary-icon summary-icon-all">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v4H4V6zm0 6h3v2H4v-2zm5 0h3v2H9v-2zm5 0h2v2h-2v-2z" clip-rule="evenodd"/></svg>
+            </div>
+            <div class="summary-info">
+              <div class="summary-label">Total Spent</div>
+              <div class="summary-amount" id="totalAll">0 EGP</div>
+            </div>
+          </div>
+          <div class="summary-card" data-cat="Ads">
+            <div class="summary-icon summary-icon-ads">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+            </div>
+            <div class="summary-info">
+              <div class="summary-label">Ads</div>
+              <div class="summary-amount" id="totalAds">0 EGP</div>
+            </div>
+          </div>
+          <div class="summary-card" data-cat="Printing">
+            <div class="summary-icon summary-icon-print">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+            </div>
+            <div class="summary-info">
+              <div class="summary-label">Printing</div>
+              <div class="summary-amount" id="totalPrinting">0 EGP</div>
+            </div>
+          </div>
+          <div class="summary-card" data-cat="Packaging">
+            <div class="summary-icon summary-icon-pkg">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+            </div>
+            <div class="summary-info">
+              <div class="summary-label">Packaging</div>
+              <div class="summary-amount" id="totalPackaging">0 EGP</div>
+            </div>
+          </div>
+          <div class="summary-card" data-cat="Delivery">
+            <div class="summary-icon summary-icon-del">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h.09A2.5 2.5 0 018 14.5h4A2.5 2.5 0 0116.91 16H17a1 1 0 001-1v-5l-3.04-4.56A1 1 0 0014.12 5H3zm7 5V7h4.12l2.02 3H10V9z"/></svg>
+            </div>
+            <div class="summary-info">
+              <div class="summary-label">Delivery</div>
+              <div class="summary-amount" id="totalDelivery">0 EGP</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter + header row -->
+        <div class="panel-header" style="margin-top: 24px;">
+          <div class="filter-row">
+            <h2>All Expenses</h2>
+            <div class="cat-filters" id="catFilters">
+              <button class="cat-filter-btn active" data-filter="all">All</button>
+              <button class="cat-filter-btn" data-filter="Ads">Ads</button>
+              <button class="cat-filter-btn" data-filter="Printing">Printing</button>
+              <button class="cat-filter-btn" data-filter="Packaging">Packaging</button>
+              <button class="cat-filter-btn" data-filter="Delivery">Delivery</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="printPdfBtn" class="ghost-btn" title="Export as PDF">
+              <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:6px"><path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clip-rule="evenodd"/></svg>
+              Print PDF
+            </button>
+            <button id="openAddExpense" class="primary-btn">+ Log expense</button>
+          </div>
+        </div>
+
+        <!-- PRINT-ONLY HEADER (hidden on screen) -->
+        <div id="printHeader" class="print-only">
+          <div class="print-brand">
+            <div class="print-brand-name">STATIC</div>
+            <div class="print-brand-sub">Expense Report</div>
+          </div>
+          <div class="print-meta">
+            <div id="printDate"></div>
+            <div id="printGeneratedBy"></div>
+          </div>
+          <div class="print-totals" id="printTotals"></div>
+          <div class="print-divider"></div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table" id="expensesTable">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Amount</th>
+                <th>Logged by</th>
+                <th>Note</th>
+                <th>Date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="expensesBody"></tbody>
+          </table>
+          <p id="expensesEmpty" class="empty-state hidden">No expenses logged yet. Hit "Log expense" to add the first one.</p>
+        </div>
+      </section>
+
+      <!-- ── TEAM TAB (founder only) ── -->
+      <section id="tab-team" class="tab-panel">
+        <div class="panel-header">
+          <h2>Team Access</h2>
+        </div>
+        <div class="add-staff-card">
+          <h3>Add Staff Account</h3>
+          <form id="addStaffForm" class="inline-form">
+            <div class="form-field">
+              <label>Username</label>
+              <input type="text" id="newStaffUsername" placeholder="new username" required />
+            </div>
+            <div class="form-field">
+              <label>Temp Password</label>
+              <input type="text" id="newStaffPassword" placeholder="temp password" required />
+            </div>
+            <button type="submit" class="primary-btn" style="align-self:flex-end">+ Add staff</button>
+          </form>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr><th>Username</th><th>Role</th><th></th></tr>
+            </thead>
+            <tbody id="usersBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
+  <!-- ADD EXPENSE MODAL -->
+  <div id="expenseModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Log Expense</h3>
+        <button type="button" class="modal-close-btn" data-close="expenseModal">&#x2715;</button>
+      </div>
+      <form id="expenseForm">
+        <div class="form-field">
+          <label>Category <span class="req">*</span></label>
+          <div class="cat-pill-group" id="catPillGroup">
+            <button type="button" class="cat-pill" data-val="Ads">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+              Ads
+            </button>
+            <button type="button" class="cat-pill" data-val="Printing">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+              Printing
+            </button>
+            <button type="button" class="cat-pill" data-val="Packaging">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+              Packaging
+            </button>
+            <button type="button" class="cat-pill" data-val="Delivery">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h.09A2.5 2.5 0 018 14.5h4A2.5 2.5 0 0116.91 16H17a1 1 0 001-1v-5l-3.04-4.56A1 1 0 0014.12 5H3zm7 5V7h4.12l2.02 3H10V9z"/></svg>
+              Delivery
+            </button>
+          </div>
+          <input type="hidden" id="expCategory" required />
+        </div>
+
+        <div class="form-field" style="margin-top:14px">
+          <label>Description <span class="req">*</span></label>
+          <input type="text" id="expDescription" placeholder="e.g. Facebook Ads — August campaign" required />
+        </div>
+
+        <div class="form-grid form-grid-2" style="margin-top:14px">
+          <div class="form-field">
+            <label>Amount (EGP) <span class="req">*</span></label>
+            <input type="number" id="expAmount" placeholder="0" min="0.01" step="0.01" required />
+          </div>
+          <div class="form-field">
+            <label>Note <span class="opt">(optional)</span></label>
+            <input type="text" id="expNote" placeholder="any extra detail…" />
+          </div>
+        </div>
+
+        <p id="expError" class="error-text"></p>
+
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" data-close="expenseModal">Cancel</button>
+          <button type="submit" class="primary-btn">Save expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CHANGE PASSWORD MODAL -->
+  <div id="passwordModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Change Password</h3>
+        <button type="button" class="modal-close-btn" data-close="passwordModal">&#x2715;</button>
+      </div>
+      <form id="passwordForm">
+        <div class="form-field">
+          <label>Current password</label>
+          <input type="password" id="pwOld" required />
+        </div>
+        <div class="form-field">
+          <label>New password <span class="opt">(6+ characters)</span></label>
+          <input type="password" id="pwNew" required minlength="6" />
+        </div>
+        <p id="pwError" class="error-text"></p>
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" data-close="passwordModal">Cancel</button>
+          <button type="submit" class="primary-btn">Save password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
