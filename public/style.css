@@ -685,7 +685,7 @@ select.delivery-select {
 @media (max-width: 768px) {
   :root { --sidebar-width: 260px; }
 
-  /* Sidebar is a slide-in drawer — starts hidden off the left edge */
+  /* Sidebar is a slide-in drawer */
   .sidebar {
     transform: translateX(-100%);
     width: var(--sidebar-width) !important;
@@ -697,7 +697,7 @@ select.delivery-select {
   }
   .sidebar.mobile-open { transform: translateX(0); }
 
-  /* When collapsed + open on mobile — restore full sidebar labels */
+  /* Restore labels when collapsed+open */
   .sidebar.collapsed.mobile-open .sidebar-brand-text,
   .sidebar.collapsed.mobile-open .sidebar-sub,
   .sidebar.collapsed.mobile-open .nav-item span,
@@ -710,42 +710,105 @@ select.delivery-select {
   .sidebar.collapsed.mobile-open .sidebar-footer { align-items: stretch; padding: 16px 10px; }
   .sidebar.collapsed.mobile-open .sidebar-user { justify-content: flex-start; padding: 10px; background: rgba(255,255,255,0.05); }
 
-  /* Nav items slightly bigger tap targets on mobile */
-  .nav-item { padding: 11px 14px; font-size: 14px; }
-  .nav-icon { width: 18px; height: 18px; }
-  .sidebar-action-btn { padding: 10px 12px; font-size: 13px; }
+  /* Bigger tap targets */
+  .nav-item { padding: 13px 14px; font-size: 14px; }
+  .nav-icon { width: 20px; height: 20px; }
+  .sidebar-action-btn { padding: 11px 12px; font-size: 13px; }
   .sidebar-user { padding: 10px 12px; }
-
-  /* KEY FIX: remove flex:1 from nav so sidebar can actually scroll.
-     flex:1 forces the nav to fill remaining space → total height = 100vh → no overflow → no scroll.
-     Setting it to flex:none lets content exceed 100vh and triggers overflow-y:auto on the sidebar. */
   .sidebar-nav { flex: none; }
   .sidebar-footer { flex-shrink: 0; }
 
-
-  /* Main content fills whole screen */
+  /* Main content fills whole screen, leave room for bottom nav */
   .main-content,
   .sidebar.collapsed ~ .main-content { margin-left: 0 !important; }
 
   /* ── Topbar ── */
   .topbar { padding: 0 14px; height: 54px; }
   .topbar-date { display: none; }
+  .topbar-left { gap: 10px; }
   .page-title { font-size: 15px; }
 
   /* ── Panels ── */
-  .tab-panel { padding: 14px 12px; }
-  .panel-header { margin-bottom: 14px; }
+  .tab-panel { padding: 14px 12px 80px; } /* 80px bottom pad for bottom nav */
+  .panel-header {
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
   .panel-header h2 { font-size: 17px; }
+  .panel-header > div { display: flex; gap: 8px; flex-wrap: wrap; }
 
-  /* ── Tables — horizontal scroll container ── */
-  .table-wrapper {
+  /* ── Orders table → card layout on mobile ── */
+  #tab-orders .table-wrapper,
+  #tab-stock .table-wrapper { overflow: visible; border: none; box-shadow: none; background: transparent; }
+
+  #tab-orders .data-table,
+  #tab-stock .data-table { display: block; min-width: unset; }
+
+  #tab-orders .data-table thead,
+  #tab-stock .data-table thead { display: none; }
+
+  #tab-orders .data-table tbody,
+  #tab-stock .data-table tbody { display: flex; flex-direction: column; gap: 10px; }
+
+  #tab-orders .data-table tr,
+  #tab-stock .data-table tr {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    box-shadow: var(--shadow);
+  }
+
+  #tab-orders .data-table td,
+  #tab-stock .data-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-top: none;
+    font-size: 13px;
+    font-family: var(--font);
+  }
+
+  /* Add label before each cell using data-label */
+  #tab-orders .data-table td:not(:last-child)::before,
+  #tab-stock .data-table td:not(:last-child)::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    min-width: 90px;
+    flex-shrink: 0;
+  }
+
+  /* Separator lines between cells */
+  #tab-orders .data-table td + td,
+  #tab-stock .data-table td + td { border-top: 1px solid var(--border); }
+
+  /* Last cell (delete btn) — right-aligned, no border */
+  #tab-orders .data-table td:last-child,
+  #tab-stock .data-table td:last-child {
+    justify-content: flex-end;
+    border-top: none;
+    padding-top: 8px;
+  }
+
+  /* Inline selects in order cards — full width */
+  .inline-select { width: 100%; font-size: 13px; padding: 7px 10px; }
+
+  /* ── Expenses table — horizontal scroll (has fewer cols) ── */
+  #tab-expenses .table-wrapper {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     border-radius: 10px;
   }
-  .data-table { min-width: 540px; font-size: 12px; }
-  .data-table th { padding: 9px 12px; font-size: 10px; }
-  .data-table td { padding: 10px 12px; font-size: 12px; }
+  #tab-expenses .data-table { min-width: 480px; font-size: 12px; }
+  #tab-expenses .data-table th { padding: 9px 12px; font-size: 10px; }
+  #tab-expenses .data-table td { padding: 10px 12px; font-size: 12px; }
 
   /* ── Login card ── */
   .login-card {
@@ -764,16 +827,40 @@ select.delivery-select {
     width: 100%;
     max-width: 100%;
     border-radius: 20px 20px 0 0;
-    max-height: 88vh;
+    max-height: 90vh;
     overflow-y: auto;
+    /* Safe area for iPhone home indicator */
+    padding-bottom: env(safe-area-inset-bottom, 16px);
   }
   .modal-header { padding: 16px 18px 12px; }
-  .modal-card form { padding: 14px 18px 28px; }
+  .modal-card form { padding: 14px 18px 24px; }
+
+  /* Drag handle hint on bottom sheets */
+  .modal-card::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 10px auto 0;
+  }
 
   /* ── Form grids → single column ── */
   .form-grid,
   .form-grid-2,
   .form-grid-3 { grid-template-columns: 1fr; gap: 12px; }
+
+  /* ── Order item rows → stack select above qty ── */
+  .item-row {
+    flex-wrap: wrap;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+  }
+  .item-row .item-stock-select { min-width: 0; flex-basis: 100%; }
+  .item-row .item-qty { width: 80px; }
 
   /* ── Staff form ── */
   .inline-form { flex-direction: column; gap: 10px; }
@@ -781,10 +868,21 @@ select.delivery-select {
   .add-staff-card { padding: 16px; }
 
   /* ── Inputs slightly taller for thumbs ── */
-  input, select { padding: 10px 13px; font-size: 14px; }
+  input, select { padding: 11px 13px; font-size: 15px; }
 
   /* ── Buttons ── */
-  .primary-btn { padding: 10px 18px; font-size: 13px; }
+  .primary-btn { padding: 11px 18px; font-size: 13px; }
+
+  /* ── Summary grid 2-col ── */
+  .summary-grid { gap: 10px; }
+
+  /* ── Filter row wraps ── */
+  .filter-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .panel-header:has(.filter-row) { flex-direction: column; align-items: flex-start; }
+
+  /* ── Modal actions stacked ── */
+  .modal-actions { flex-direction: column-reverse; gap: 8px; }
+  .modal-actions button { width: 100%; justify-content: center; padding: 12px; }
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -792,13 +890,15 @@ select.delivery-select {
    ════════════════════════════════════════════════════════════════ */
 @media (max-width: 480px) {
   .topbar { padding: 0 10px; height: 50px; }
-  .tab-panel { padding: 10px; }
+  .tab-panel { padding: 10px 10px 80px; }
   .panel-header h2 { font-size: 15px; }
-  .primary-btn { padding: 9px 14px; font-size: 12px; }
-  .data-table { min-width: 460px; }
+  .primary-btn { padding: 10px 14px; font-size: 13px; }
+  #tab-expenses .data-table { min-width: 420px; }
   .login-card { padding: 24px 16px; }
   .modal-card, .wide-modal { max-height: 92vh; }
+  .summary-grid { grid-template-columns: 1fr 1fr; }
 }
+
 
 /* ════════════════════════════════════════════════════════════════
    EXPENSE TRACKER — SUMMARY CARDS
@@ -1243,4 +1343,61 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
 /* req / opt labels */
 .req { color: var(--danger); font-size: 11px; }
 .opt { color: var(--text-muted); font-size: 11px; }
+
+/* ─── MOBILE BOTTOM NAV ─────────────────────────────────────────── */
+.mobile-bottom-nav {
+  display: none; /* hidden on desktop */
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    background: var(--sidebar-bg);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 6px 0 calc(6px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.25);
+  }
+
+  .mobile-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: var(--sidebar-text);
+    padding: 6px 4px;
+    font-size: 10px;
+    font-weight: 500;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    letter-spacing: 0.2px;
+  }
+  .mobile-nav-btn svg {
+    width: 22px;
+    height: 22px;
+    transition: transform 0.15s;
+  }
+  .mobile-nav-btn:active svg { transform: scale(0.88); }
+  .mobile-nav-btn.active {
+    color: var(--sidebar-text-act);
+  }
+  .mobile-nav-btn.active svg {
+    filter: drop-shadow(0 0 6px rgba(160,120,96,0.4));
+  }
+
+  /* Hide mobile bottom nav until logged in */
+  #app.hidden ~ .mobile-bottom-nav { display: none; }
+  #loginScreen:not(.hidden) ~ .mobile-bottom-nav { display: none; }
+}
+
 

@@ -175,16 +175,24 @@ function enterApp() {
 /* ─── NAV TABS ─────────────────────────────────────────────────── */
 const pageTitles = { orders: "Orders", stock: "Stock", expenses: "Expenses", team: "Team Access" };
 
+function switchTab(tab) {
+  document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
+  document.querySelectorAll(".mobile-nav-btn").forEach((b) => b.classList.remove("active"));
+  document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+  document.querySelectorAll(`[data-tab="${tab}"]`).forEach((b) => b.classList.add("active"));
+  const panel = document.getElementById("tab-" + tab);
+  if (panel) panel.classList.add("active");
+  const titleEl = $("#pageTitle");
+  if (titleEl) titleEl.textContent = pageTitles[tab] || tab;
+}
+
 document.querySelectorAll(".nav-item").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
-    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-    btn.classList.add("active");
-    const tab = btn.dataset.tab;
-    $("#tab-" + tab).classList.add("active");
-    const titleEl = $("#pageTitle");
-    if (titleEl) titleEl.textContent = pageTitles[tab] || tab;
-  });
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+
+// Mobile bottom nav
+document.querySelectorAll(".mobile-nav-btn").forEach((btn) => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
 });
 
 /* ─── SYNC ─────────────────────────────────────────────────────── */
@@ -212,30 +220,30 @@ async function loadOrders() {
     const itemsText = (o.items || []).map((it) => `${it.name} ×${it.qty}`).join(", ") || "—";
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>
+      <td data-label="Customer">
         <div style="font-weight:600;font-family:var(--font)">${escapeHtml(o.customerName)}</div>
         ${o.email ? `<div style="font-size:11px;color:var(--text-muted)">${escapeHtml(o.email)}</div>` : ""}
       </td>
-      <td>${escapeHtml(o.phone || "—")}</td>
-      <td title="${escapeHtml(itemsText)}">${escapeHtml(itemsText.length > 40 ? itemsText.slice(0, 38) + "…" : itemsText)}</td>
-      <td>${escapeHtml(o.address)}</td>
-      <td style="font-weight:600">${money(total)} EGP</td>
-      <td>${money(o.shippingPrice)} EGP</td>
-      <td>
+      <td data-label="Phone">${escapeHtml(o.phone || "—")}</td>
+      <td data-label="Items" title="${escapeHtml(itemsText)}">${escapeHtml(itemsText.length > 40 ? itemsText.slice(0, 38) + "…" : itemsText)}</td>
+      <td data-label="Address">${escapeHtml(o.address)}</td>
+      <td data-label="Total" style="font-weight:600">${money(total)} EGP</td>
+      <td data-label="Shipping">${money(o.shippingPrice)} EGP</td>
+      <td data-label="Payment">
         <select data-order-id="${o.id}" class="payment-select inline-select">
           <option value="unpaid"  ${o.paymentStatus === "unpaid"  ? "selected" : ""}>Unpaid</option>
           <option value="pending" ${o.paymentStatus === "pending" ? "selected" : ""}>Pending</option>
           <option value="paid"    ${o.paymentStatus === "paid"    ? "selected" : ""}>Paid</option>
         </select>
       </td>
-      <td>
+      <td data-label="Delivery">
         <select data-order-id="${o.id}" class="delivery-select inline-select">
           <option value="processing" ${o.deliveryStatus === "processing" ? "selected" : ""}>Processing</option>
           <option value="shipped"    ${o.deliveryStatus === "shipped"    ? "selected" : ""}>Shipped</option>
           <option value="delivered"  ${o.deliveryStatus === "delivered"  ? "selected" : ""}>Delivered</option>
         </select>
       </td>
-      <td style="white-space:nowrap">${new Date(o.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
+      <td data-label="Date" style="white-space:nowrap">${new Date(o.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
       <td>${me.role === "founder" ? `<button class="icon-btn" data-del-order="${o.id}" title="Delete order">✕</button>` : ""}</td>
     `;
     body.appendChild(tr);
@@ -367,9 +375,9 @@ async function loadStock() {
   stock.forEach((s) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td style="font-family:var(--font);font-weight:500">${escapeHtml(s.itemName)}</td>
-      <td><input type="number" min="0" value="${s.quantity}" data-qty-id="${s.id}" style="width:80px;font-size:13px;padding:5px 8px" /></td>
-      <td>${money(s.price)} EGP</td>
+      <td data-label="Item" style="font-family:var(--font);font-weight:500">${escapeHtml(s.itemName)}</td>
+      <td data-label="Qty"><input type="number" min="0" value="${s.quantity}" data-qty-id="${s.id}" style="width:80px;font-size:13px;padding:5px 8px" /></td>
+      <td data-label="Price">${money(s.price)} EGP</td>
       <td>${me.role === "founder" ? `<button class="icon-btn" data-del-stock="${s.id}" title="Remove">✕</button>` : ""}</td>
     `;
     body.appendChild(tr);
