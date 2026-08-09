@@ -18,7 +18,6 @@ app.use(express.static(path.join(__dirname, "..", "public")));
 const CATEGORIES = ["Ads", "Printing", "Packaging", "Delivery"];
 
 // ─── DB SEEDING ───────────────────────────────────────────────────────────────
-// Seed the founder account once if no users exist yet.
 let seeded = false;
 async function ensureFounderSeeded() {
   if (seeded) return;
@@ -34,7 +33,6 @@ async function ensureFounderSeeded() {
   seeded = true;
 }
 
-// Middleware applied only to routes that need the DB
 async function withDB(req, res, next) {
   try {
     await ensureFounderSeeded();
@@ -73,19 +71,14 @@ function cookieOptions() {
 }
 
 // ─── HEALTH CHECK ─────────────────────────────────────────────────────────────
-app.get("/api/ping", (req, res) => {
-  res.json({ ok: true });
-});
+app.get("/api/ping", (req, res) => res.json({ ok: true }));
 
-// ─── AUTH (no DB needed for /me and /logout) ──────────────────────────────────
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
 app.get("/api/me", (req, res) => {
   const token = req.cookies.token;
   if (!token) return res.json({ user: null });
-  try {
-    res.json({ user: jwt.verify(token, JWT_SECRET) });
-  } catch {
-    res.json({ user: null });
-  }
+  try { res.json({ user: jwt.verify(token, JWT_SECRET) }); }
+  catch { res.json({ user: null }); }
 });
 
 app.post("/api/logout", (req, res) => {
@@ -93,7 +86,6 @@ app.post("/api/logout", (req, res) => {
   res.json({ ok: true });
 });
 
-// ─── AUTH (DB needed) ─────────────────────────────────────────────────────────
 app.post("/api/login", withDB, async (req, res) => {
   const { username, password } = req.body;
   const user = await db.getUserByUsername(username);
@@ -122,24 +114,16 @@ app.post("/api/change-password", requireLogin, withDB, async (req, res) => {
 
 // ─── USERS ────────────────────────────────────────────────────────────────────
 app.get("/api/users", requireLogin, requireFounder, withDB, async (req, res) => {
-  const users = await db.getUsers();
-  res.json(users);
+  res.json(await db.getUsers());
 });
 
 app.post("/api/users", requireLogin, requireFounder, withDB, async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password)
     return res.status(400).json({ error: "need a username and password" });
-  const existing = await db.getUserByUsername(username);
-  if (existing) {
+  if (await db.getUserByUsername(username))
     return res.status(400).json({ error: "that username is already taken" });
-  }
-  const newUser = {
-    id: "u_" + Date.now(),
-    username,
-    passwordHash: bcrypt.hashSync(password, 10),
-    role: "staff",
-  };
+  const newUser = { id: "u_" + Date.now(), username, passwordHash: bcrypt.hashSync(password, 10), role: "staff" };
   await db.insertUser(newUser);
   res.json({ id: newUser.id, username: newUser.username, role: newUser.role });
 });
@@ -147,29 +131,24 @@ app.post("/api/users", requireLogin, requireFounder, withDB, async (req, res) =>
 app.delete("/api/users/:id", requireLogin, requireFounder, withDB, async (req, res) => {
   const target = await db.getUserById(req.params.id);
   if (!target) return res.status(404).json({ error: "user not found" });
-  if (target.role === "founder")
-    return res.status(400).json({ error: "cannot delete the founder account" });
+  if (target.role === "founder") return res.status(400).json({ error: "cannot delete the founder account" });
   await db.deleteUser(req.params.id);
   res.json({ ok: true });
 });
 
 // ─── EXPENSES ─────────────────────────────────────────────────────────────────
 app.get("/api/expenses", requireLogin, withDB, async (req, res) => {
-  const expenses = await db.getExpenses();
-  res.json(expenses);
+  res.json(await db.getExpenses());
 });
 
 app.post("/api/expenses", requireLogin, withDB, async (req, res) => {
   const { category, description, amount, note } = req.body;
-  if (!category || !CATEGORIES.includes(category)) {
+  if (!category || !CATEGORIES.includes(category))
     return res.status(400).json({ error: "pick a valid category" });
-  }
-  if (!description || !description.trim()) {
+  if (!description || !description.trim())
     return res.status(400).json({ error: "description is required" });
-  }
-  if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+  if (!amount || isNaN(Number(amount)) || Number(amount) <= 0)
     return res.status(400).json({ error: "enter a valid amount" });
-  }
   const expense = await db.insertExpense({
     id: "exp_" + Date.now(),
     category,
@@ -186,7 +165,84 @@ app.delete("/api/expenses/:id", requireLogin, requireFounder, withDB, async (req
   res.json({ ok: true });
 });
 
-// SPA fallback — serve index.html for any non-API route not matched above
+// ─── STOCK ────────────────────────────────────────────────────────────────────
+app.get("/api/stock", requireLogin, withDB, async (req, res) => {
+  res.json(await db.getStock());
+});
+
+app.post("/api/stock", requireLogin, withDB, async (req, res) => {
+  const { itemName, quantity, price } = req.body;
+  if (!itemName) return res.status(400).json({ error: "item needs a name" });
+  const item = await db.insertStockItem({
+    id: "stk_" + Date.now(),
+    itemName,
+    quantity: Number(quantity) || 0,
+    price: Number(price) || 0,
+  });
+  res.json(item);
+});
+
+app.put("/api/stock/:id", requireLogin, withDB, async (req, res) => {
+  const { itemName, quantity, price } = req.body;
+  // Staff can only update quantity; founder can update everything
+  const updates = req.user.role === "founder"
+    ? { itemName, quantity: quantity !== undefined ? Number(quantity) : undefined, price: price !== undefined ? Number(price) : undefined }
+    : { quantity: quantity !== undefined ? Number(quantity) : undefined };
+  const item = await db.updateStockItem(req.params.id, updates);
+  if (!item) return res.status(404).json({ error: "stock item not found" });
+  res.json(item);
+});
+
+app.delete("/api/stock/:id", requireLogin, requireFounder, withDB, async (req, res) => {
+  await db.deleteStockItem(req.params.id);
+  res.json({ ok: true });
+});
+
+// ─── ORDERS ───────────────────────────────────────────────────────────────────
+app.get("/api/orders", requireLogin, withDB, async (req, res) => {
+  res.json(await db.getOrders());
+});
+
+app.post("/api/orders", requireLogin, withDB, async (req, res) => {
+  const { customerName, phone, email, items, address, paymentStatus, deliveryStatus, shippingPrice } = req.body;
+  if (!customerName || !address)
+    return res.status(400).json({ error: "name and address are required" });
+  if (!phone)
+    return res.status(400).json({ error: "phone number is required" });
+  if (!items || items.length === 0)
+    return res.status(400).json({ error: "pick at least one item from stock" });
+
+  // Deduct stock quantities
+  await db.deductStockForOrder(items);
+
+  const order = await db.insertOrder({
+    id: "ord_" + Date.now(),
+    customerName,
+    phone,
+    email: email || null,
+    items,
+    address,
+    shippingPrice: Number(shippingPrice) || 0,
+    paymentStatus: paymentStatus || "unpaid",
+    deliveryStatus: deliveryStatus || "processing",
+    createdBy: req.user.username,
+  });
+  res.json(order);
+});
+
+app.put("/api/orders/:id", requireLogin, withDB, async (req, res) => {
+  const { paymentStatus, deliveryStatus } = req.body;
+  const order = await db.updateOrder(req.params.id, { paymentStatus, deliveryStatus });
+  if (!order) return res.status(404).json({ error: "order not found" });
+  res.json(order);
+});
+
+app.delete("/api/orders/:id", requireLogin, requireFounder, withDB, async (req, res) => {
+  await db.deleteOrder(req.params.id);
+  res.json({ ok: true });
+});
+
+// ─── SPA FALLBACK ─────────────────────────────────────────────────────────────
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "index.html"));
 });

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>STATIC — Expense Tracker</title>
-<meta name="description" content="Internal expense tracker for Static brand — log ads, printing, packaging and delivery spend." />
+<title>STATIC — Admin</title>
+<meta name="description" content="Internal admin panel for Static brand — manage orders, stock, and expenses." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -19,7 +19,7 @@
         <img src="img/1111-removebg-preview.png" alt="Logo" class="brand-logo" />
         <div>
           <h1>STATIC ADMIN</h1>
-          <p class="tagline">expense tracker · keep the money straight</p>
+          <p class="tagline">orders · stock · expenses · all in one place</p>
         </div>
       </div>
       <form id="loginForm">
@@ -42,13 +42,20 @@
         <img src="img/1111-removebg-preview.png" alt="Logo" class="sidebar-logo" />
         <div class="sidebar-brand-text">
           <span class="sidebar-title">STATIC</span>
-          <span class="sidebar-sub">Expense Tracker</span>
+          <span class="sidebar-sub">Admin Panel</span>
         </div>
       </div>
 
       <nav class="sidebar-nav">
-        <button class="nav-item active" data-tab="expenses" id="navExpenses">
-          <!-- receipt icon -->
+        <button class="nav-item active" data-tab="orders" id="navOrders">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/></svg>
+          <span>Orders</span>
+        </button>
+        <button class="nav-item" data-tab="stock" id="navStock">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+          <span>Stock</span>
+        </button>
+        <button class="nav-item" data-tab="expenses" id="navExpenses">
           <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v4H4V6zm0 6h3v2H4v-2zm5 0h3v2H9v-2zm5 0h2v2h-2v-2z" clip-rule="evenodd"/></svg>
           <span>Expenses</span>
         </button>
@@ -100,15 +107,65 @@
               <line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
           </button>
-          <div id="pageTitle" class="page-title">Expenses</div>
+          <div id="pageTitle" class="page-title">Orders</div>
         </div>
         <div class="topbar-right">
           <div class="topbar-date" id="topbarDate"></div>
         </div>
       </header>
 
+      <!-- ── ORDERS TAB ── -->
+      <section id="tab-orders" class="tab-panel active">
+        <div class="panel-header">
+          <h2>All Orders</h2>
+          <button id="openAddOrder" class="primary-btn">+ New order</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Phone</th>
+                <th>Items</th>
+                <th>Address</th>
+                <th>Total</th>
+                <th>Shipping</th>
+                <th>Payment</th>
+                <th>Delivery</th>
+                <th>Date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody"></tbody>
+          </table>
+          <p id="ordersEmpty" class="empty-state hidden">No orders yet. Hit "New order" to log the first one.</p>
+        </div>
+      </section>
+
+      <!-- ── STOCK TAB ── -->
+      <section id="tab-stock" class="tab-panel">
+        <div class="panel-header">
+          <h2>Stock Items</h2>
+          <button id="openAddStock" class="primary-btn">+ New item</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="stockBody"></tbody>
+          </table>
+          <p id="stockEmpty" class="empty-state hidden">No stock items yet. Add your products here first.</p>
+        </div>
+      </section>
+
       <!-- ── EXPENSES TAB ── -->
-      <section id="tab-expenses" class="tab-panel active">
+      <section id="tab-expenses" class="tab-panel">
 
         <!-- Summary cards -->
         <div class="summary-grid" id="summaryGrid">
@@ -180,7 +237,7 @@
           </div>
         </div>
 
-        <!-- PRINT-ONLY HEADER (hidden on screen) -->
+        <!-- PRINT-ONLY HEADER -->
         <div id="printHeader" class="print-only">
           <div class="print-brand">
             <div class="print-brand-name">STATIC</div>
@@ -246,6 +303,103 @@
   </div>
 
   <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
+  <!-- ADD ORDER MODAL -->
+  <div id="orderModal" class="modal hidden">
+    <div class="modal-card wide-modal">
+      <div class="modal-header">
+        <h3>New Order</h3>
+        <button type="button" class="modal-close-btn" data-close="orderModal">&#x2715;</button>
+      </div>
+      <form id="orderForm">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Customer name <span class="req">*</span></label>
+            <input type="text" id="ordCustomer" placeholder="John Doe" required />
+          </div>
+          <div class="form-field">
+            <label>Phone number <span class="req">*</span></label>
+            <input type="tel" id="ordPhone" placeholder="+20 100 000 0000" required />
+          </div>
+          <div class="form-field">
+            <label>Email <span class="opt">(optional)</span></label>
+            <input type="email" id="ordEmail" placeholder="customer@email.com" />
+          </div>
+          <div class="form-field">
+            <label>Address <span class="req">*</span></label>
+            <input type="text" id="ordAddress" placeholder="123 Main St, City" required />
+          </div>
+        </div>
+
+        <div class="form-section-label">Items <span class="req">*</span></div>
+        <div id="orderItemsList" class="items-list"></div>
+        <button type="button" id="addItemRow" class="add-item-btn">+ Add item</button>
+
+        <div class="form-grid form-grid-3 mt-16">
+          <div class="form-field">
+            <label>Shipping price</label>
+            <input type="number" id="ordShipping" value="0" min="0" step="0.01" />
+          </div>
+          <div class="form-field">
+            <label>Payment status</label>
+            <select id="ordPayment">
+              <option value="unpaid">Unpaid</option>
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Delivery status</label>
+            <select id="ordDelivery">
+              <option value="processing">Processing</option>
+              <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="order-total-bar">
+          <span class="total-label">Order Total</span>
+          <span id="orderTotalPreview" class="total-amount">$0.00</span>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" data-close="orderModal">Cancel</button>
+          <button type="submit" class="primary-btn">Save order</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADD STOCK MODAL -->
+  <div id="stockModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>New Stock Item</h3>
+        <button type="button" class="modal-close-btn" data-close="stockModal">&#x2715;</button>
+      </div>
+      <form id="stockForm">
+        <div class="form-field">
+          <label>Item name <span class="req">*</span></label>
+          <input type="text" id="stkName" placeholder="e.g. Blue Hoodie" required />
+        </div>
+        <div class="form-grid form-grid-2 mt-4">
+          <div class="form-field">
+            <label>Quantity <span class="req">*</span></label>
+            <input type="number" id="stkQty" value="0" min="0" required />
+          </div>
+          <div class="form-field">
+            <label>Price <span class="req">*</span></label>
+            <input type="number" id="stkPrice" value="0" min="0" step="0.01" required />
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" data-close="stockModal">Cancel</button>
+          <button type="submit" class="primary-btn">Save item</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- ADD EXPENSE MODAL -->
   <div id="expenseModal" class="modal hidden">

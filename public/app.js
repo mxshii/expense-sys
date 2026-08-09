@@ -70,6 +70,10 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function money(n) {
+  return Number(n || 0).toLocaleString("en-EG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 /* ─── DARK MODE ────────────────────────────────────────────────── */
 function applyDarkMode(dark) {
   document.body.classList.toggle("dark", dark);
@@ -111,7 +115,6 @@ function applyDarkMode(dark) {
       $("#loginScreen").classList.remove("hidden");
     }
   } catch (err) {
-    // Show login screen anyway — better than a blank page
     $("#loginScreen").classList.remove("hidden");
     $("#loginError").textContent = "Could not reach server. Please refresh.";
     console.error("Boot error:", err);
@@ -163,12 +166,14 @@ function enterApp() {
     });
   }
 
+  loadOrders();
+  loadStock();
   loadExpenses();
   if (me.role === "founder") loadUsers();
 }
 
 /* ─── NAV TABS ─────────────────────────────────────────────────── */
-const pageTitles = { expenses: "Expenses", team: "Team Access" };
+const pageTitles = { orders: "Orders", stock: "Stock", expenses: "Expenses", team: "Team Access" };
 
 document.querySelectorAll(".nav-item").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -186,13 +191,222 @@ document.querySelectorAll(".nav-item").forEach((btn) => {
 async function syncAll() {
   if (!me) return;
   if (document.visibilityState === "hidden") return;
-  await loadExpenses();
+  await Promise.all([loadOrders(), loadStock(), loadExpenses()]);
   if (me.role === "founder") await loadUsers();
   $("#syncTime").textContent = new Date().toLocaleTimeString();
 }
 setInterval(syncAll, 15000);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && me) syncAll();
+});
+
+/* ─── ORDERS ───────────────────────────────────────────────────── */
+async function loadOrders() {
+  const orders = await api("/api/orders");
+  const body = $("#ordersBody");
+  body.innerHTML = "";
+  $("#ordersEmpty").classList.toggle("hidden", orders.length > 0);
+
+  orders.forEach((o) => {
+    const total = (o.items || []).reduce((sum, it) => sum + it.qty * it.price, 0) + Number(o.shippingPrice || 0);
+    const itemsText = (o.items || []).map((it) => `${it.name} ×${it.qty}`).join(", ") || "—";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>
+        <div style="font-weight:600;font-family:var(--font)">${escapeHtml(o.customerName)}</div>
+        ${o.email ? `<div style="font-size:11px;color:var(--text-muted)">${escapeHtml(o.email)}</div>` : ""}
+      </td>
+      <td>${escapeHtml(o.phone || "—")}</td>
+      <td title="${escapeHtml(itemsText)}">${escapeHtml(itemsText.length > 40 ? itemsText.slice(0, 38) + "…" : itemsText)}</td>
+      <td>${escapeHtml(o.address)}</td>
+      <td style="font-weight:600">${money(total)} EGP</td>
+      <td>${money(o.shippingPrice)} EGP</td>
+      <td>
+        <select data-order-id="${o.id}" class="payment-select inline-select">
+          <option value="unpaid"  ${o.paymentStatus === "unpaid"  ? "selected" : ""}>Unpaid</option>
+          <option value="pending" ${o.paymentStatus === "pending" ? "selected" : ""}>Pending</option>
+          <option value="paid"    ${o.paymentStatus === "paid"    ? "selected" : ""}>Paid</option>
+        </select>
+      </td>
+      <td>
+        <select data-order-id="${o.id}" class="delivery-select inline-select">
+          <option value="processing" ${o.deliveryStatus === "processing" ? "selected" : ""}>Processing</option>
+          <option value="shipped"    ${o.deliveryStatus === "shipped"    ? "selected" : ""}>Shipped</option>
+          <option value="delivered"  ${o.deliveryStatus === "delivered"  ? "selected" : ""}>Delivered</option>
+        </select>
+      </td>
+      <td style="white-space:nowrap">${new Date(o.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
+      <td>${me.role === "founder" ? `<button class="icon-btn" data-del-order="${o.id}" title="Delete order">✕</button>` : ""}</td>
+    `;
+    body.appendChild(tr);
+  });
+
+  body.querySelectorAll(".payment-select").forEach((sel) => {
+    sel.addEventListener("change", async () => {
+      await api(`/api/orders/${sel.dataset.orderId}`, "PUT", { paymentStatus: sel.value });
+    });
+  });
+  body.querySelectorAll(".delivery-select").forEach((sel) => {
+    sel.addEventListener("change", async () => {
+      await api(`/api/orders/${sel.dataset.orderId}`, "PUT", { deliveryStatus: sel.value });
+    });
+  });
+  body.querySelectorAll("[data-del-order]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (confirm("Delete this order permanently?")) {
+        await api(`/api/orders/${btn.dataset.delOrder}`, "DELETE");
+        loadOrders();
+      }
+    });
+  });
+}
+
+/* ─── NEW ORDER MODAL ──────────────────────────────────────────── */
+let stockCache = [];
+async function refreshStockCache() {
+  stockCache = await api("/api/stock");
+}
+
+$("#openAddOrder").addEventListener("click", async () => {
+  await refreshStockCache();
+  $("#orderItemsList").innerHTML = "";
+  addItemRow();
+  updateOrderTotalPreview();
+  $("#ordCustomer").value = "";
+  $("#ordPhone").value = "";
+  $("#ordEmail").value = "";
+  $("#ordAddress").value = "";
+  $("#ordShipping").value = "0";
+  $("#ordPayment").value = "unpaid";
+  $("#ordDelivery").value = "processing";
+  $("#orderModal").classList.remove("hidden");
+});
+
+$("#addItemRow").addEventListener("click", () => addItemRow());
+
+function addItemRow() {
+  const row = document.createElement("div");
+  row.className = "item-row";
+
+  const options = stockCache
+    .map((s) => `<option value="${s.id}" data-price="${s.price}" data-name="${escapeHtml(s.itemName)}">${escapeHtml(s.itemName)} (${s.quantity} in stock) — ${money(s.price)} EGP</option>`)
+    .join("");
+
+  row.innerHTML = `
+    <select class="item-stock-select">${options || '<option disabled>No stock items yet — add some in Stock tab first</option>'}</select>
+    <input type="number" class="item-qty" min="1" value="1" />
+    <button type="button" class="icon-btn remove-item-row" title="Remove">✕</button>
+  `;
+  $("#orderItemsList").appendChild(row);
+
+  row.querySelector(".item-qty").addEventListener("input", updateOrderTotalPreview);
+  row.querySelector(".item-stock-select").addEventListener("change", updateOrderTotalPreview);
+  row.querySelector(".remove-item-row").addEventListener("click", () => {
+    row.remove();
+    updateOrderTotalPreview();
+  });
+  updateOrderTotalPreview();
+}
+
+function collectOrderItems() {
+  return Array.from($("#orderItemsList").querySelectorAll(".item-row"))
+    .map((row) => {
+      const select = row.querySelector(".item-stock-select");
+      const opt = select.options[select.selectedIndex];
+      if (!opt || opt.disabled) return null;
+      return {
+        stockId: opt.value,
+        name: opt.dataset.name,
+        price: Number(opt.dataset.price),
+        qty: Number(row.querySelector(".item-qty").value) || 1,
+      };
+    })
+    .filter(Boolean);
+}
+
+function updateOrderTotalPreview() {
+  const items = collectOrderItems();
+  const itemsTotal = items.reduce((sum, it) => sum + it.qty * it.price, 0);
+  const shipping = Number($("#ordShipping").value) || 0;
+  $("#orderTotalPreview").textContent = money(itemsTotal + shipping) + " EGP";
+}
+$("#ordShipping").addEventListener("input", updateOrderTotalPreview);
+
+$("#orderForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const items = collectOrderItems();
+  if (items.length === 0) { alert("Pick at least one item from stock."); return; }
+  try {
+    await api("/api/orders", "POST", {
+      customerName: $("#ordCustomer").value.trim(),
+      phone: $("#ordPhone").value.trim(),
+      email: $("#ordEmail").value.trim() || null,
+      address: $("#ordAddress").value.trim(),
+      items,
+      shippingPrice: $("#ordShipping").value,
+      paymentStatus: $("#ordPayment").value,
+      deliveryStatus: $("#ordDelivery").value,
+    });
+    e.target.reset();
+    $("#orderItemsList").innerHTML = "";
+    $("#orderModal").classList.add("hidden");
+    loadOrders();
+    loadStock(); // refresh stock after deduction
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+/* ─── STOCK ────────────────────────────────────────────────────── */
+async function loadStock() {
+  const stock = await api("/api/stock");
+  const body = $("#stockBody");
+  body.innerHTML = "";
+  $("#stockEmpty").classList.toggle("hidden", stock.length > 0);
+
+  stock.forEach((s) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td style="font-family:var(--font);font-weight:500">${escapeHtml(s.itemName)}</td>
+      <td><input type="number" min="0" value="${s.quantity}" data-qty-id="${s.id}" style="width:80px;font-size:13px;padding:5px 8px" /></td>
+      <td>${money(s.price)} EGP</td>
+      <td>${me.role === "founder" ? `<button class="icon-btn" data-del-stock="${s.id}" title="Remove">✕</button>` : ""}</td>
+    `;
+    body.appendChild(tr);
+  });
+
+  body.querySelectorAll("[data-qty-id]").forEach((input) => {
+    input.addEventListener("change", async () => {
+      await api(`/api/stock/${input.dataset.qtyId}`, "PUT", { quantity: Number(input.value) });
+    });
+  });
+  body.querySelectorAll("[data-del-stock]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (confirm("Remove this item from stock?")) {
+        await api(`/api/stock/${btn.dataset.delStock}`, "DELETE");
+        loadStock();
+      }
+    });
+  });
+}
+
+$("#openAddStock").addEventListener("click", () => {
+  $("#stkName").value = "";
+  $("#stkQty").value = "0";
+  $("#stkPrice").value = "0";
+  $("#stockModal").classList.remove("hidden");
+});
+
+$("#stockForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  await api("/api/stock", "POST", {
+    itemName: $("#stkName").value.trim(),
+    quantity: Number($("#stkQty").value),
+    price: Number($("#stkPrice").value),
+  });
+  e.target.reset();
+  $("#stockModal").classList.add("hidden");
+  loadStock();
 });
 
 /* ─── EXPENSES ─────────────────────────────────────────────────── */
@@ -234,31 +448,15 @@ function renderSummary() {
   $("#totalPackaging").textContent= egp(totals.Packaging);
   $("#totalDelivery").textContent = egp(totals.Delivery);
 
-  // Update print totals panel
   const pt = $("#printTotals");
   if (pt) {
     pt.innerHTML = `
       <div class="print-totals-grid">
-        <div class="print-total-item">
-          <span class="print-total-label">Total Spent</span>
-          <span class="print-total-amount print-total-main">${egp(totals.all)}</span>
-        </div>
-        <div class="print-total-item">
-          <span class="print-total-label">Ads</span>
-          <span class="print-total-amount">${egp(totals.Ads)}</span>
-        </div>
-        <div class="print-total-item">
-          <span class="print-total-label">Printing</span>
-          <span class="print-total-amount">${egp(totals.Printing)}</span>
-        </div>
-        <div class="print-total-item">
-          <span class="print-total-label">Packaging</span>
-          <span class="print-total-amount">${egp(totals.Packaging)}</span>
-        </div>
-        <div class="print-total-item">
-          <span class="print-total-label">Delivery</span>
-          <span class="print-total-amount">${egp(totals.Delivery)}</span>
-        </div>
+        <div class="print-total-item"><span class="print-total-label">Total Spent</span><span class="print-total-amount print-total-main">${egp(totals.all)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Ads</span><span class="print-total-amount">${egp(totals.Ads)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Printing</span><span class="print-total-amount">${egp(totals.Printing)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Packaging</span><span class="print-total-amount">${egp(totals.Packaging)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Delivery</span><span class="print-total-amount">${egp(totals.Delivery)}</span></div>
       </div>
     `;
   }
@@ -273,28 +471,25 @@ function renderExpenses() {
   body.innerHTML = "";
   $("#expensesEmpty").classList.toggle("hidden", filtered.length > 0);
 
-  filtered
-    .slice()
-    .reverse()
-    .forEach((e) => {
-      const tr = document.createElement("tr");
-      const initial = (e.loggedBy || "?").charAt(0).toUpperCase();
-      tr.innerHTML = `
-        <td>${CAT_CHIPS[e.category] || escapeHtml(e.category)}</td>
-        <td style="font-family:var(--font);font-weight:500;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(e.description)}">${escapeHtml(e.description)}</td>
-        <td class="amount-cell">${egp(e.amount)}</td>
-        <td>
-          <div class="logged-by-cell">
-            <div class="mini-avatar">${escapeHtml(initial)}</div>
-            <span style="font-family:var(--font);font-size:12.5px">${escapeHtml(e.loggedBy || "—")}</span>
-          </div>
-        </td>
-        <td class="note-cell" title="${escapeHtml(e.note || "")}">${e.note ? escapeHtml(e.note) : '<span style="opacity:0.35">—</span>'}</td>
-        <td style="white-space:nowrap">${new Date(e.createdAt).toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" })}</td>
-        <td>${me.role === "founder" ? `<button class="icon-btn" data-del-expense="${e.id}" title="Delete">✕</button>` : ""}</td>
-      `;
-      body.appendChild(tr);
-    });
+  filtered.slice().reverse().forEach((e) => {
+    const tr = document.createElement("tr");
+    const initial = (e.loggedBy || "?").charAt(0).toUpperCase();
+    tr.innerHTML = `
+      <td>${CAT_CHIPS[e.category] || escapeHtml(e.category)}</td>
+      <td style="font-family:var(--font);font-weight:500;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(e.description)}">${escapeHtml(e.description)}</td>
+      <td class="amount-cell">${egp(e.amount)}</td>
+      <td>
+        <div class="logged-by-cell">
+          <div class="mini-avatar">${escapeHtml(initial)}</div>
+          <span style="font-family:var(--font);font-size:12.5px">${escapeHtml(e.loggedBy || "—")}</span>
+        </div>
+      </td>
+      <td class="note-cell" title="${escapeHtml(e.note || "")}">${e.note ? escapeHtml(e.note) : '<span style="opacity:0.35">—</span>'}</td>
+      <td style="white-space:nowrap">${new Date(e.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
+      <td>${me.role === "founder" ? `<button class="icon-btn" data-del-expense="${e.id}" title="Delete">✕</button>` : ""}</td>
+    `;
+    body.appendChild(tr);
+  });
 
   body.querySelectorAll("[data-del-expense]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -318,13 +513,10 @@ document.querySelectorAll(".cat-filter-btn").forEach((btn) => {
 
 /* ─── PRINT PDF ────────────────────────────────────────────────── */
 function printExpenses() {
-  // Fill in print header meta
   const dateEl = $("#printDate");
   const byEl   = $("#printGeneratedBy");
   if (dateEl) dateEl.textContent = "Period: all entries as of " + new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
   if (byEl && me) byEl.textContent = "Generated by: " + me.username;
-
-  // The table's active filter label
   const filterLabel = activeFilter === "all" ? "All Categories" : activeFilter;
   const headerEl = $("#printHeader");
   if (headerEl) {
@@ -338,12 +530,10 @@ function printExpenses() {
       sub.textContent = "Showing: " + filterLabel;
     }
   }
-
   window.print();
 }
 
 $("#printPdfBtn").addEventListener("click", printExpenses);
-
 
 /* ─── ADD EXPENSE MODAL ────────────────────────────────────────── */
 let selectedCategory = "";
@@ -371,12 +561,7 @@ document.querySelectorAll(".cat-pill").forEach((pill) => {
 $("#expenseForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("#expError").textContent = "";
-
-  if (!selectedCategory) {
-    $("#expError").textContent = "Pick a category first.";
-    return;
-  }
-
+  if (!selectedCategory) { $("#expError").textContent = "Pick a category first."; return; }
   try {
     await api("/api/expenses", "POST", {
       category: selectedCategory,
