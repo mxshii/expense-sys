@@ -1,3 +1,6 @@
+// Load .env for local development (ignored on Vercel — it uses its own env vars)
+require("dotenv").config();
+
 const app = require("./api/index");
 
 const PORT = process.env.PORT || 3000;

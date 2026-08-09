@@ -13,9 +13,10 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.7",
     "express": "^4.22.2",
     "jsonwebtoken": "^9.0.3",
-    "pg": "^8.23.0",
+    "pg": "^8.13.3",
     "serverless-http": "^4.0.0"
   }
 }
