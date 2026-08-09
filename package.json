@@ -1,20 +1,21 @@
 {
-  "name": "order-stock-system",
+  "name": "expense-system",
   "version": "1.0.0",
-  "description": "",
+  "description": "Expense tracking system",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@netlify/blobs": "^10.7.12",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^4.22.2",
     "jsonwebtoken": "^9.0.3",
+    "pg": "^8.23.0",
     "serverless-http": "^4.0.0"
   }
 }

@@ -3,7 +3,7 @@ const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const path = require("path");
-const { loadDB, saveDB } = require("../lib/db");
+const db = require("../lib/db");
 
 const app = express();
 
@@ -19,24 +19,18 @@ if (process.env.NODE_ENV !== "production") {
 const CATEGORIES = ["Ads", "Printing", "Packaging", "Delivery"];
 
 // ─── DB SEEDING ───────────────────────────────────────────────────────────────
-// Lazy seeding — only runs on routes that actually need the DB.
-// This way /api/me and /api/logout always respond instantly.
+// Seed the founder account once if no users exist yet.
 let seeded = false;
 async function ensureFounderSeeded() {
   if (seeded) return;
-  const db = await loadDB();
-  if (db.users.length === 0) {
-    db.users.push({
+  const count = await db.countUsers();
+  if (count === 0) {
+    await db.insertUser({
       id: "u_" + Date.now(),
       username: "founder",
       passwordHash: bcrypt.hashSync("changeme123", 10),
       role: "founder",
     });
-    await saveDB(db);
-  }
-  if (!db.expenses) {
-    db.expenses = [];
-    await saveDB(db);
   }
   seeded = true;
 }
@@ -79,12 +73,12 @@ function cookieOptions() {
   };
 }
 
-// ─── HEALTH CHECK (no DB needed) ─────────────────────────────────────────────
+// ─── HEALTH CHECK ─────────────────────────────────────────────────────────────
 app.get("/api/ping", (req, res) => {
   res.json({ ok: true });
 });
 
-// ─── AUTH (no DB needed for /me and /logout) ─────────────────────────────────
+// ─── AUTH (no DB needed for /me and /logout) ──────────────────────────────────
 app.get("/api/me", (req, res) => {
   const token = req.cookies.token;
   if (!token) return res.json({ user: null });
@@ -100,12 +94,11 @@ app.post("/api/logout", (req, res) => {
   res.json({ ok: true });
 });
 
-// ─── AUTH (DB needed) ────────────────────────────────────────────────────────
+// ─── AUTH (DB needed) ─────────────────────────────────────────────────────────
 app.post("/api/login", withDB, async (req, res) => {
   const { username, password } = req.body;
-  const db = await loadDB();
-  const user = db.users.find((u) => u.username === username);
-  if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
+  const user = await db.getUserByUsername(username);
+  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: "wrong username or password" });
   }
   const payload = { id: user.id, username: user.username, role: user.role };
@@ -116,56 +109,55 @@ app.post("/api/login", withDB, async (req, res) => {
 
 app.post("/api/change-password", requireLogin, withDB, async (req, res) => {
   const { oldPassword, newPassword } = req.body;
-  if (!oldPassword || !newPassword) return res.status(400).json({ error: "need both old and new password" });
-  if (newPassword.length < 6) return res.status(400).json({ error: "new password must be 6+ characters" });
-  const db = await loadDB();
-  const user = db.users.find((u) => u.id === req.user.id);
-  if (!bcrypt.compareSync(oldPassword, user.passwordHash)) {
+  if (!oldPassword || !newPassword)
+    return res.status(400).json({ error: "need both old and new password" });
+  if (newPassword.length < 6)
+    return res.status(400).json({ error: "new password must be 6+ characters" });
+  const user = await db.getUserById(req.user.id);
+  if (!bcrypt.compareSync(oldPassword, user.password_hash)) {
     return res.status(401).json({ error: "old password is wrong" });
   }
-  user.passwordHash = bcrypt.hashSync(newPassword, 10);
-  await saveDB(db);
+  await db.updateUserPassword(user.id, bcrypt.hashSync(newPassword, 10));
   res.json({ ok: true });
 });
 
-// ─── USERS ───────────────────────────────────────────────────────────────────
+// ─── USERS ────────────────────────────────────────────────────────────────────
 app.get("/api/users", requireLogin, requireFounder, withDB, async (req, res) => {
-  const db = await loadDB();
-  res.json(db.users.map(({ passwordHash, ...safe }) => safe));
+  const users = await db.getUsers();
+  res.json(users);
 });
 
 app.post("/api/users", requireLogin, requireFounder, withDB, async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: "need a username and password" });
-  const db = await loadDB();
-  if (db.users.some((u) => u.username === username)) {
+  if (!username || !password)
+    return res.status(400).json({ error: "need a username and password" });
+  const existing = await db.getUserByUsername(username);
+  if (existing) {
     return res.status(400).json({ error: "that username is already taken" });
   }
-  const newStaff = {
+  const newUser = {
     id: "u_" + Date.now(),
     username,
     passwordHash: bcrypt.hashSync(password, 10),
     role: "staff",
   };
-  db.users.push(newStaff);
-  await saveDB(db);
-  const { passwordHash, ...safe } = newStaff;
-  res.json(safe);
+  await db.insertUser(newUser);
+  res.json({ id: newUser.id, username: newUser.username, role: newUser.role });
 });
 
 app.delete("/api/users/:id", requireLogin, requireFounder, withDB, async (req, res) => {
-  const db = await loadDB();
-  const target = db.users.find((u) => u.id === req.params.id);
-  if (target?.role === "founder") return res.status(400).json({ error: "cannot delete the founder account" });
-  db.users = db.users.filter((u) => u.id !== req.params.id);
-  await saveDB(db);
+  const target = await db.getUserById(req.params.id);
+  if (!target) return res.status(404).json({ error: "user not found" });
+  if (target.role === "founder")
+    return res.status(400).json({ error: "cannot delete the founder account" });
+  await db.deleteUser(req.params.id);
   res.json({ ok: true });
 });
 
-// ─── EXPENSES ────────────────────────────────────────────────────────────────
+// ─── EXPENSES ─────────────────────────────────────────────────────────────────
 app.get("/api/expenses", requireLogin, withDB, async (req, res) => {
-  const db = await loadDB();
-  res.json(db.expenses || []);
+  const expenses = await db.getExpenses();
+  res.json(expenses);
 });
 
 app.post("/api/expenses", requireLogin, withDB, async (req, res) => {
@@ -179,27 +171,20 @@ app.post("/api/expenses", requireLogin, withDB, async (req, res) => {
   if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
     return res.status(400).json({ error: "enter a valid amount" });
   }
-  const db = await loadDB();
-  const expense = {
+  const expense = await db.insertExpense({
     id: "exp_" + Date.now(),
     category,
     description: description.trim(),
     amount: Number(amount),
     note: note?.trim() || null,
     loggedBy: req.user.username,
-    createdAt: new Date().toISOString(),
-  };
-  db.expenses.push(expense);
-  await saveDB(db);
+  });
   res.json(expense);
 });
 
 app.delete("/api/expenses/:id", requireLogin, requireFounder, withDB, async (req, res) => {
-  const db = await loadDB();
-  db.expenses = db.expenses.filter((e) => e.id !== req.params.id);
-  await saveDB(db);
+  await db.deleteExpense(req.params.id);
   res.json({ ok: true });
 });
 
 module.exports = app;
-
