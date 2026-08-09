@@ -196,6 +196,7 @@ function switchTab(tab) {
   if (panel) panel.classList.add("active");
   const titleEl = $("#pageTitle");
   if (titleEl) titleEl.textContent = pageTitles[tab] || tab;
+  window.scrollTo(0, 0);
 }
 
 document.querySelectorAll(".nav-item").forEach((btn) => {
