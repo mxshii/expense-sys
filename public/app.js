@@ -1,5 +1,6 @@
 let me = null;
 let allExpenses = [];
+let allOrders   = [];
 let activeFilter = "all";
 
 const $ = (sel) => document.querySelector(sel);
@@ -210,12 +211,12 @@ document.addEventListener("visibilitychange", () => {
 
 /* ─── ORDERS ───────────────────────────────────────────────────── */
 async function loadOrders() {
-  const orders = await api("/api/orders");
+  allOrders = await api("/api/orders");
   const body = $("#ordersBody");
   body.innerHTML = "";
-  $("#ordersEmpty").classList.toggle("hidden", orders.length > 0);
+  $("#ordersEmpty").classList.toggle("hidden", allOrders.length > 0);
 
-  orders.forEach((o) => {
+  allOrders.forEach((o) => {
     const total = (o.items || []).reduce((sum, it) => sum + it.qty * it.price, 0) + Number(o.shippingPrice || 0);
     const itemsText = (o.items || []).map((it) => `${it.name} ×${it.qty}`).join(", ") || "—";
     const tr = document.createElement("tr");
@@ -508,6 +509,163 @@ function renderExpenses() {
     });
   });
 }
+
+/* ─── PRINT SYSTEM ─────────────────────────────────────────────── */
+
+/** Filter an array to the selected period. dateField defaults to 'createdAt'. */
+function filterByPeriod(items, period, dateField = "createdAt") {
+  if (period === "all") return items;
+  const now   = new Date();
+  const start = new Date();
+  if (period === "week") {
+    start.setDate(now.getDate() - now.getDay()); // Sunday of current week
+    start.setHours(0, 0, 0, 0);
+  } else if (period === "month") {
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+  }
+  return items.filter((item) => new Date(item[dateField]) >= start);
+}
+
+const PERIOD_LABEL = { all: "All Time", month: "This Month", week: "This Week" };
+
+function printReport(type, period) {
+  const section   = $("#printSection");
+  const label     = PERIOD_LABEL[period] || "";
+  const dateStr   = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+  const byStr     = me ? me.username : "";
+
+  if (type === "orders") {
+    const data = filterByPeriod(allOrders, period);
+    const totalRevenue = data.reduce((s, o) => {
+      return s + (o.items || []).reduce((si, it) => si + it.qty * it.price, 0) + Number(o.shippingPrice || 0);
+    }, 0);
+    const paid      = data.filter((o) => o.paymentStatus  === "paid").length;
+    const delivered = data.filter((o) => o.deliveryStatus === "delivered").length;
+
+    section.innerHTML = `
+      <div class="print-brand">
+        <div class="print-brand-name">STATIC</div>
+        <div class="print-brand-sub">Orders Report &mdash; ${label}</div>
+      </div>
+      <div class="print-meta">
+        <div>Generated: ${dateStr}</div>
+        <div>By: ${escapeHtml(byStr)}</div>
+        <div>Period: ${label}</div>
+      </div>
+      <div class="print-totals-grid" style="margin-bottom:16px">
+        <div class="print-total-item"><span class="print-total-label">Total Orders</span><span class="print-total-amount print-total-main">${data.length}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Total Revenue</span><span class="print-total-amount print-total-main">${money(totalRevenue)} EGP</span></div>
+        <div class="print-total-item"><span class="print-total-label">Paid</span><span class="print-total-amount">${paid}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Delivered</span><span class="print-total-amount">${delivered}</span></div>
+      </div>
+      <div class="print-divider"></div>
+      <table class="print-report-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Customer</th><th>Phone</th><th>Items</th>
+            <th>Address</th><th>Total</th><th>Shipping</th>
+            <th>Payment</th><th>Delivery</th><th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.map((o, i) => {
+            const tot = (o.items||[]).reduce((s,it)=>s+it.qty*it.price,0) + Number(o.shippingPrice||0);
+            const its = (o.items||[]).map(it=>`${it.name} x${it.qty}`).join(", ") || "—";
+            return `<tr>
+              <td>${i+1}</td>
+              <td>${escapeHtml(o.customerName)}</td>
+              <td>${escapeHtml(o.phone)}</td>
+              <td>${escapeHtml(its)}</td>
+              <td>${escapeHtml(o.address)}</td>
+              <td><strong>${money(tot)} EGP</strong></td>
+              <td>${money(o.shippingPrice)} EGP</td>
+              <td style="text-transform:capitalize">${o.paymentStatus}</td>
+              <td style="text-transform:capitalize">${o.deliveryStatus}</td>
+              <td>${new Date(o.createdAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+      ${data.length === 0 ? '<p style="text-align:center;color:#888;padding:24px">No orders found for this period.</p>' : ""}
+    `;
+  } else if (type === "expenses") {
+    const data = filterByPeriod(allExpenses, period);
+    const cats = ["Ads", "Printing", "Packaging", "Delivery"];
+    const totals = { all: 0 };
+    cats.forEach((c) => (totals[c] = 0));
+    data.forEach((e) => {
+      totals.all += e.amount;
+      if (totals[e.category] !== undefined) totals[e.category] += e.amount;
+    });
+
+    section.innerHTML = `
+      <div class="print-brand">
+        <div class="print-brand-name">STATIC</div>
+        <div class="print-brand-sub">Expense Report &mdash; ${label}</div>
+      </div>
+      <div class="print-meta">
+        <div>Generated: ${dateStr}</div>
+        <div>By: ${escapeHtml(byStr)}</div>
+        <div>Period: ${label}</div>
+      </div>
+      <div class="print-totals-grid" style="margin-bottom:16px">
+        <div class="print-total-item"><span class="print-total-label">Total Spent</span><span class="print-total-amount print-total-main">${egp(totals.all)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Ads</span><span class="print-total-amount">${egp(totals.Ads)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Printing</span><span class="print-total-amount">${egp(totals.Printing)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Packaging</span><span class="print-total-amount">${egp(totals.Packaging)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Delivery</span><span class="print-total-amount">${egp(totals.Delivery)}</span></div>
+      </div>
+      <div class="print-divider"></div>
+      <table class="print-report-table">
+        <thead>
+          <tr><th>#</th><th>Category</th><th>Description</th><th>Amount</th><th>Logged by</th><th>Note</th><th>Date</th></tr>
+        </thead>
+        <tbody>
+          ${data.slice().reverse().map((e, i) => `<tr>
+            <td>${i+1}</td>
+            <td>${escapeHtml(e.category)}</td>
+            <td>${escapeHtml(e.description)}</td>
+            <td><strong>${egp(e.amount)}</strong></td>
+            <td>${escapeHtml(e.loggedBy || "—")}</td>
+            <td>${escapeHtml(e.note || "—")}</td>
+            <td>${new Date(e.createdAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+      ${data.length === 0 ? '<p style="text-align:center;color:#888;padding:24px">No expenses found for this period.</p>' : ""}
+    `;
+  }
+
+  window.print();
+  // Clean up after print dialog closes
+  setTimeout(() => { if (section) section.innerHTML = ""; }, 2000);
+}
+
+/* ─── PRINT DROPDOWN TOGGLES ──────────────────────────────────── */
+document.querySelectorAll(".print-drop-trigger").forEach((trigger) => {
+  trigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    // Close any other open menus
+    document.querySelectorAll(".print-drop-menu").forEach((m) => {
+      if (m !== trigger.nextElementSibling) m.classList.add("hidden");
+    });
+    trigger.nextElementSibling.classList.toggle("hidden");
+  });
+});
+
+// Close on click outside
+document.addEventListener("click", () => {
+  document.querySelectorAll(".print-drop-menu").forEach((m) => m.classList.add("hidden"));
+});
+
+// Wire up period buttons
+document.querySelectorAll(".print-drop-item").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".print-drop-menu").forEach((m) => m.classList.add("hidden"));
+    printReport(btn.dataset.print, btn.dataset.period);
+  });
+});
 
 /* ─── FILTER BUTTONS ───────────────────────────────────────────── */
 document.querySelectorAll(".cat-filter-btn").forEach((btn) => {

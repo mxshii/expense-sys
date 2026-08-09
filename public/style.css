@@ -1089,29 +1089,66 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
   gap: 6px;
 }
 
+/* ─── PRINT DROPDOWN ─────────────────────────────────────────── */
+.print-drop-wrap {
+  position: relative;
+}
+.print-drop-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  min-width: 160px;
+  z-index: 50;
+  overflow: hidden;
+  transition: background 0.25s, border-color 0.25s;
+}
+.print-drop-item {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.print-drop-item + .print-drop-item {
+  border-top: 1px solid var(--border);
+}
+.print-drop-item:hover {
+  background: var(--surface-raised);
+}
+
 /* ════════════════════════════════════════════════════════════════
    PRINT / PDF  ─  @media print
    ════════════════════════════════════════════════════════════════ */
-
-/* Hide everything on screen that should not be in the PDF */
 @media print {
-  /* Screen-only UI elements */
+  /* Hide EVERYTHING on screen */
   .sidebar,
   .sidebar-backdrop,
   .topbar,
   .summary-grid,
   .cat-filters,
   .panel-header,
-  #printPdfBtn,
-  #openAddExpense,
   .modal,
   .icon-btn,
-  [data-del-expense] { display: none !important; }
+  .mobile-bottom-nav,
+  #tab-orders,
+  #tab-stock,
+  #tab-expenses .table-wrapper,
+  #tab-team { display: none !important; }
 
-  /* Reveal print-only header */
+  /* Show only the filled print section */
   .print-only { display: block !important; }
+  #printSection { display: block !important; }
 
-  /* Reset page background */
   body {
     background: #fff !important;
     color: #111 !important;
@@ -1122,46 +1159,51 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
 
   .app { display: block !important; }
   .main-content { margin-left: 0 !important; }
-
   .tab-panel { display: block !important; padding: 0 !important; }
-  #tab-expenses { display: block !important; }
-  #tab-team     { display: none !important; }
 
-  /* Table wrapper — remove shadow & radius for print */
-  .table-wrapper {
-    border: 1px solid #ccc !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    overflow: visible !important;
+  /* Print report table */
+  .print-report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10.5px;
+    margin-top: 8px;
   }
-
-  .data-table { width: 100% !important; font-size: 11px !important; }
-  .data-table th {
+  .print-report-table th {
     background: #f2ebe0 !important;
     color: #555 !important;
     font-size: 9px !important;
-    padding: 7px 10px !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 7px 10px;
+    text-align: left;
+    border-bottom: 1.5px solid #2B1D16;
   }
-  .data-table td { padding: 8px 10px !important; border-top: 1px solid #e0d8ce !important; }
-  .data-table tr:hover td { background: none !important; }
-
-  /* Category chips — keep color but ensure they print */
-  .cat-chip { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .cat-chip svg { display: none; }
-
-  .amount-cell { color: #2B1D16 !important; font-weight: 700 !important; }
-  .note-cell { color: #666 !important; max-width: none !important; white-space: normal !important; }
-  .logged-by-cell .mini-avatar { display: none; }
-
-  /* Page setup */
-  @page {
-    size: A4 landscape;
-    margin: 18mm 16mm;
+  .print-report-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #e0d8ce;
+    vertical-align: top;
+    color: #222;
   }
+  .print-report-table tr:nth-child(even) td {
+    background: #faf8f5 !important;
+  }
+  .print-report-table strong { color: #2B1D16; }
+
+  /* Totals grid in print */
+  .print-totals-grid {
+    display: flex !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Page setup — landscape for orders (many cols), portrait for expenses */
+  @page { size: A4 landscape; margin: 15mm 14mm; }
 }
 
 /* ─── PRINT-ONLY HEADER (hidden on screen) ───── */
 .print-only { display: none; }
+
 
 .print-brand {
   display: flex;

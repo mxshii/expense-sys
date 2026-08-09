@@ -118,7 +118,20 @@
       <section id="tab-orders" class="tab-panel active">
         <div class="panel-header">
           <h2>All Orders</h2>
-          <button id="openAddOrder" class="primary-btn">+ New order</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="print-drop-wrap">
+              <button class="ghost-btn print-drop-trigger" id="ordersPrintTrigger">
+                <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:6px"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+                Print ▾
+              </button>
+              <div class="print-drop-menu hidden" id="ordersPrintMenu">
+                <button class="print-drop-item" data-print="orders" data-period="all">All orders</button>
+                <button class="print-drop-item" data-print="orders" data-period="month">This month</button>
+                <button class="print-drop-item" data-print="orders" data-period="week">This week</button>
+              </div>
+            </div>
+            <button id="openAddOrder" class="primary-btn">+ New order</button>
+          </div>
         </div>
         <div class="table-wrapper">
           <table class="data-table">
@@ -229,10 +242,17 @@
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
-            <button id="printPdfBtn" class="ghost-btn" title="Export as PDF">
-              <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:6px"><path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clip-rule="evenodd"/></svg>
-              Print PDF
-            </button>
+            <div class="print-drop-wrap">
+              <button class="ghost-btn print-drop-trigger" id="expensesPrintTrigger">
+                <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:6px"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+                Print ▾
+              </button>
+              <div class="print-drop-menu hidden" id="expensesPrintMenu">
+                <button class="print-drop-item" data-print="expenses" data-period="all">All expenses</button>
+                <button class="print-drop-item" data-print="expenses" data-period="month">This month</button>
+                <button class="print-drop-item" data-print="expenses" data-period="week">This week</button>
+              </div>
+            </div>
             <button id="openAddExpense" class="primary-btn">+ Log expense</button>
           </div>
         </div>
@@ -268,6 +288,9 @@
           </table>
           <p id="expensesEmpty" class="empty-state hidden">No expenses logged yet. Hit "Log expense" to add the first one.</p>
         </div>
+
+        <!-- SHARED PRINT SECTION (hidden on screen, shown when printing) -->
+        <div id="printSection" class="print-only"></div>
       </section>
 
       <!-- ── TEAM TAB (founder only) ── -->
