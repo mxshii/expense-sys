@@ -12,9 +12,8 @@ const JWT_SECRET = process.env.JWT_SECRET || "yeetSecretDoNotDeployToTheMoonWith
 app.use(express.json());
 app.use(cookieParser());
 
-if (process.env.NODE_ENV !== "production") {
-  app.use(express.static(path.join(__dirname, "..", "public")));
-}
+// Serve static files in all environments (local + Vercel)
+app.use(express.static(path.join(__dirname, "..", "public")));
 
 const CATEGORIES = ["Ads", "Printing", "Packaging", "Delivery"];
 
@@ -185,6 +184,11 @@ app.post("/api/expenses", requireLogin, withDB, async (req, res) => {
 app.delete("/api/expenses/:id", requireLogin, requireFounder, withDB, async (req, res) => {
   await db.deleteExpense(req.params.id);
   res.json({ ok: true });
+});
+
+// SPA fallback — serve index.html for any non-API route not matched above
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "public", "index.html"));
 });
 
 module.exports = app;
