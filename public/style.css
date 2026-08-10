@@ -521,91 +521,9 @@ select.delivery-select {
 .modal-card form { padding: 18px 22px 22px; }
 
 /* ─── FORM GRID ─────────────────────────────── */
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-.form-grid-2 { grid-template-columns: 1fr 1fr; }
-.form-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+/* (canonical definitions are below, in the Orders & Stock section) */
 .mt-4  { margin-top: 4px; }
 .mt-16 { margin-top: 16px; }
-
-.form-section-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-top: 18px;
-  margin-bottom: 8px;
-}
-
-/* ─── ORDER ITEM PICKER ──────────────────────── */
-.items-list { display: flex; flex-direction: column; gap: 8px; }
-.item-row {
-  display: grid;
-  grid-template-columns: 1fr 80px 32px;
-  gap: 8px;
-  align-items: center;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
-  transition: background 0.25s, border-color 0.25s;
-}
-.item-row select {
-  background: transparent;
-  border: none;
-  padding: 4px;
-  font-size: 13px;
-  color: var(--text);
-}
-.item-row select:focus { outline: none; }
-.item-row input[type="number"] {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 5px 8px;
-  font-size: 13px;
-  text-align: center;
-  border-radius: 6px;
-  width: 100%;
-}
-.add-item-btn {
-  background: transparent;
-  border: 1.5px dashed var(--border);
-  color: var(--text-muted);
-  padding: 8px;
-  border-radius: 8px;
-  font-size: 13px;
-  width: 100%;
-  margin-top: 8px;
-  text-align: center;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
-}
-.add-item-btn:hover {
-  border-color: var(--accent-warm);
-  color: var(--accent);
-  background: rgba(160,120,96,0.05);
-}
-
-.order-total-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--surface-raised);
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-top: 16px;
-  transition: background 0.25s;
-}
-.total-label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
-.total-amount {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--accent);
-  font-family: var(--font-mono);
-}
 
 .modal-actions {
   display: flex;
@@ -613,6 +531,8 @@ select.delivery-select {
   gap: 8px;
   margin-top: 20px;
 }
+
+
 
 /* ─── TEAM / ADD STAFF ────────────────────────── */
 .add-staff-card {
@@ -743,21 +663,26 @@ select.delivery-select {
   .panel-header h2 { font-size: 17px; }
   .panel-header > div { display: flex; gap: 8px; flex-wrap: wrap; }
 
-  /* ── Orders table → card layout on mobile ── */
+  /* ── Orders, Stock, AND Expenses table → card layout on mobile ── */
   #tab-orders .table-wrapper,
-  #tab-stock .table-wrapper { overflow: visible; border: none; box-shadow: none; background: transparent; }
+  #tab-stock .table-wrapper,
+  #tab-expenses .table-wrapper { overflow: visible; border: none; box-shadow: none; background: transparent; }
 
   #tab-orders .data-table,
-  #tab-stock .data-table { display: block; min-width: unset; }
+  #tab-stock .data-table,
+  #tab-expenses .data-table { display: block; min-width: unset !important; }
 
   #tab-orders .data-table thead,
-  #tab-stock .data-table thead { display: none; }
+  #tab-stock .data-table thead,
+  #tab-expenses .data-table thead { display: none; }
 
   #tab-orders .data-table tbody,
-  #tab-stock .data-table tbody { display: flex; flex-direction: column; gap: 10px; }
+  #tab-stock .data-table tbody,
+  #tab-expenses .data-table tbody { display: flex; flex-direction: column; gap: 10px; }
 
   #tab-orders .data-table tr,
-  #tab-stock .data-table tr {
+  #tab-stock .data-table tr,
+  #tab-expenses .data-table tr {
     display: block;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -767,7 +692,8 @@ select.delivery-select {
   }
 
   #tab-orders .data-table td,
-  #tab-stock .data-table td {
+  #tab-stock .data-table td,
+  #tab-expenses .data-table td {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -779,7 +705,8 @@ select.delivery-select {
 
   /* Add label before each cell using data-label */
   #tab-orders .data-table td:not(:last-child)::before,
-  #tab-stock .data-table td:not(:last-child)::before {
+  #tab-stock .data-table td:not(:last-child)::before,
+  #tab-expenses .data-table td:not(:last-child)::before {
     content: attr(data-label);
     font-size: 11px;
     font-weight: 600;
@@ -792,11 +719,13 @@ select.delivery-select {
 
   /* Separator lines between cells */
   #tab-orders .data-table td + td,
-  #tab-stock .data-table td + td { border-top: 1px solid var(--border); }
+  #tab-stock .data-table td + td,
+  #tab-expenses .data-table td + td { border-top: 1px solid var(--border); }
 
   /* Last cell (delete btn) — right-aligned, no border */
   #tab-orders .data-table td:last-child,
-  #tab-stock .data-table td:last-child {
+  #tab-stock .data-table td:last-child,
+  #tab-expenses .data-table td:last-child {
     justify-content: flex-end;
     border-top: none;
     padding-top: 8px;
@@ -805,15 +734,27 @@ select.delivery-select {
   /* Inline selects in order cards — full width */
   .inline-select { width: 100%; font-size: 13px; padding: 7px 10px; }
 
-  /* ── Expenses table — horizontal scroll (has fewer cols) ── */
-  #tab-expenses .table-wrapper {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    border-radius: 10px;
+  /* Cat chip in expense cards — no label needed (icon speaks) */
+  #tab-expenses .data-table td:not(:last-child)::before {
+    min-width: 80px;
   }
-  #tab-expenses .data-table { min-width: 480px; font-size: 12px; }
-  #tab-expenses .data-table th { padding: 9px 12px; font-size: 10px; }
-  #tab-expenses .data-table td { padding: 10px 12px; font-size: 12px; }
+
+  /* Allow text wrapping in expense cards */
+  #tab-expenses .data-table .note-cell,
+  #tab-expenses .data-table td[data-label="Description"] {
+    white-space: normal;
+    max-width: none;
+    overflow: visible;
+    text-overflow: unset;
+    flex-wrap: wrap;
+  }
+  /* Description cell text should align right */
+  #tab-expenses .data-table td[data-label="Description"],
+  #tab-expenses .data-table td[data-label="Note"] {
+    text-align: right;
+    max-width: 60%;
+    word-break: break-word;
+  }
 
   /* ── Login card ── */
   .login-card {
@@ -866,14 +807,14 @@ select.delivery-select {
 
   /* ── Order item rows → stack select above qty ── */
   .item-row {
-    flex-wrap: wrap;
+    display: grid !important;
+    grid-template-columns: 1fr 70px 32px !important;
+    gap: 8px;
     background: var(--surface-raised);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 8px;
   }
-  .item-row .item-stock-select { min-width: 0; flex-basis: 100%; }
-  .item-row .item-qty { width: 80px; }
 
   /* ── Staff form ── */
   .inline-form { flex-direction: column; gap: 10px; }
@@ -889,8 +830,8 @@ select.delivery-select {
   .primary-btn, .ghost-btn { padding: 12px 18px; font-size: 14px; }
   .primary-btn:active, .ghost-btn:active { transform: scale(0.97); }
 
-  /* ── Summary grid 2-col ── */
-  .summary-grid { gap: 10px; }
+  /* ── Summary grid 2-col on mobile ── */
+  .summary-grid { gap: 10px; grid-template-columns: repeat(2, 1fr); }
 
   /* ── Filter row wraps ── */
   .filter-row { flex-direction: column; align-items: flex-start; gap: 10px; }
@@ -909,7 +850,6 @@ select.delivery-select {
   .tab-panel { padding: 10px 10px 80px; }
   .panel-header h2 { font-size: 15px; }
   .primary-btn { padding: 10px 14px; font-size: 13px; }
-  #tab-expenses .data-table { min-width: 420px; }
   .login-card { padding: 24px 16px; }
   .modal-card, .wide-modal { max-height: 92vh; }
   .summary-grid { grid-template-columns: 1fr 1fr; }
@@ -1146,36 +1086,48 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
    PRINT / PDF  ─  @media print
    ════════════════════════════════════════════════════════════════ */
 @media print {
-  /* Hide EVERYTHING on screen */
-  .sidebar,
-  .sidebar-backdrop,
-  .topbar,
-  .summary-grid,
-  .cat-filters,
-  .panel-header,
-  .modal,
-  .icon-btn,
-  .mobile-bottom-nav,
-  #tab-orders,
-  #tab-stock,
-  #tab-expenses .table-wrapper,
-  #tab-team { display: none !important; }
-
-  /* Show only the filled print section */
-  .print-only { display: block !important; }
-  #printSection { display: block !important; }
+  /* \u2500\u2500 Hide EVERYTHING except the printSection \u2500\u2500 */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 
   body {
     background: #fff !important;
     color: #111 !important;
     font-family: 'Inter', sans-serif !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
+  /* Hide all app chrome */
+  .sidebar,
+  .sidebar-backdrop,
+  .topbar,
+  .mobile-bottom-nav,
+  .modal { display: none !important; }
+
+  /* Show app shell but flatten it */
   .app { display: block !important; }
-  .main-content { margin-left: 0 !important; }
-  .tab-panel { display: block !important; padding: 0 !important; }
+  .main-content { margin-left: 0 !important; display: block !important; }
+
+  /* Hide all tab panels */
+  .tab-panel { display: none !important; padding: 0 !important; }
+
+  /* Show the expenses panel ONLY because #printSection lives inside it */
+  #tab-expenses { display: block !important; }
+
+  /* Hide everything INSIDE expenses tab except the print section */
+  #tab-expenses .summary-grid,
+  #tab-expenses .panel-header,
+  #tab-expenses .cat-filters,
+  #tab-expenses .filter-row,
+  #tab-expenses .table-wrapper,
+  #tab-expenses #printHeader { display: none !important; }
+
+  /* Show only the print section */
+  #printSection {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
 
   /* Print report table */
   .print-report-table {
@@ -1209,11 +1161,16 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
   /* Totals grid in print */
   .print-totals-grid {
     display: flex !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    flex-wrap: wrap;
   }
 
-  /* Page setup — landscape for orders (many cols), portrait for expenses */
+  /* Print brand & meta */
+  .print-brand { display: flex !important; }
+  .print-meta { display: flex !important; }
+  .print-divider { display: block !important; }
+  .print-total-item { display: flex !important; }
+
+  /* Page setup \u2014 landscape for orders (many cols), portrait for expenses */
   @page { size: A4 landscape; margin: 15mm 14mm; }
 }
 
