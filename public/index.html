@@ -257,20 +257,6 @@
           </div>
         </div>
 
-        <!-- PRINT-ONLY HEADER -->
-        <div id="printHeader" class="print-only">
-          <div class="print-brand">
-            <div class="print-brand-name">STATIC</div>
-            <div class="print-brand-sub">Expense Report</div>
-          </div>
-          <div class="print-meta">
-            <div id="printDate"></div>
-            <div id="printGeneratedBy"></div>
-          </div>
-          <div class="print-totals" id="printTotals"></div>
-          <div class="print-divider"></div>
-        </div>
-
         <div class="table-wrapper">
           <table class="data-table" id="expensesTable">
             <thead>
@@ -288,9 +274,6 @@
           </table>
           <p id="expensesEmpty" class="empty-state hidden">No expenses logged yet. Hit "Log expense" to add the first one.</p>
         </div>
-
-        <!-- SHARED PRINT SECTION (hidden on screen, shown when printing) -->
-        <div id="printSection" class="print-only"></div>
       </section>
 
       <!-- ── TEAM TAB (founder only) ── -->
@@ -478,6 +461,157 @@
           <button type="submit" class="primary-btn">Save expense</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ORDER DETAIL MODAL -->
+  <div id="orderDetailModal" class="modal hidden">
+    <div class="modal-card" style="max-width: 480px; width: 92vw;">
+      <div class="modal-header">
+        <h3>Order Details</h3>
+        <button type="button" class="modal-close-btn" data-close="orderDetailModal">&#x2715;</button>
+      </div>
+      <div style="padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; background: var(--surface-raised); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);">
+          <div>
+            <div id="orderDetailCustomer" style="font-size: 16px; font-weight: 700; color: var(--text);"></div>
+            <div id="orderDetailContact" style="font-size: 12px; color: var(--text-muted); margin-top: 1px;"></div>
+          </div>
+          <div id="orderDetailTotal" style="font-size: 18px; font-weight: 800; color: var(--accent); text-align: right;"></div>
+        </div>
+
+        <div style="background: var(--surface-raised); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);">
+          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px;">Ordered Items</div>
+          <div id="orderDetailItemsList" style="display: flex; flex-direction: column; gap: 4px;"></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div style="background: var(--surface-raised); padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border);">
+            <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 4px;">Payment Status</div>
+            <select id="modalOrderPayment" class="inline-select" style="width: 100%; font-weight: 600;">
+              <option value="unpaid">Unpaid</option>
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+            </select>
+          </div>
+          <div style="background: var(--surface-raised); padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border);">
+            <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 4px;">Delivery Status</div>
+            <select id="modalOrderDelivery" class="inline-select" style="width: 100%; font-weight: 600;">
+              <option value="processing">Processing</option>
+              <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="background: var(--surface-raised); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);">
+          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 3px;">Delivery Address</div>
+          <div id="orderDetailAddress" style="font-size: 13px; color: var(--text); line-height: 1.3;"></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div style="background: var(--surface-raised); padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border);">
+            <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 3px;">Shipping Price</div>
+            <div id="orderDetailShipping" style="font-size: 13px; font-weight: 600; color: var(--text);"></div>
+          </div>
+          <div style="background: var(--surface-raised); padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border);">
+            <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 3px;">Order Date</div>
+            <div id="orderDetailDate" style="font-size: 13px; font-weight: 600; color: var(--text);"></div>
+          </div>
+        </div>
+
+        <div class="modal-actions" style="margin-top: 4px; display: flex; justify-content: space-between; align-items: center;">
+          <div id="modalOrderDeleteWrap">
+            <button type="button" id="modalOrderDeleteBtn" class="primary-btn danger" style="padding: 8px 16px; font-size: 13px;">Delete Order</button>
+          </div>
+          <button type="button" class="primary-btn" style="padding: 8px 20px; font-size: 13px;" data-close="orderDetailModal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STOCK DETAIL MODAL -->
+  <div id="stockDetailModal" class="modal hidden">
+    <div class="modal-card" style="max-width: 480px; width: 92vw;">
+      <div class="modal-header">
+        <h3>Stock Item Details</h3>
+        <button type="button" class="modal-close-btn" data-close="stockDetailModal">&#x2715;</button>
+      </div>
+      <form id="stockDetailForm" style="padding: 20px 22px 24px; display: flex; flex-direction: column; gap: 16px;">
+        <div class="form-field">
+          <label>Item Name</label>
+          <input type="text" id="modalStockName" required />
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-field">
+            <label>Price (EGP)</label>
+            <input type="number" id="modalStockPrice" min="0" step="0.01" required />
+          </div>
+          <div class="form-field">
+            <label>Quantity in Stock</label>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button type="button" id="modalStockQtyMinus" class="ghost-btn" style="padding: 8px 12px; font-weight: 700;">-</button>
+              <input type="number" id="modalStockQty" min="0" required style="text-align: center;" />
+              <button type="button" id="modalStockQtyPlus" class="ghost-btn" style="padding: 8px 12px; font-weight: 700;">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions" style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
+          <div id="modalStockDeleteWrap">
+            <button type="button" id="modalStockDeleteBtn" class="primary-btn danger" style="padding: 9px 18px; font-size: 13px;">Delete Item</button>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="ghost-btn" data-close="stockDetailModal">Cancel</button>
+            <button type="submit" class="primary-btn" style="padding: 9px 20px; font-size: 13.5px;">Save Changes</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- EXPENSE DETAIL MODAL -->
+  <div id="expenseDetailModal" class="modal hidden">
+    <div class="modal-card" style="max-width: 480px; width: 92vw;">
+      <div class="modal-header">
+        <h3>Expense Details</h3>
+        <button type="button" class="modal-close-btn" data-close="expenseDetailModal">&#x2715;</button>
+      </div>
+      <div style="padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--surface-raised); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);">
+          <div id="detailCatChip" style="font-size: 13.5px;"></div>
+          <div id="detailAmount" style="font-size: 20px; font-weight: 800; color: var(--accent);"></div>
+        </div>
+
+        <div style="background: var(--surface-raised); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);">
+          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 3px;">Description</div>
+          <div id="detailDesc" style="font-size: 14px; font-weight: 600; color: var(--text); word-break: break-word; line-height: 1.3;"></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div style="background: var(--surface-raised); padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border);">
+            <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 3px;">Logged By</div>
+            <div id="detailLoggedBy" style="font-size: 13px; font-weight: 600; color: var(--text);"></div>
+          </div>
+          <div style="background: var(--surface-raised); padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border);">
+            <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 3px;">Date & Time</div>
+            <div id="detailDate" style="font-size: 13px; font-weight: 600; color: var(--text);"></div>
+          </div>
+        </div>
+
+        <div style="background: var(--surface-raised); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);">
+          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 3px;">Note</div>
+          <div id="detailNote" style="font-size: 13px; color: var(--text); font-style: italic; word-break: break-word; line-height: 1.3;"></div>
+        </div>
+
+        <div class="modal-actions" style="margin-top: 4px; display: flex; justify-content: space-between; align-items: center;">
+          <div id="modalExpenseDeleteWrap">
+            <button type="button" id="modalExpenseDeleteBtn" class="primary-btn danger" style="padding: 8px 16px; font-size: 13px;">Delete Expense</button>
+          </div>
+          <button type="button" class="primary-btn" style="padding: 8px 20px; font-size: 13px;" data-close="expenseDetailModal">Close</button>
+        </div>
+      </div>
     </div>
   </div>
 

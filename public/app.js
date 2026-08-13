@@ -86,6 +86,20 @@ function money(n) {
   return Number(n || 0).toLocaleString("en-EG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function formatDate12h(dateStr) {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 /* ─── DARK MODE ────────────────────────────────────────────────── */
 function applyDarkMode(dark) {
   document.body.classList.toggle("dark", dark);
@@ -221,6 +235,63 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && me) syncAll();
 });
 
+let activeOrderDetailId = null;
+
+function openOrderDetail(orderId) {
+  const o = allOrders.find((item) => String(item.id) === String(orderId));
+  if (!o) return;
+  activeOrderDetailId = o.id;
+
+  const total = (o.items || []).reduce((sum, it) => sum + it.qty * it.price, 0) + Number(o.shippingPrice || 0);
+
+  $("#orderDetailCustomer").textContent = o.customerName;
+  $("#orderDetailContact").textContent = [o.phone, o.email].filter(Boolean).join(" • ");
+  $("#orderDetailTotal").textContent = money(total) + " EGP";
+
+  const itemsHTML = (o.items || []).map((it) => `
+    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13.5px;">
+      <span style="font-weight: 600; color: var(--text);">${escapeHtml(it.name)} <span style="color: var(--text-muted); font-size: 12px;">×${it.qty}</span></span>
+      <span style="font-weight: 600; color: var(--accent);">${money(it.qty * it.price)} EGP</span>
+    </div>
+  `).join("") || '<span style="color: var(--text-muted); font-size: 13px;">No items</span>';
+
+  $("#orderDetailItemsList").innerHTML = itemsHTML;
+
+  const paySel = $("#modalOrderPayment");
+  paySel.value = o.paymentStatus;
+  paySel.onchange = async () => {
+    await api(`/api/orders/${o.id}`, "PUT", { paymentStatus: paySel.value });
+    loadOrders();
+  };
+
+  const delSel = $("#modalOrderDelivery");
+  delSel.value = o.deliveryStatus;
+  delSel.onchange = async () => {
+    await api(`/api/orders/${o.id}`, "PUT", { deliveryStatus: delSel.value });
+    loadOrders();
+  };
+
+  $("#orderDetailAddress").textContent = o.address || "—";
+  $("#orderDetailShipping").textContent = money(o.shippingPrice) + " EGP";
+  $("#orderDetailDate").textContent = formatDate12h(o.createdAt);
+
+  const delWrap = $("#modalOrderDeleteWrap");
+  if (me.role === "founder") {
+    delWrap.style.display = "block";
+    $("#modalOrderDeleteBtn").onclick = async () => {
+      if (confirm("Delete this order permanently?")) {
+        await api(`/api/orders/${o.id}`, "DELETE");
+        $("#orderDetailModal").classList.add("hidden");
+        loadOrders();
+      }
+    };
+  } else {
+    delWrap.style.display = "none";
+  }
+
+  $("#orderDetailModal").classList.remove("hidden");
+}
+
 /* ─── ORDERS ───────────────────────────────────────────────────── */
 async function loadOrders() {
   allOrders = await api("/api/orders");
@@ -232,6 +303,7 @@ async function loadOrders() {
     const total = (o.items || []).reduce((sum, it) => sum + it.qty * it.price, 0) + Number(o.shippingPrice || 0);
     const itemsText = (o.items || []).map((it) => `${it.name} ×${it.qty}`).join(", ") || "—";
     const tr = document.createElement("tr");
+    tr.className = "clickable-row";
     tr.innerHTML = `
       <td data-label="Customer">
         <div style="font-weight:600;font-family:var(--font)">${escapeHtml(o.customerName)}</div>
@@ -256,24 +328,33 @@ async function loadOrders() {
           <option value="delivered"  ${o.deliveryStatus === "delivered"  ? "selected" : ""}>Delivered</option>
         </select>
       </td>
-      <td data-label="Date" style="white-space:nowrap">${new Date(o.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
+      <td data-label="Date" style="white-space:nowrap">${formatDate12h(o.createdAt)}</td>
       <td>${me.role === "founder" ? `<button class="icon-btn" data-del-order="${o.id}" title="Delete order">✕</button>` : ""}</td>
     `;
+
+    tr.addEventListener("click", (evt) => {
+      if (evt.target.closest("select") || evt.target.closest("[data-del-order]")) return;
+      openOrderDetail(o.id);
+    });
+
     body.appendChild(tr);
   });
 
   body.querySelectorAll(".payment-select").forEach((sel) => {
-    sel.addEventListener("change", async () => {
+    sel.addEventListener("change", async (evt) => {
+      evt.stopPropagation();
       await api(`/api/orders/${sel.dataset.orderId}`, "PUT", { paymentStatus: sel.value });
     });
   });
   body.querySelectorAll(".delivery-select").forEach((sel) => {
-    sel.addEventListener("change", async () => {
+    sel.addEventListener("change", async (evt) => {
+      evt.stopPropagation();
       await api(`/api/orders/${sel.dataset.orderId}`, "PUT", { deliveryStatus: sel.value });
     });
   });
   body.querySelectorAll("[data-del-order]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("click", async (evt) => {
+      evt.stopPropagation();
       if (confirm("Delete this order permanently?")) {
         await api(`/api/orders/${btn.dataset.delOrder}`, "DELETE");
         loadOrders();
@@ -310,7 +391,12 @@ function addItemRow() {
   row.className = "item-row";
 
   const options = stockCache
-    .map((s) => `<option value="${s.id}" data-price="${s.price}" data-name="${escapeHtml(s.itemName)}">${escapeHtml(s.itemName)} (${s.quantity} in stock) — ${money(s.price)} EGP</option>`)
+    .map((s) => {
+      const isOut = s.quantity <= 0;
+      return `<option value="${s.id}" data-price="${s.price}" data-name="${escapeHtml(s.itemName)}" ${isOut ? 'disabled' : ''}>
+        ${escapeHtml(s.itemName)} ${isOut ? '(Out of Stock)' : `(${s.quantity} in stock)`} — ${money(s.price)} EGP
+      </option>`;
+    })
     .join("");
 
   row.innerHTML = `
@@ -379,30 +465,108 @@ $("#orderForm").addEventListener("submit", async (e) => {
 });
 
 /* ─── STOCK ────────────────────────────────────────────────────── */
+let allStock = [];
+let activeStockDetailId = null;
+
+function openStockDetail(stockId) {
+  const s = allStock.find((item) => String(item.id) === String(stockId));
+  if (!s) return;
+  activeStockDetailId = s.id;
+
+  $("#modalStockName").value = s.itemName;
+  $("#modalStockPrice").value = s.price;
+  $("#modalStockQty").value = s.quantity;
+
+  if (me.role !== "founder") {
+    $("#modalStockName").disabled = true;
+    $("#modalStockPrice").disabled = true;
+  } else {
+    $("#modalStockName").disabled = false;
+    $("#modalStockPrice").disabled = false;
+  }
+
+  const delWrap = $("#modalStockDeleteWrap");
+  if (me.role === "founder") {
+    delWrap.style.display = "block";
+    $("#modalStockDeleteBtn").onclick = async () => {
+      if (confirm("Remove this item from stock permanently?")) {
+        await api(`/api/stock/${s.id}`, "DELETE");
+        $("#stockDetailModal").classList.add("hidden");
+        loadStock();
+      }
+    };
+  } else {
+    delWrap.style.display = "none";
+  }
+
+  $("#stockDetailModal").classList.remove("hidden");
+}
+
+$("#modalStockQtyMinus").addEventListener("click", () => {
+  const input = $("#modalStockQty");
+  const val = Math.max(0, (Number(input.value) || 0) - 1);
+  input.value = val;
+});
+
+$("#modalStockQtyPlus").addEventListener("click", () => {
+  const input = $("#modalStockQty");
+  input.value = (Number(input.value) || 0) + 1;
+});
+
+$("#stockDetailForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!activeStockDetailId) return;
+  try {
+    const payload = me.role === "founder"
+      ? {
+          itemName: $("#modalStockName").value.trim(),
+          price: Number($("#modalStockPrice").value),
+          quantity: Number($("#modalStockQty").value),
+        }
+      : {
+          quantity: Number($("#modalStockQty").value),
+        };
+    await api(`/api/stock/${activeStockDetailId}`, "PUT", payload);
+    $("#stockDetailModal").classList.add("hidden");
+    loadStock();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
 async function loadStock() {
-  const stock = await api("/api/stock");
+  allStock = await api("/api/stock");
   const body = $("#stockBody");
   body.innerHTML = "";
-  $("#stockEmpty").classList.toggle("hidden", stock.length > 0);
+  $("#stockEmpty").classList.toggle("hidden", allStock.length > 0);
 
-  stock.forEach((s) => {
+  allStock.forEach((s) => {
     const tr = document.createElement("tr");
+    tr.className = "clickable-row";
     tr.innerHTML = `
       <td data-label="Item" style="font-family:var(--font);font-weight:500">${escapeHtml(s.itemName)}</td>
       <td data-label="Qty"><input type="number" min="0" value="${s.quantity}" data-qty-id="${s.id}" style="width:80px;font-size:13px;padding:5px 8px" /></td>
       <td data-label="Price">${money(s.price)} EGP</td>
       <td>${me.role === "founder" ? `<button class="icon-btn" data-del-stock="${s.id}" title="Remove">✕</button>` : ""}</td>
     `;
+
+    tr.addEventListener("click", (evt) => {
+      if (evt.target.closest("input") || evt.target.closest("[data-del-stock]")) return;
+      openStockDetail(s.id);
+    });
+
     body.appendChild(tr);
   });
 
   body.querySelectorAll("[data-qty-id]").forEach((input) => {
-    input.addEventListener("change", async () => {
+    input.addEventListener("change", async (evt) => {
+      evt.stopPropagation();
       await api(`/api/stock/${input.dataset.qtyId}`, "PUT", { quantity: Number(input.value) });
     });
   });
   body.querySelectorAll("[data-del-stock]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("click", async (evt) => {
+      evt.stopPropagation();
       if (confirm("Remove this item from stock?")) {
         await api(`/api/stock/${btn.dataset.delStock}`, "DELETE");
         loadStock();
@@ -483,6 +647,34 @@ function renderSummary() {
   }
 }
 
+function openExpenseDetail(expId) {
+  const exp = allExpenses.find((item) => String(item.id) === String(expId));
+  if (!exp) return;
+
+  $("#detailCatChip").innerHTML = CAT_CHIPS[exp.category] || escapeHtml(exp.category);
+  $("#detailAmount").textContent = egp(exp.amount);
+  $("#detailDesc").textContent = exp.description || "—";
+  $("#detailLoggedBy").textContent = exp.loggedBy || "—";
+  $("#detailDate").textContent = formatDate12h(exp.createdAt);
+  $("#detailNote").textContent = exp.note || "No note added";
+
+  const delWrap = $("#modalExpenseDeleteWrap");
+  if (me.role === "founder") {
+    delWrap.style.display = "block";
+    $("#modalExpenseDeleteBtn").onclick = async () => {
+      if (confirm("Delete this expense entry permanently?")) {
+        await api(`/api/expenses/${exp.id}`, "DELETE");
+        $("#expenseDetailModal").classList.add("hidden");
+        loadExpenses();
+      }
+    };
+  } else {
+    delWrap.style.display = "none";
+  }
+
+  $("#expenseDetailModal").classList.remove("hidden");
+}
+
 function renderExpenses() {
   const filtered = activeFilter === "all"
     ? allExpenses
@@ -494,10 +686,11 @@ function renderExpenses() {
 
   filtered.slice().reverse().forEach((e) => {
     const tr = document.createElement("tr");
+    tr.className = "clickable-row";
     const initial = (e.loggedBy || "?").charAt(0).toUpperCase();
     tr.innerHTML = `
       <td data-label="Category">${CAT_CHIPS[e.category] || escapeHtml(e.category)}</td>
-      <td data-label="Description" style="font-family:var(--font);font-weight:500;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(e.description)}">${escapeHtml(e.description)}</td>
+      <td data-label="Description" style="font-family:var(--font);font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(e.description)}">${escapeHtml(e.description)}</td>
       <td data-label="Amount" class="amount-cell">${egp(e.amount)}</td>
       <td data-label="Logged by">
         <div class="logged-by-cell">
@@ -505,15 +698,22 @@ function renderExpenses() {
           <span style="font-family:var(--font);font-size:12.5px">${escapeHtml(e.loggedBy || "—")}</span>
         </div>
       </td>
-      <td data-label="Note" class="note-cell" title="${escapeHtml(e.note || "")}">${e.note ? escapeHtml(e.note) : '<span style="opacity:0.35">—</span>'}</td>
-      <td data-label="Date" style="white-space:nowrap">${new Date(e.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
+      <td data-label="Note" class="note-cell" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(e.note || "")}">${e.note ? escapeHtml(e.note) : '<span style="opacity:0.35">—</span>'}</td>
+      <td data-label="Date" style="white-space:nowrap">${formatDate12h(e.createdAt)}</td>
       <td>${me.role === "founder" ? `<button class="icon-btn" data-del-expense="${e.id}" title="Delete">✕</button>` : ""}</td>
     `;
+
+    tr.addEventListener("click", (evt) => {
+      if (evt.target.closest("[data-del-expense]")) return;
+      openExpenseDetail(e.id);
+    });
+
     body.appendChild(tr);
   });
 
   body.querySelectorAll("[data-del-expense]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("click", async (evt) => {
+      evt.stopPropagation();
       if (confirm("Delete this expense entry?")) {
         await api(`/api/expenses/${btn.dataset.delExpense}`, "DELETE");
         loadExpenses();
@@ -585,7 +785,7 @@ function printReport(type, period) {
               <td><strong>${money(tot)} EGP</strong></td><td>${money(o.shippingPrice)} EGP</td>
               <td style="text-transform:capitalize">${o.paymentStatus}</td>
               <td style="text-transform:capitalize">${o.deliveryStatus}</td>
-              <td>${new Date(o.createdAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</td>
+              <td>${formatDate12h(o.createdAt)}</td>
             </tr>`;
           }).join("")}
         </tbody>
@@ -629,7 +829,7 @@ function printReport(type, period) {
             <td>${i+1}</td><td>${escapeHtml(e.category)}</td><td>${escapeHtml(e.description)}</td>
             <td><strong>${egp(e.amount)}</strong></td><td>${escapeHtml(e.loggedBy||"—")}</td>
             <td>${escapeHtml(e.note||"—")}</td>
-            <td>${new Date(e.createdAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}</td>
+            <td>${formatDate12h(e.createdAt)}</td>
           </tr>`).join("")}
         </tbody>
       </table>
@@ -637,9 +837,13 @@ function printReport(type, period) {
     `;
   }
 
-  window.print();
-  // Clear the print section after the dialog closes
-  setTimeout(() => { section.innerHTML = ""; }, 1500);
+  setTimeout(() => {
+    window.print();
+  }, 50);
+
+  window.addEventListener("afterprint", () => {
+    section.innerHTML = "";
+  }, { once: true });
 }
 
 /* ─── PRINT DROPDOWN TOGGLES ──────────────────────────────────── */

@@ -401,12 +401,38 @@ body.dark .pulse { background: var(--success); }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
+  overflow-x: auto;
   box-shadow: var(--shadow);
   transition: background 0.25s, border-color 0.25s;
 }
+
+/* Sleek custom scrollbars */
+.table-wrapper::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.table-wrapper::-webkit-scrollbar-track {
+  background: var(--surface-raised);
+  border-radius: 4px;
+}
+.table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+.clickable-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.clickable-row:hover td {
+  background: rgba(160,120,96,0.1) !important;
+}
 .data-table {
   width: 100%;
+  min-width: 650px;
   border-collapse: collapse;
   font-size: 13px;
 }
@@ -477,14 +503,22 @@ select.delivery-select {
 .modal-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 0;
-  width: 420px;
-  max-height: 92vh;
+  width: 460px;
+  max-height: 88vh;
   overflow-y: auto;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+  box-shadow: 0 12px 48px rgba(0,0,0,0.25);
   transition: background 0.25s, border-color 0.25s;
   animation: modalScaleIn 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.modal-card::-webkit-scrollbar {
+  width: 4px;
+}
+.modal-card::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
 }
 @keyframes modalScaleIn {
   from { opacity: 0; transform: scale(0.95) translateY(10px); }
@@ -663,98 +697,11 @@ select.delivery-select {
   .panel-header h2 { font-size: 17px; }
   .panel-header > div { display: flex; gap: 8px; flex-wrap: wrap; }
 
-  /* ── Orders, Stock, AND Expenses table → card layout on mobile ── */
-  #tab-orders .table-wrapper,
-  #tab-stock .table-wrapper,
-  #tab-expenses .table-wrapper { overflow: visible; border: none; box-shadow: none; background: transparent; }
+  /* Inline selects in order table */
+  .inline-select { font-size: 12.5px; padding: 5px 8px; }
+}
 
-  #tab-orders .data-table,
-  #tab-stock .data-table,
-  #tab-expenses .data-table { display: block; min-width: unset !important; }
 
-  #tab-orders .data-table thead,
-  #tab-stock .data-table thead,
-  #tab-expenses .data-table thead { display: none; }
-
-  #tab-orders .data-table tbody,
-  #tab-stock .data-table tbody,
-  #tab-expenses .data-table tbody { display: flex; flex-direction: column; gap: 10px; }
-
-  #tab-orders .data-table tr,
-  #tab-stock .data-table tr,
-  #tab-expenses .data-table tr {
-    display: block;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px;
-    box-shadow: var(--shadow);
-  }
-
-  #tab-orders .data-table td,
-  #tab-stock .data-table td,
-  #tab-expenses .data-table td {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 0;
-    border-top: none;
-    font-size: 13px;
-    font-family: var(--font);
-  }
-
-  /* Add label before each cell using data-label */
-  #tab-orders .data-table td:not(:last-child)::before,
-  #tab-stock .data-table td:not(:last-child)::before,
-  #tab-expenses .data-table td:not(:last-child)::before {
-    content: attr(data-label);
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    min-width: 90px;
-    flex-shrink: 0;
-  }
-
-  /* Separator lines between cells */
-  #tab-orders .data-table td + td,
-  #tab-stock .data-table td + td,
-  #tab-expenses .data-table td + td { border-top: 1px solid var(--border); }
-
-  /* Last cell (delete btn) — right-aligned, no border */
-  #tab-orders .data-table td:last-child,
-  #tab-stock .data-table td:last-child,
-  #tab-expenses .data-table td:last-child {
-    justify-content: flex-end;
-    border-top: none;
-    padding-top: 8px;
-  }
-
-  /* Inline selects in order cards — full width */
-  .inline-select { width: 100%; font-size: 13px; padding: 7px 10px; }
-
-  /* Cat chip in expense cards — no label needed (icon speaks) */
-  #tab-expenses .data-table td:not(:last-child)::before {
-    min-width: 80px;
-  }
-
-  /* Allow text wrapping in expense cards */
-  #tab-expenses .data-table .note-cell,
-  #tab-expenses .data-table td[data-label="Description"] {
-    white-space: normal;
-    max-width: none;
-    overflow: visible;
-    text-overflow: unset;
-    flex-wrap: wrap;
-  }
-  /* Description cell text should align right */
-  #tab-expenses .data-table td[data-label="Description"],
-  #tab-expenses .data-table td[data-label="Note"] {
-    text-align: right;
-    max-width: 60%;
-    word-break: break-word;
-  }
 
   /* ── Login card ── */
   .login-card {
@@ -817,8 +764,8 @@ select.delivery-select {
   }
 
   /* ── Staff form ── */
-  .inline-form { flex-direction: column; gap: 10px; }
-  .inline-form button { width: 100%; margin-top: 4px; }
+  .inline-form { flex-direction: column; align-items: stretch; gap: 10px; }
+  .inline-form button { width: 100%; margin-top: 4px; align-self: stretch; }
   .add-staff-card { padding: 16px; }
 
   /* ── CRITICAL: Font-size 16px prevents iOS Safari from zooming in on focus! ── */
@@ -853,6 +800,12 @@ select.delivery-select {
   .login-card { padding: 24px 16px; }
   .modal-card, .wide-modal { max-height: 92vh; }
   .summary-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Collapse detail grid columns on small mobile screens */
+  #orderDetailModal [style*="grid-template-columns"],
+  #expenseDetailModal [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 
@@ -1174,63 +1127,7 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
   @page { size: A4 landscape; margin: 15mm 14mm; }
 }
 
-/* ─── PRINT-ONLY HEADER (hidden on screen) ───── */
-.print-only { display: none; }
 
-
-.print-brand {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-.print-brand-name {
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 3px;
-  color: #2B1D16;
-}
-.print-brand-sub {
-  font-size: 13px;
-  color: #888;
-  font-weight: 400;
-  letter-spacing: 0.5px;
-}
-
-.print-meta {
-  display: flex;
-  gap: 28px;
-  font-size: 11px;
-  color: #666;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-}
-
-.print-totals-grid {
-  display: flex;
-  gap: 0;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  overflow: hidden;
-  margin-bottom: 16px;
-}
-.print-total-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 10px 14px;
-  border-right: 1px solid #ddd;
-  background: #faf8f5;
-}
-.print-total-item:last-child { border-right: none; }
-.print-total-label { font-size: 9px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
-.print-total-amount { font-size: 13px; font-weight: 700; color: #2B1D16; }
-.print-total-main { font-size: 15px; color: #4A3326; }
-
-.print-divider {
-  border-bottom: 2px solid #2B1D16;
-  margin-bottom: 18px;
-}
 
 /* ─── ORDERS & STOCK COMPONENTS ─────────────────────────────────── */
 
@@ -1419,8 +1316,10 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
 }
 
 /* ─── PRINT SECTION (screen — hidden) ──────────── */
-#printSection {
-  display: none;
+@media screen {
+  #printSection {
+    display: none !important;
+  }
 }
 
 /* ─── PRINT STYLES ──────────────────────────────── */
@@ -1432,9 +1331,13 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
 
   #printSection {
     display: block !important;
-    position: static;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
-    padding: 0;
+    padding: 20px;
     margin: 0;
     background: #fff;
     color: #111;
