@@ -1418,4 +1418,126 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
   #loginScreen:not(.hidden) ~ .mobile-bottom-nav { display: none; }
 }
 
+/* ─── PRINT SECTION (screen — hidden) ──────────── */
+#printSection {
+  display: none;
+}
 
+/* ─── PRINT STYLES ──────────────────────────────── */
+@media print {
+  /* Hide everything except the print section */
+  body > *:not(#printSection) {
+    display: none !important;
+  }
+
+  #printSection {
+    display: block !important;
+    position: static;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    background: #fff;
+    color: #111;
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 11pt;
+  }
+
+  /* Brand header */
+  .print-brand {
+    text-align: center;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #2B1D16;
+  }
+  .print-brand-name {
+    font-size: 26pt;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: #2B1D16;
+  }
+  .print-brand-sub {
+    font-size: 11pt;
+    color: #5a4535;
+    margin-top: 2px;
+    letter-spacing: 1px;
+  }
+
+  /* Meta row */
+  .print-meta {
+    display: flex;
+    gap: 32px;
+    font-size: 9pt;
+    color: #555;
+    margin-bottom: 14px;
+  }
+
+  /* Divider */
+  .print-divider {
+    border-top: 1px solid #ccc;
+    margin: 12px 0;
+  }
+
+  /* Summary totals grid */
+  .print-totals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .print-total-item {
+    background: #f6f1eb;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .print-total-label {
+    font-size: 8pt;
+    color: #777;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .print-total-amount {
+    font-size: 13pt;
+    font-weight: 700;
+    color: #2B1D16;
+  }
+  .print-total-main {
+    font-size: 15pt;
+    color: #4A3326;
+  }
+
+  /* Report table */
+  .print-report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+    margin-top: 8px;
+  }
+  .print-report-table th {
+    background: #2B1D16;
+    color: #F5F0E6;
+    padding: 7px 9px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 8.5pt;
+    letter-spacing: 0.3px;
+  }
+  .print-report-table td {
+    padding: 6px 9px;
+    border-bottom: 1px solid #e0d8cd;
+    color: #222;
+    vertical-align: top;
+  }
+  .print-report-table tr:nth-child(even) td {
+    background: #faf7f3;
+  }
+
+  /* Page setup */
+  @page {
+    margin: 15mm 12mm;
+    size: A4 landscape;
+  }
+}
