@@ -705,8 +705,9 @@ select.delivery-select {
 
   /* ── Login card ── */
   .login-card {
-    width: calc(100vw - 28px);
-    padding: 28px 22px;
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    padding: 32px 24px;
     border-radius: 18px;
   }
 
