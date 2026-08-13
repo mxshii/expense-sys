@@ -216,7 +216,7 @@ async function syncAll() {
   if (me.role === "founder") await loadUsers();
   $("#syncTime").textContent = new Date().toLocaleTimeString();
 }
-setInterval(syncAll, 15000);
+setInterval(syncAll, 120000); // 2 min — lets Neon auto-suspend between polls
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && me) syncAll();
 });
@@ -542,11 +542,10 @@ function filterByPeriod(items, period, dateField = "createdAt") {
 const PERIOD_LABEL = { all: "All Time", month: "This Month", week: "This Week" };
 
 function printReport(type, period) {
+  const section = $("#printSection");
   const label   = PERIOD_LABEL[period] || "";
   const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
   const byStr   = me ? me.username : "";
-
-  let bodyHTML = "";
 
   if (type === "orders") {
     const data = filterByPeriod(allOrders, period);
@@ -555,17 +554,27 @@ function printReport(type, period) {
     const paid      = data.filter((o) => o.paymentStatus  === "paid").length;
     const delivered = data.filter((o) => o.deliveryStatus === "delivered").length;
 
-    bodyHTML = `
-      <div class="p-brand"><div class="p-brand-name">STATIC</div><div class="p-brand-sub">Orders Report &mdash; ${label}</div></div>
-      <div class="p-meta"><span>Generated: ${dateStr}</span><span>By: ${escapeHtml(byStr)}</span><span>Period: ${label}</span></div>
-      <div class="p-grid">
-        <div class="p-card"><div class="p-card-label">Total Orders</div><div class="p-card-val">${data.length}</div></div>
-        <div class="p-card"><div class="p-card-label">Total Revenue</div><div class="p-card-val">${money(totalRevenue)} EGP</div></div>
-        <div class="p-card"><div class="p-card-label">Paid</div><div class="p-card-val">${paid}</div></div>
-        <div class="p-card"><div class="p-card-label">Delivered</div><div class="p-card-val">${delivered}</div></div>
+    section.innerHTML = `
+      <div class="print-brand">
+        <div class="print-brand-name">STATIC</div>
+        <div class="print-brand-sub">Orders Report &mdash; ${label}</div>
       </div>
-      <table>
-        <thead><tr><th>#</th><th>Customer</th><th>Phone</th><th>Items</th><th>Address</th><th>Total</th><th>Shipping</th><th>Payment</th><th>Delivery</th><th>Date</th></tr></thead>
+      <div class="print-meta">
+        <div>Generated: ${dateStr}</div>
+        <div>By: ${escapeHtml(byStr)}</div>
+        <div>Period: ${label}</div>
+      </div>
+      <div class="print-totals-grid">
+        <div class="print-total-item"><span class="print-total-label">Total Orders</span><span class="print-total-amount print-total-main">${data.length}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Total Revenue</span><span class="print-total-amount print-total-main">${money(totalRevenue)} EGP</span></div>
+        <div class="print-total-item"><span class="print-total-label">Paid</span><span class="print-total-amount">${paid}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Delivered</span><span class="print-total-amount">${delivered}</span></div>
+      </div>
+      <div class="print-divider"></div>
+      <table class="print-report-table">
+        <thead>
+          <tr><th>#</th><th>Customer</th><th>Phone</th><th>Items</th><th>Address</th><th>Total</th><th>Shipping</th><th>Payment</th><th>Delivery</th><th>Date</th></tr>
+        </thead>
         <tbody>
           ${data.map((o, i) => {
             const tot = (o.items||[]).reduce((s,it)=>s+it.qty*it.price,0) + Number(o.shippingPrice||0);
@@ -581,7 +590,7 @@ function printReport(type, period) {
           }).join("")}
         </tbody>
       </table>
-      ${data.length === 0 ? '<p class="empty">No orders found for this period.</p>' : ""}
+      ${data.length === 0 ? '<p style="text-align:center;color:#888;padding:24px">No orders found for this period.</p>' : ""}
     `;
   } else if (type === "expenses") {
     const data = filterByPeriod(allExpenses, period);
@@ -593,18 +602,28 @@ function printReport(type, period) {
       if (totals[e.category] !== undefined) totals[e.category] += e.amount;
     });
 
-    bodyHTML = `
-      <div class="p-brand"><div class="p-brand-name">STATIC</div><div class="p-brand-sub">Expense Report &mdash; ${label}</div></div>
-      <div class="p-meta"><span>Generated: ${dateStr}</span><span>By: ${escapeHtml(byStr)}</span><span>Period: ${label}</span></div>
-      <div class="p-grid">
-        <div class="p-card"><div class="p-card-label">Total Spent</div><div class="p-card-val">${egp(totals.all)}</div></div>
-        <div class="p-card"><div class="p-card-label">Ads</div><div class="p-card-val">${egp(totals.Ads)}</div></div>
-        <div class="p-card"><div class="p-card-label">Printing</div><div class="p-card-val">${egp(totals.Printing)}</div></div>
-        <div class="p-card"><div class="p-card-label">Packaging</div><div class="p-card-val">${egp(totals.Packaging)}</div></div>
-        <div class="p-card"><div class="p-card-label">Delivery</div><div class="p-card-val">${egp(totals.Delivery)}</div></div>
+    section.innerHTML = `
+      <div class="print-brand">
+        <div class="print-brand-name">STATIC</div>
+        <div class="print-brand-sub">Expense Report &mdash; ${label}</div>
       </div>
-      <table>
-        <thead><tr><th>#</th><th>Category</th><th>Description</th><th>Amount</th><th>Logged by</th><th>Note</th><th>Date</th></tr></thead>
+      <div class="print-meta">
+        <div>Generated: ${dateStr}</div>
+        <div>By: ${escapeHtml(byStr)}</div>
+        <div>Period: ${label}</div>
+      </div>
+      <div class="print-totals-grid">
+        <div class="print-total-item"><span class="print-total-label">Total Spent</span><span class="print-total-amount print-total-main">${egp(totals.all)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Ads</span><span class="print-total-amount">${egp(totals.Ads)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Printing</span><span class="print-total-amount">${egp(totals.Printing)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Packaging</span><span class="print-total-amount">${egp(totals.Packaging)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Delivery</span><span class="print-total-amount">${egp(totals.Delivery)}</span></div>
+      </div>
+      <div class="print-divider"></div>
+      <table class="print-report-table">
+        <thead>
+          <tr><th>#</th><th>Category</th><th>Description</th><th>Amount</th><th>Logged by</th><th>Note</th><th>Date</th></tr>
+        </thead>
         <tbody>
           ${data.slice().reverse().map((e, i) => `<tr>
             <td>${i+1}</td><td>${escapeHtml(e.category)}</td><td>${escapeHtml(e.description)}</td>
@@ -614,46 +633,13 @@ function printReport(type, period) {
           </tr>`).join("")}
         </tbody>
       </table>
-      ${data.length === 0 ? '<p class="empty">No expenses found for this period.</p>' : ""}
+      ${data.length === 0 ? '<p style="text-align:center;color:#888;padding:24px">No expenses found for this period.</p>' : ""}
     `;
   }
 
-  /* ── Open a clean popup, write styled HTML, print, close ── */
-  const win = window.open("", "_blank", "width=1100,height=750");
-  win.document.write(`<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8"/>
-  <title>STATIC — ${type === "orders" ? "Orders" : "Expenses"} Report (${label})</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Inter', Arial, sans-serif; font-size: 10pt; color: #1a1009; background: #fff; padding: 20px 28px; }
-    .p-brand { text-align: center; border-bottom: 2px solid #2B1D16; padding-bottom: 10px; margin-bottom: 14px; }
-    .p-brand-name { font-size: 24pt; font-weight: 700; letter-spacing: 5px; color: #2B1D16; }
-    .p-brand-sub  { font-size: 10pt; color: #5a4535; margin-top: 2px; letter-spacing: 1px; }
-    .p-meta { display: flex; gap: 28px; font-size: 8.5pt; color: #666; margin-bottom: 14px; }
-    .p-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 16px; }
-    .p-card { background: #f6f1eb; border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; }
-    .p-card-label { font-size: 7.5pt; color: #888; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
-    .p-card-val   { font-size: 13pt; font-weight: 700; color: #2B1D16; }
-    table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
-    thead tr { background: #2B1D16; color: #F5F0E6; }
-    th { padding: 7px 8px; text-align: left; font-weight: 600; font-size: 8pt; }
-    td { padding: 6px 8px; border-bottom: 1px solid #e4ddd4; vertical-align: top; }
-    tr:nth-child(even) td { background: #faf7f3; }
-    .empty { text-align: center; color: #999; padding: 24px; }
-    @page { margin: 12mm 10mm; size: A4 landscape; }
-  </style>
-</head>
-<body>${bodyHTML}</body>
-</html>`);
-  win.document.close();
-  win.focus();
-  /* slight delay so the browser finishes rendering before the dialog opens */
-  setTimeout(() => {
-    win.print();
-    win.onafterprint = () => win.close();
-  }, 300);
+  window.print();
+  // Clear the print section after the dialog closes
+  setTimeout(() => { section.innerHTML = ""; }, 1500);
 }
 
 /* ─── PRINT DROPDOWN TOGGLES ──────────────────────────────────── */
