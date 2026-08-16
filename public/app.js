@@ -289,6 +289,14 @@ function openOrderDetail(orderId) {
     delWrap.style.display = "none";
   }
 
+  const receiptBtn = $("#modalOrderReceiptBtn");
+  if (receiptBtn) {
+    receiptBtn.onclick = () => {
+      $("#orderDetailModal").classList.add("hidden");
+      printOrderReceipt(o.id);
+    };
+  }
+
   $("#orderDetailModal").classList.remove("hidden");
 }
 
@@ -329,11 +337,18 @@ async function loadOrders() {
         </select>
       </td>
       <td data-label="Date" style="white-space:nowrap">${formatDate12h(o.createdAt)}</td>
-      <td>${me.role === "founder" ? `<button class="icon-btn" data-del-order="${o.id}" title="Delete order">✕</button>` : ""}</td>
+      <td>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button class="icon-btn receipt-btn" data-receipt-order="${o.id}" title="Print receipt" style="color:var(--text-muted);font-size:15px">
+            <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;vertical-align:middle"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+          </button>
+          ${me.role === "founder" ? `<button class="icon-btn" data-del-order="${o.id}" title="Delete order">✕</button>` : ""}
+        </div>
+      </td>
     `;
 
     tr.addEventListener("click", (evt) => {
-      if (evt.target.closest("select") || evt.target.closest("[data-del-order]")) return;
+      if (evt.target.closest("select") || evt.target.closest("[data-del-order]") || evt.target.closest(".receipt-btn")) return;
       openOrderDetail(o.id);
     });
 
@@ -359,6 +374,12 @@ async function loadOrders() {
         await api(`/api/orders/${btn.dataset.delOrder}`, "DELETE");
         loadOrders();
       }
+    });
+  });
+  body.querySelectorAll(".receipt-btn").forEach((btn) => {
+    btn.addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      printOrderReceipt(btn.dataset.receiptOrder);
     });
   });
 }
@@ -836,6 +857,100 @@ function printReport(type, period) {
       ${data.length === 0 ? '<p style="text-align:center;color:#888;padding:24px">No expenses found for this period.</p>' : ""}
     `;
   }
+
+  setTimeout(() => {
+    window.print();
+  }, 50);
+
+  window.addEventListener("afterprint", () => {
+    section.innerHTML = "";
+  }, { once: true });
+}
+
+/* ─── CUSTOMER RECEIPT ───────────────────────────────────────── */
+function printOrderReceipt(orderId) {
+  const o = allOrders.find((item) => String(item.id) === String(orderId));
+  if (!o) return;
+
+  const itemsSubtotal = (o.items || []).reduce((sum, it) => sum + it.qty * it.price, 0);
+  const shipping      = Number(o.shippingPrice || 0);
+  const grandTotal    = itemsSubtotal + shipping;
+
+  const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+  const orderDate = formatDate12h(o.createdAt);
+
+  const itemsRows = (o.items || []).map((it, idx) => `
+    <tr>
+      <td>${idx + 1}</td>
+      <td>${escapeHtml(it.name)}</td>
+      <td style="text-align:center">${it.qty}</td>
+      <td style="text-align:right">${money(it.price)} EGP</td>
+      <td style="text-align:right;font-weight:600">${money(it.qty * it.price)} EGP</td>
+    </tr>
+  `).join("");
+
+  const section = $("#printSection");
+  section.innerHTML = `
+    <div class="print-receipt">
+      <div class="receipt-header">
+        <div class="receipt-brand">STATIC</div>
+        <div class="receipt-brand-sub">Order Receipt</div>
+        <div class="receipt-order-num">Date: ${orderDate}</div>
+      </div>
+
+      <div class="receipt-customer">
+        <div class="receipt-customer-name">${escapeHtml(o.customerName)}</div>
+        <div class="receipt-customer-detail">
+          ${o.phone ? `<div>${escapeHtml(o.phone)}</div>` : ""}
+          ${o.email ? `<div>${escapeHtml(o.email)}</div>` : ""}
+          ${o.address ? `<div>${escapeHtml(o.address)}</div>` : ""}
+        </div>
+      </div>
+
+      <table class="receipt-items-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Item</th>
+            <th style="text-align:center">Qty</th>
+            <th style="text-align:right">Price</th>
+            <th style="text-align:right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsRows || `<tr><td colspan="5" style="text-align:center;color:#888">No items</td></tr>`}
+        </tbody>
+      </table>
+
+      <div class="receipt-total-section">
+        <div class="receipt-total-final">
+          <span>Total</span>
+          <span>${money(grandTotal)} EGP</span>
+        </div>
+      </div>
+
+      <div class="receipt-status">
+        <div class="receipt-status-item">
+          <span class="receipt-status-label">Payment</span>
+          <span class="receipt-status-value">${o.paymentStatus || '—'}</span>
+        </div>
+        <div class="receipt-status-item">
+          <span class="receipt-status-label">Delivery</span>
+          <span class="receipt-status-value">${o.deliveryStatus || '—'}</span>
+        </div>
+        <div class="receipt-status-item">
+          <span class="receipt-status-label">Printed</span>
+          <span class="receipt-status-value">${dateStr}</span>
+        </div>
+      </div>
+
+      <div class="receipt-footer">
+        <strong>STATIC</strong>
+        Thank you for your order!<br/>
+        For enquiries contact us at your purchase channel.
+      </div>
+    </div>
+  `;
 
   setTimeout(() => {
     window.print();

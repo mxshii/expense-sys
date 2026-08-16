@@ -524,7 +524,13 @@
           <div id="modalOrderDeleteWrap">
             <button type="button" id="modalOrderDeleteBtn" class="primary-btn danger" style="padding: 8px 16px; font-size: 13px;">Delete Order</button>
           </div>
-          <button type="button" class="primary-btn" style="padding: 8px 20px; font-size: 13px;" data-close="orderDetailModal">Close</button>
+          <div style="display:flex;gap:8px;">
+            <button type="button" id="modalOrderReceiptBtn" class="ghost-btn" style="padding: 8px 16px; font-size: 13px;">
+              <svg viewBox="0 0 20 20" fill="currentColor" style="width:13px;height:13px;display:inline;vertical-align:middle;margin-right:5px"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+              Print Receipt
+            </button>
+            <button type="button" class="primary-btn" style="padding: 8px 20px; font-size: 13px;" data-close="orderDetailModal">Close</button>
+          </div>
         </div>
       </div>
     </div>

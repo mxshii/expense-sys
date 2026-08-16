@@ -1037,96 +1037,8 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
 }
 
 /* ════════════════════════════════════════════════════════════════
-   PRINT / PDF  ─  @media print
+   PRINT / PDF  ─  screen: hide printSection
    ════════════════════════════════════════════════════════════════ */
-@media print {
-  /* \u2500\u2500 Hide EVERYTHING except the printSection \u2500\u2500 */
-  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-
-  body {
-    background: #fff !important;
-    color: #111 !important;
-    font-family: 'Inter', sans-serif !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  /* Hide all app chrome */
-  .sidebar,
-  .sidebar-backdrop,
-  .topbar,
-  .mobile-bottom-nav,
-  .modal { display: none !important; }
-
-  /* Show app shell but flatten it */
-  .app { display: block !important; }
-  .main-content { margin-left: 0 !important; display: block !important; }
-
-  /* Hide all tab panels */
-  .tab-panel { display: none !important; padding: 0 !important; }
-
-  /* Show the expenses panel ONLY because #printSection lives inside it */
-  #tab-expenses { display: block !important; }
-
-  /* Hide everything INSIDE expenses tab except the print section */
-  #tab-expenses .summary-grid,
-  #tab-expenses .panel-header,
-  #tab-expenses .cat-filters,
-  #tab-expenses .filter-row,
-  #tab-expenses .table-wrapper,
-  #tab-expenses #printHeader { display: none !important; }
-
-  /* Show only the print section */
-  #printSection {
-    display: block !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-
-  /* Print report table */
-  .print-report-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 10.5px;
-    margin-top: 8px;
-  }
-  .print-report-table th {
-    background: #f2ebe0 !important;
-    color: #555 !important;
-    font-size: 9px !important;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 7px 10px;
-    text-align: left;
-    border-bottom: 1.5px solid #2B1D16;
-  }
-  .print-report-table td {
-    padding: 7px 10px;
-    border-bottom: 1px solid #e0d8ce;
-    vertical-align: top;
-    color: #222;
-  }
-  .print-report-table tr:nth-child(even) td {
-    background: #faf8f5 !important;
-  }
-  .print-report-table strong { color: #2B1D16; }
-
-  /* Totals grid in print */
-  .print-totals-grid {
-    display: flex !important;
-    flex-wrap: wrap;
-  }
-
-  /* Print brand & meta */
-  .print-brand { display: flex !important; }
-  .print-meta { display: flex !important; }
-  .print-divider { display: block !important; }
-  .print-total-item { display: flex !important; }
-
-  /* Page setup \u2014 landscape for orders (many cols), portrait for expenses */
-  @page { size: A4 landscape; margin: 15mm 14mm; }
-}
 
 
 
@@ -1323,22 +1235,35 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
   }
 }
 
-/* ─── PRINT STYLES ──────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════
+   PRINT / PDF  —  single authoritative @media print block
+   ════════════════════════════════════════════════════════════════ */
 @media print {
-  /* Hide everything except the print section */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide EVERYTHING except the print section */
   body > *:not(#printSection) {
     display: none !important;
   }
 
+  body {
+    background: #fff !important;
+    color: #111 !important;
+    font-family: 'Inter', Arial, sans-serif !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* ── Print section container ── */
   #printSection {
     display: block !important;
     visibility: visible !important;
-    opacity: 1 !important;
-    position: absolute;
-    top: 0;
-    left: 0;
+    position: static;
     width: 100%;
-    padding: 20px;
+    padding: 0;
     margin: 0;
     background: #fff;
     color: #111;
@@ -1346,7 +1271,19 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
     font-size: 11pt;
   }
 
-  /* Brand header */
+  /* ── Default page: landscape for reports ── */
+  @page {
+    size: A4 landscape;
+    margin: 15mm 12mm;
+  }
+
+  /* ── Portrait page for receipts ── */
+  @page receipt {
+    size: A4 portrait;
+    margin: 16mm 20mm;
+  }
+
+  /* ── Brand header (reports) ── */
   .print-brand {
     text-align: center;
     margin-bottom: 18px;
@@ -1366,7 +1303,7 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
     letter-spacing: 1px;
   }
 
-  /* Meta row */
+  /* ── Meta row ── */
   .print-meta {
     display: flex;
     gap: 32px;
@@ -1375,13 +1312,13 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
     margin-bottom: 14px;
   }
 
-  /* Divider */
+  /* ── Divider ── */
   .print-divider {
     border-top: 1px solid #ccc;
     margin: 12px 0;
   }
 
-  /* Summary totals grid */
+  /* ── Summary totals grid ── */
   .print-totals-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
@@ -1413,7 +1350,7 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
     color: #4A3326;
   }
 
-  /* Report table */
+  /* ── Report table ── */
   .print-report-table {
     width: 100%;
     border-collapse: collapse;
@@ -1421,8 +1358,8 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
     margin-top: 8px;
   }
   .print-report-table th {
-    background: #2B1D16;
-    color: #F5F0E6;
+    background: #2B1D16 !important;
+    color: #F5F0E6 !important;
     padding: 7px 9px;
     text-align: left;
     font-weight: 600;
@@ -1436,12 +1373,176 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
     vertical-align: top;
   }
   .print-report-table tr:nth-child(even) td {
-    background: #faf7f3;
+    background: #faf7f3 !important;
   }
 
-  /* Page setup */
-  @page {
-    margin: 15mm 12mm;
-    size: A4 landscape;
+  /* ══════════════════════════════════════════════
+     CUSTOMER RECEIPT STYLES
+     ══════════════════════════════════════════════ */
+  .print-receipt {
+    page: receipt;
+    max-width: 480px;
+    margin: 0 auto;
+    font-family: 'Inter', Arial, sans-serif;
+    color: #111;
+  }
+
+  /* Receipt header */
+  .receipt-header {
+    text-align: center;
+    padding-bottom: 16px;
+    border-bottom: 2.5px solid #2B1D16;
+    margin-bottom: 20px;
+  }
+  .receipt-brand {
+    font-size: 32pt;
+    font-weight: 700;
+    letter-spacing: 6px;
+    color: #2B1D16;
+    line-height: 1;
+  }
+  .receipt-brand-sub {
+    font-size: 9pt;
+    color: #7a6050;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .receipt-order-num {
+    font-size: 10pt;
+    color: #555;
+    margin-top: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  /* Receipt customer info block */
+  .receipt-customer {
+    background: #f6f1eb;
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    border: 1px solid #e0d8ce;
+  }
+  .receipt-customer-name {
+    font-size: 14pt;
+    font-weight: 700;
+    color: #2B1D16;
+    margin-bottom: 4px;
+  }
+  .receipt-customer-detail {
+    font-size: 9pt;
+    color: #555;
+    line-height: 1.6;
+  }
+
+  /* Receipt items table */
+  .receipt-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0;
+    font-size: 10pt;
+  }
+  .receipt-items-table th {
+    background: #2B1D16 !important;
+    color: #F5F0E6 !important;
+    padding: 7px 10px;
+    text-align: left;
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .receipt-items-table th:last-child,
+  .receipt-items-table td:last-child {
+    text-align: right;
+  }
+  .receipt-items-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e8e0d6;
+    color: #222;
+    vertical-align: middle;
+  }
+  .receipt-items-table tr:last-child td {
+    border-bottom: none;
+  }
+  .receipt-items-table tr:nth-child(even) td {
+    background: #faf7f3 !important;
+  }
+
+  /* Receipt total section */
+  .receipt-total-section {
+    border-top: 2px solid #2B1D16;
+    margin-top: 0;
+    padding-top: 12px;
+  }
+  .receipt-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 10px;
+    font-size: 11pt;
+    color: #555;
+  }
+  .receipt-total-final {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 10px 6px;
+    border-top: 1.5px solid #ccc;
+    margin-top: 6px;
+    font-size: 15pt;
+    font-weight: 700;
+    color: #2B1D16;
+  }
+
+  /* Receipt status row */
+  .receipt-status {
+    display: flex;
+    gap: 16px;
+    margin-top: 18px;
+    padding: 10px 14px;
+    background: #f6f1eb;
+    border-radius: 6px;
+    border: 1px solid #e0d8ce;
+    font-size: 9pt;
+    color: #555;
+  }
+  .receipt-status-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .receipt-status-label {
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    font-weight: 700;
+  }
+  .receipt-status-value {
+    font-size: 10pt;
+    font-weight: 600;
+    color: #2B1D16;
+    text-transform: capitalize;
+  }
+
+  /* Receipt footer */
+  .receipt-footer {
+    text-align: center;
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px dashed #ccc;
+    font-size: 9pt;
+    color: #888;
+    line-height: 1.6;
+  }
+  .receipt-footer strong {
+    display: block;
+    font-size: 11pt;
+    color: #2B1D16;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
   }
 }
+
