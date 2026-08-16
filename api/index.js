@@ -16,6 +16,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "..", "public")));
 
 const CATEGORIES = ["Ads", "Printing", "Packaging", "Delivery"];
+const REVENUE_CATEGORIES = ["Stickers", "Posters", "Mail Subscription", "Other"];
 
 // ─── DB SEEDING ───────────────────────────────────────────────────────────────
 let seeded = false;
@@ -165,6 +166,35 @@ app.delete("/api/expenses/:id", requireLogin, requireFounder, withDB, async (req
   res.json({ ok: true });
 });
 
+// ─── REVENUE ──────────────────────────────────────────────────────────────────
+app.get("/api/revenue", requireLogin, withDB, async (req, res) => {
+  res.json(await db.getRevenue());
+});
+
+app.post("/api/revenue", requireLogin, withDB, async (req, res) => {
+  const { category, description, amount, note } = req.body;
+  if (!category || !REVENUE_CATEGORIES.includes(category))
+    return res.status(400).json({ error: "pick a valid revenue category" });
+  if (!description || !description.trim())
+    return res.status(400).json({ error: "description is required" });
+  if (!amount || isNaN(Number(amount)) || Number(amount) <= 0)
+    return res.status(400).json({ error: "enter a valid amount" });
+  const revenue = await db.insertRevenue({
+    id: "rev_" + Date.now(),
+    category,
+    description: description.trim(),
+    amount: Number(amount),
+    note: note?.trim() || null,
+    collectedBy: req.user.username,
+  });
+  res.json(revenue);
+});
+
+app.delete("/api/revenue/:id", requireLogin, requireFounder, withDB, async (req, res) => {
+  await db.deleteRevenue(req.params.id);
+  res.json({ ok: true });
+});
+
 // ─── STOCK ────────────────────────────────────────────────────────────────────
 app.get("/api/stock", requireLogin, withDB, async (req, res) => {
   res.json(await db.getStock());
@@ -203,8 +233,13 @@ app.get("/api/orders", requireLogin, withDB, async (req, res) => {
   res.json(await db.getOrders());
 });
 
+app.get("/api/orders/next-id", requireLogin, withDB, async (req, res) => {
+  const nextId = await db.getNextOrderId();
+  res.json({ nextId });
+});
+
 app.post("/api/orders", requireLogin, withDB, async (req, res) => {
-  const { customerName, phone, email, items, address, paymentStatus, deliveryStatus, shippingPrice } = req.body;
+  const { id, customerName, phone, email, items, address, paymentStatus, deliveryStatus, shippingPrice } = req.body;
   if (!customerName || !address)
     return res.status(400).json({ error: "name and address are required" });
   if (!phone)
@@ -212,11 +247,21 @@ app.post("/api/orders", requireLogin, withDB, async (req, res) => {
   if (!items || items.length === 0)
     return res.status(400).json({ error: "pick at least one item from stock" });
 
+  let orderId = id ? String(id).trim() : "";
+  if (orderId) {
+    const existing = await db.getOrderById(orderId);
+    if (existing) {
+      return res.status(400).json({ error: `Order ID "${orderId}" already exists. Pick another ID.` });
+    }
+  } else {
+    orderId = await db.getNextOrderId();
+  }
+
   // Deduct stock quantities
   await db.deductStockForOrder(items);
 
   const order = await db.insertOrder({
-    id: "ord_" + Date.now(),
+    id: orderId,
     customerName,
     phone,
     email: email || null,

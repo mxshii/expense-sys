@@ -699,9 +699,6 @@ select.delivery-select {
 
   /* Inline selects in order table */
   .inline-select { font-size: 12.5px; padding: 5px 8px; }
-}
-
-
 
   /* ── Login card ── */
   .login-card {
@@ -782,8 +779,8 @@ select.delivery-select {
   .summary-grid { gap: 10px; grid-template-columns: repeat(2, 1fr); }
 
   /* ── Filter row wraps ── */
-  .filter-row { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .panel-header:has(.filter-row) { flex-direction: column; align-items: flex-start; }
+  .filter-row { flex-direction: column; align-items: flex-start; gap: 10px; width: 100%; }
+  .cat-filters { width: 100%; overflow-x: auto; padding-bottom: 2px; }
 
   /* ── Modal actions stacked ── */
   .modal-actions { flex-direction: column-reverse; gap: 8px; }
@@ -855,11 +852,22 @@ body.dark .summary-card:hover {
 .summary-icon-print   { background: rgba(80,120,160,0.12);color: #5882A0; }
 .summary-icon-pkg     { background: rgba(80,160,100,0.12);color: #528265; }
 .summary-icon-del     { background: rgba(160,130,60,0.12);color: #A08240; }
-body.dark .summary-icon-all   { background: rgba(160,120,96,0.15); color: var(--accent); }
-body.dark .summary-icon-ads   { background: rgba(200,90,84,0.15);  color: #E07070; }
-body.dark .summary-icon-print { background: rgba(90,130,180,0.15); color: #7AAAD0; }
-body.dark .summary-icon-pkg   { background: rgba(70,160,100,0.15); color: #5AB880; }
-body.dark .summary-icon-del   { background: rgba(200,170,70,0.15); color: #C8B040; }
+.summary-icon-rev-all { background: rgba(82,130,101,0.14); color: #4A9968; }
+.summary-icon-stickers{ background: rgba(138,88,160,0.14); color: #8A58A0; }
+.summary-icon-posters { background: rgba(200,136,56,0.14); color: #C88838; }
+.summary-icon-mail    { background: rgba(74,158,110,0.14); color: #4A9E6E; }
+.summary-icon-other   { background: rgba(122,126,133,0.14);color: #7A7E85; }
+
+body.dark .summary-icon-all     { background: rgba(160,120,96,0.15); color: var(--accent); }
+body.dark .summary-icon-ads     { background: rgba(200,90,84,0.15);  color: #E07070; }
+body.dark .summary-icon-print   { background: rgba(90,130,180,0.15); color: #7AAAD0; }
+body.dark .summary-icon-pkg     { background: rgba(70,160,100,0.15); color: #5AB880; }
+body.dark .summary-icon-del     { background: rgba(200,170,70,0.15); color: #C8B040; }
+body.dark .summary-icon-rev-all { background: rgba(90,184,128,0.18); color: #5AB880; }
+body.dark .summary-icon-stickers{ background: rgba(180,120,210,0.18);color: #B478D2; }
+body.dark .summary-icon-posters { background: rgba(230,165,75,0.18); color: #E6A54B; }
+body.dark .summary-icon-mail    { background: rgba(90,195,135,0.18); color: #5AC387; }
+body.dark .summary-icon-other   { background: rgba(160,165,175,0.18);color: #A0A5AF; }
 
 .summary-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .summary-label { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
@@ -869,31 +877,40 @@ body.dark .summary-icon-del   { background: rgba(200,170,70,0.15); color: #C8B04
 .filter-row {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 .cat-filters {
   display: flex;
   gap: 6px;
+  align-items: center;
   flex-wrap: wrap;
 }
 .cat-filter-btn {
   background: var(--surface-raised);
   border: 1px solid var(--border);
   color: var(--text-muted);
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: all 0.15s ease;
   font-family: var(--font);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-.cat-filter-btn:hover { color: var(--text); border-color: var(--accent-warm); }
+.cat-filter-btn:hover {
+  color: var(--text);
+  border-color: var(--accent-warm);
+  background: var(--surface);
+}
 .cat-filter-btn.active {
   background: var(--accent);
   border-color: var(--accent);
   color: #F5F0E6;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
 }
 
 /* ─── CATEGORY BADGE CHIPS (in table) ────────── */
@@ -912,10 +929,19 @@ body.dark .summary-icon-del   { background: rgba(200,170,70,0.15); color: #C8B04
 .cat-chip-printing { background: rgba(80,120,160,0.12); color: #5882A0; }
 .cat-chip-packaging{ background: rgba(82,130,101,0.12); color: #528265; }
 .cat-chip-delivery { background: rgba(160,130,60,0.12); color: #A08240; }
+.cat-chip-stickers { background: rgba(138,88,160,0.12); color: #8A58A0; }
+.cat-chip-posters  { background: rgba(200,136,56,0.12); color: #C88838; }
+.cat-chip-mail     { background: rgba(74,158,110,0.12); color: #4A9E6E; }
+.cat-chip-other    { background: rgba(122,126,133,0.12);color: #7A7E85; }
+
 body.dark .cat-chip-ads      { background: rgba(200,90,84,0.18);  color: #E07070; }
 body.dark .cat-chip-printing { background: rgba(90,130,180,0.18); color: #7AAAD0; }
 body.dark .cat-chip-packaging{ background: rgba(70,160,100,0.18); color: #5AB880; }
 body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040; }
+body.dark .cat-chip-stickers { background: rgba(180,120,210,0.18);color: #B478D2; }
+body.dark .cat-chip-posters  { background: rgba(230,165,75,0.18); color: #E6A54B; }
+body.dark .cat-chip-mail     { background: rgba(90,195,135,0.18); color: #5AC387; }
+body.dark .cat-chip-other    { background: rgba(160,165,175,0.18);color: #A0A5AF; }
 
 /* ─── CATEGORY PILL PICKER (modal) ───────────── */
 .cat-pill-group {
@@ -1236,96 +1262,6 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
 }
 
 /* ════════════════════════════════════════════════════════════════
-   PRINT / PDF  —  single authoritative @media print block
-   ════════════════════════════════════════════════════════════════ */
-@media print {
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  /* Hide EVERYTHING except the print section */
-  body > *:not(#printSection) {
-    display: none !important;
-  }
-
-  body {
-    background: #fff !important;
-    color: #111 !important;
-    font-family: 'Inter', Arial, sans-serif !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  /* ── Print section container ── */
-  #printSection {
-    display: block !important;
-    visibility: visible !important;
-    position: static;
-    width: 100%;
-    padding: 0;
-    margin: 0;
-    background: #fff;
-    color: #111;
-    font-family: 'Inter', Arial, sans-serif;
-    font-size: 11pt;
-  }
-
-  /* ── Default page: landscape for reports ── */
-  @page {
-    size: A4 landscape;
-    margin: 15mm 12mm;
-  }
-
-  /* ── Portrait page for receipts ── */
-  @page receipt {
-    size: A4 portrait;
-    margin: 16mm 20mm;
-  }
-
-  /* ── Brand header (reports) ── */
-  .print-brand {
-    text-align: center;
-    margin-bottom: 18px;
-    padding-bottom: 12px;
-    border-bottom: 2px solid #2B1D16;
-  }
-  .print-brand-name {
-    font-size: 26pt;
-    font-weight: 700;
-    letter-spacing: 4px;
-    color: #2B1D16;
-  }
-  .print-brand-sub {
-    font-size: 11pt;
-    color: #5a4535;
-    margin-top: 2px;
-    letter-spacing: 1px;
-  }
-
-  /* ── Meta row ── */
-  .print-meta {
-    display: flex;
-    gap: 32px;
-    font-size: 9pt;
-    color: #555;
-    margin-bottom: 14px;
-  }
-
-  /* ── Divider ── */
-  .print-divider {
-    border-top: 1px solid #ccc;
-    margin: 12px 0;
-  }
-
-/* ─── PRINT SECTION (screen — hidden) ──────────── */
-@media screen {
-  #printSection {
-    display: none !important;
-  }
-}
-
-/* ════════════════════════════════════════════════════════════════
    PRINT / PDF  —  authoritative @media print block
    ════════════════════════════════════════════════════════════════ */
 @media print {
@@ -1592,11 +1528,22 @@ body.dark .cat-chip-delivery { background: rgba(200,170,70,0.18); color: #C8B040
 }
 
 .receipt-upc-barcode {
-  width: 200px;
+  width: 220px;
   max-width: 100%;
   height: auto;
   display: block;
   margin: 0 auto 5px;
+}
+
+.modal-barcode-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.modal-barcode-card:hover {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+.modal-barcode-card .receipt-upc-barcode {
+  width: 240px;
+  max-width: 100%;
 }
 
 .receipt-social-link {

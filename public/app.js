@@ -101,111 +101,88 @@ function formatDate12h(dateStr) {
 }
 
 function formatOrderId(id) {
-  if (!id) return "ORD-000000";
-  if (String(id).startsWith("ord_")) {
-    return "ORD-" + String(id).slice(4);
+  if (!id) return "1001";
+  const str = String(id).trim();
+  if (str.startsWith("ord_")) {
+    const suffix = str.slice(4);
+    // If it's a long timestamp, shorten it cleanly
+    if (suffix.length > 8 && /^\d+$/.test(suffix)) {
+      return "ORD-" + suffix.slice(-6);
+    }
+    return "ORD-" + suffix;
   }
-  return String(id).toUpperCase();
+  return str;
 }
 
-/* ─── REAL SCANNABLE UPC-A BARCODE SVG GENERATOR ─────────────── */
-function generateBarcodeSVG(orderId, barHeight = 44, guardHeight = 52) {
-  const digitsOnly = String(orderId || '').replace(/\D/g, '');
-  let padded = '0' + (digitsOnly.slice(-10).padStart(10, '0'));
-  if (padded.length < 11) padded = padded.padEnd(11, '0');
-  else if (padded.length > 11) padded = padded.slice(0, 11);
-  
-  let odd = 0, even = 0;
-  for (let i = 0; i < 11; i++) {
-    const d = parseInt(padded[i], 10) || 0;
-    if (i % 2 === 0) odd += d;
-    else even += d;
-  }
-  const check = ((10 - (((odd * 3) + even) % 10)) % 10).toString();
-  const upc = padded + check;
+/* ─── REAL SCANNABLE ISO/IEC 15417 CODE 128 BARCODE GENERATOR ──── */
+const CODE128_PATTERNS = [
+  "212222", "222122", "222221", "121223", "121322", "131222", "122213", "122312", "132212", "221213", // 0-9
+  "221312", "231212", "112232", "122132", "122231", "113222", "123122", "123221", "223211", "221132", // 10-19
+  "221231", "213212", "223112", "312131", "311222", "321122", "321221", "312212", "322112", "322211", // 20-29
+  "212123", "212321", "232121", "111323", "131123", "131321", "112313", "132113", "132311", "211313", // 30-39
+  "231113", "231311", "112133", "112331", "132131", "113123", "113321", "133121", "313121", "211331", // 40-49
+  "231131", "213113", "213311", "213131", "311123", "311321", "331121", "312113", "312311", "332111", // 50-59
+  "314111", "221411", "431111", "111224", "111422", "121124", "121421", "141122", "141221", "112214", // 60-69
+  "112412", "122114", "122411", "142112", "142211", "241211", "221114", "413111", "241112", "134111", // 70-79
+  "111242", "121142", "121241", "114212", "124112", "124211", "411212", "421112", "421211", "212141", // 80-89
+  "214121", "412121", "111143", "111341", "131141", "114113", "114311", "411113", "411311", "113141", // 90-99
+  "114131", "311141", "411131", "211412", "211214", "211232", "2331112"                                // 100-106 (104=StartB, 106=Stop)
+];
 
-  const L_CODES = [
-    '0001101', '0011001', '0010011', '0111101', '0100011',
-    '0110001', '0101111', '0111011', '0110111', '0001011'
-  ];
-  const R_CODES = [
-    '1110010', '1100110', '1101100', '1000010', '1011100',
-    '1001110', '1010000', '1000100', '1001000', '1110100'
-  ];
+function generateCode128BarcodeSVG(rawText, options = {}) {
+  const text = String(rawText || "").trim() || "1001";
+  const moduleWidth = options.moduleWidth || 2;
+  const barHeight   = options.barHeight || 46;
+  const showText    = options.showText !== false;
+  const displayText = options.displayText || text;
+  const quietModules = 12; // 12 modules quiet zone on each side
 
-  const d1 = upc[0];
-  const left5 = upc.slice(1, 6);
-  const right5 = upc.slice(6, 11);
-  const d12 = upc[11];
+  // Code 128 Character Set B encoding
+  const codes = [104]; // Start Code B
+  let checkSum = 104;
 
-  let rects = [];
-  const quietLeft = 11;
-  let currentX = quietLeft;
-
-  // Left Guard: 101
-  const startGuard = '101';
-  for (let i = 0; i < startGuard.length; i++) {
-    if (startGuard[i] === '1') {
-      rects.push(`<rect x="${currentX}" y="0" width="1" height="${guardHeight}" fill="#000"/>`);
-    }
-    currentX += 1;
+  for (let i = 0; i < text.length; i++) {
+    let charCode = text.charCodeAt(i);
+    let val = (charCode >= 32 && charCode <= 126) ? (charCode - 32) : 0;
+    codes.push(val);
+    checkSum += (i + 1) * val;
   }
 
-  // 6 Left digits (digit 1 to 6)
-  for (let d = 0; d < 6; d++) {
-    const digit = parseInt(upc[d], 10);
-    const pattern = L_CODES[digit];
-    for (let i = 0; i < 7; i++) {
-      if (pattern[i] === '1') {
-        rects.push(`<rect x="${currentX}" y="0" width="1" height="${barHeight}" fill="#000"/>`);
+  codes.push(checkSum % 103);
+  codes.push(106); // Stop pattern
+
+  // Build SVG rects
+  let currentX = quietModules * moduleWidth;
+  const topY = 4;
+  const rects = [];
+
+  for (let c = 0; c < codes.length; c++) {
+    const pattern = CODE128_PATTERNS[codes[c]];
+    if (!pattern) continue;
+    for (let p = 0; p < pattern.length; p++) {
+      const width = parseInt(pattern[p], 10) * moduleWidth;
+      // Even index in pattern is a black bar, odd is white space
+      if (p % 2 === 0) {
+        rects.push(`<rect x="${currentX}" y="${topY}" width="${width}" height="${barHeight}" fill="#000000" shape-rendering="crispEdges"/>`);
       }
-      currentX += 1;
+      currentX += width;
     }
   }
 
-  // Center Guard: 01010
-  const centerGuard = '01010';
-  for (let i = 0; i < centerGuard.length; i++) {
-    if (centerGuard[i] === '1') {
-      rects.push(`<rect x="${currentX}" y="0" width="1" height="${guardHeight}" fill="#000"/>`);
-    }
-    currentX += 1;
-  }
+  const totalWidth = currentX + (quietModules * moduleWidth);
+  const textY = topY + barHeight + 13;
+  const totalHeight = showText ? (textY + 4) : (topY + barHeight + 4);
 
-  // 6 Right digits (digit 7 to 12)
-  for (let d = 6; d < 12; d++) {
-    const digit = parseInt(upc[d], 10);
-    const pattern = R_CODES[digit];
-    for (let i = 0; i < 7; i++) {
-      if (pattern[i] === '1') {
-        rects.push(`<rect x="${currentX}" y="0" width="1" height="${barHeight}" fill="#000"/>`);
-      }
-      currentX += 1;
-    }
-  }
+  const textElement = showText
+    ? `<text x="${totalWidth / 2}" y="${textY}" font-family="'SF Mono', 'Courier New', Courier, monospace" font-size="11.5" font-weight="700" fill="#000000" text-anchor="middle" letter-spacing="1.2">${escapeHtml(displayText)}</text>`
+    : "";
 
-  // Right Guard: 101
-  const endGuard = '101';
-  for (let i = 0; i < endGuard.length; i++) {
-    if (endGuard[i] === '1') {
-      rects.push(`<rect x="${currentX}" y="0" width="1" height="${guardHeight}" fill="#000"/>`);
-    }
-    currentX += 1;
-  }
+  return `<svg viewBox="0 0 ${totalWidth} ${totalHeight}" class="receipt-upc-barcode" style="max-width:100%;height:auto;background:#ffffff;border-radius:4px;"><rect width="${totalWidth}" height="${totalHeight}" fill="#ffffff"/>${rects.join("")}${textElement}</svg>`;
+}
 
-  const quietRight = 11;
-  const totalSvgWidth = currentX + quietRight;
-  const totalSvgHeight = guardHeight + 11;
-  const textY = guardHeight + 6;
-
-  const textElements = `
-    <text x="5" y="${textY}" font-family="'Courier New', Courier, monospace" font-size="9" font-weight="bold" fill="#000" text-anchor="middle">${d1}</text>
-    <text x="35" y="${textY}" font-family="'Courier New', Courier, monospace" font-size="9" font-weight="bold" fill="#000" text-anchor="middle" letter-spacing="1.5">${left5}</text>
-    <text x="81" y="${textY}" font-family="'Courier New', Courier, monospace" font-size="9" font-weight="bold" fill="#000" text-anchor="middle" letter-spacing="1.5">${right5}</text>
-    <text x="111" y="${textY}" font-family="'Courier New', Courier, monospace" font-size="9" font-weight="bold" fill="#000" text-anchor="middle">${d12}</text>
-  `;
-
-  return `<svg viewBox="0 0 ${totalSvgWidth} ${totalSvgHeight}" class="receipt-upc-barcode">${rects.join('')}${textElements}</svg>`;
+// Backward compatibility alias
+function generateBarcodeSVG(orderId, barHeight = 46) {
+  return generateCode128BarcodeSVG(formatOrderId(orderId), { barHeight, showText: true });
 }
 
 /* ─── DARK MODE ────────────────────────────────────────────────── */
@@ -303,11 +280,12 @@ function enterApp() {
   loadOrders();
   loadStock();
   loadExpenses();
+  loadRevenue();
   if (me.role === "founder") loadUsers();
 }
 
 /* ─── NAV TABS ─────────────────────────────────────────────────── */
-const pageTitles = { orders: "Orders", stock: "Stock", expenses: "Expenses", team: "Team Access" };
+const pageTitles = { orders: "Orders", stock: "Stock", expenses: "Expenses", revenue: "Revenue", team: "Team Access" };
 
 function switchTab(tab) {
   document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
@@ -334,7 +312,7 @@ document.querySelectorAll(".mobile-nav-btn").forEach((btn) => {
 async function syncAll() {
   if (!me) return;
   if (document.visibilityState === "hidden") return;
-  await Promise.all([loadOrders(), loadStock(), loadExpenses()]);
+  await Promise.all([loadOrders(), loadStock(), loadExpenses(), loadRevenue()]);
   if (me.role === "founder") await loadUsers();
   $("#syncTime").textContent = new Date().toLocaleTimeString();
 }
@@ -352,11 +330,23 @@ function openOrderDetail(orderId) {
 
   const total = (o.items || []).reduce((sum, it) => sum + it.qty * it.price, 0) + Number(o.shippingPrice || 0);
 
+  const orderCode = formatOrderId(o.id);
   const idEl = $("#orderDetailId");
-  if (idEl) idEl.textContent = "#" + formatOrderId(o.id);
+  if (idEl) idEl.textContent = "#" + orderCode;
   $("#orderDetailCustomer").textContent = o.customerName;
   $("#orderDetailContact").textContent = [o.phone, o.email].filter(Boolean).join(" • ");
   $("#orderDetailTotal").textContent = money(total) + " EGP";
+
+  // Render on-screen scannable Code 128 barcode
+  const barcodeSvgEl = $("#orderDetailBarcodeSvg");
+  if (barcodeSvgEl) {
+    barcodeSvgEl.innerHTML = generateCode128BarcodeSVG(orderCode, {
+      moduleWidth: 2,
+      barHeight: 44,
+      showText: true,
+      displayText: "#" + orderCode,
+    });
+  }
 
   const itemsHTML = (o.items || []).map((it) => `
     <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13.5px;">
@@ -506,6 +496,15 @@ $("#openAddOrder").addEventListener("click", async () => {
   $("#orderItemsList").innerHTML = "";
   addItemRow();
   updateOrderTotalPreview();
+
+  // Pre-fill next sequential Order ID
+  try {
+    const { nextId } = await api("/api/orders/next-id");
+    $("#ordId").value = nextId || "1001";
+  } catch {
+    $("#ordId").value = "";
+  }
+
   $("#ordCustomer").value = "";
   $("#ordPhone").value = "";
   $("#ordEmail").value = "";
@@ -577,6 +576,7 @@ $("#orderForm").addEventListener("submit", async (e) => {
   if (items.length === 0) { alert("Pick at least one item from stock."); return; }
   try {
     await api("/api/orders", "POST", {
+      id: $("#ordId").value.trim() || undefined,
       customerName: $("#ordCustomer").value.trim(),
       phone: $("#ordPhone").value.trim(),
       email: $("#ordEmail").value.trim() || null,
@@ -854,6 +854,118 @@ function renderExpenses() {
   });
 }
 
+/* ─── REVENUE ─────────────────────────────────────────────────── */
+let allRevenue = [];
+let activeRevFilter = "all";
+
+const REV_CAT_ICON = {
+  Stickers:            '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>',
+  Posters:             '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/></svg>',
+  "Mail Subscription": '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>',
+  Other:               '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>',
+};
+
+const REV_CAT_CHIPS = {
+  Stickers:            `<span class="cat-chip cat-chip-stickers">${REV_CAT_ICON.Stickers} Stickers</span>`,
+  Posters:             `<span class="cat-chip cat-chip-posters">${REV_CAT_ICON.Posters} Posters</span>`,
+  "Mail Subscription": `<span class="cat-chip cat-chip-mail">${REV_CAT_ICON["Mail Subscription"]} Mail Sub</span>`,
+  Other:               `<span class="cat-chip cat-chip-other">${REV_CAT_ICON.Other} Other</span>`,
+};
+
+async function loadRevenue() {
+  allRevenue = await api("/api/revenue");
+  renderRevenue();
+  renderRevenueSummary();
+}
+
+function renderRevenueSummary() {
+  const totals = { all: 0, Stickers: 0, Posters: 0, "Mail Subscription": 0, Other: 0 };
+  allRevenue.forEach((r) => {
+    totals.all += r.amount;
+    if (totals[r.category] !== undefined) totals[r.category] += r.amount;
+  });
+  $("#totalRevAll").textContent   = egp(totals.all);
+  $("#totalStickers").textContent = egp(totals.Stickers);
+  $("#totalPosters").textContent  = egp(totals.Posters);
+  $("#totalMail").textContent     = egp(totals["Mail Subscription"]);
+  $("#totalOther").textContent    = egp(totals.Other);
+}
+
+function openRevenueDetail(revId) {
+  const rev = allRevenue.find((item) => String(item.id) === String(revId));
+  if (!rev) return;
+
+  $("#revDetailCatChip").innerHTML = REV_CAT_CHIPS[rev.category] || escapeHtml(rev.category);
+  $("#revDetailAmount").textContent = egp(rev.amount);
+  $("#revDetailDesc").textContent = rev.description || "—";
+  $("#revDetailCollectedBy").textContent = rev.collectedBy || "—";
+  $("#revDetailDate").textContent = formatDate12h(rev.createdAt);
+  $("#revDetailNote").textContent = rev.note || "No note added";
+
+  const delWrap = $("#modalRevenueDeleteWrap");
+  if (me.role === "founder") {
+    delWrap.style.display = "block";
+    $("#modalRevenueDeleteBtn").onclick = async () => {
+      if (confirm("Delete this revenue entry permanently?")) {
+        await api(`/api/revenue/${rev.id}`, "DELETE");
+        $("#revenueDetailModal").classList.add("hidden");
+        loadRevenue();
+      }
+    };
+  } else {
+    delWrap.style.display = "none";
+  }
+
+  $("#revenueDetailModal").classList.remove("hidden");
+}
+
+function renderRevenue() {
+  const filtered = activeRevFilter === "all"
+    ? allRevenue
+    : allRevenue.filter((r) => r.category === activeRevFilter);
+
+  const body = $("#revenueBody");
+  body.innerHTML = "";
+  $("#revenueEmpty").classList.toggle("hidden", filtered.length > 0);
+
+  filtered.slice().reverse().forEach((r) => {
+    const tr = document.createElement("tr");
+    tr.className = "clickable-row";
+    const initial = (r.collectedBy || "?").charAt(0).toUpperCase();
+    tr.innerHTML = `
+      <td data-label="Category">${REV_CAT_CHIPS[r.category] || escapeHtml(r.category)}</td>
+      <td data-label="Description" style="font-family:var(--font);font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(r.description)}">${escapeHtml(r.description)}</td>
+      <td data-label="Amount" class="amount-cell" style="color:var(--success, #528265);font-weight:700">${egp(r.amount)}</td>
+      <td data-label="Collected by">
+        <div class="logged-by-cell">
+          <div class="mini-avatar">${escapeHtml(initial)}</div>
+          <span style="font-family:var(--font);font-size:12.5px">${escapeHtml(r.collectedBy || "—")}</span>
+        </div>
+      </td>
+      <td data-label="Note" class="note-cell" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(r.note || "")}">${r.note ? escapeHtml(r.note) : '<span style="opacity:0.35">—</span>'}</td>
+      <td data-label="Date" style="white-space:nowrap">${formatDate12h(r.createdAt)}</td>
+      <td>${me.role === "founder" ? `<button class="icon-btn" data-del-revenue="${r.id}" title="Delete">✕</button>` : ""}</td>
+    `;
+
+    tr.addEventListener("click", (evt) => {
+      if (evt.target.closest("[data-del-revenue]")) return;
+      openRevenueDetail(r.id);
+    });
+
+    body.appendChild(tr);
+  });
+
+  body.querySelectorAll("[data-del-revenue]").forEach((btn) => {
+    btn.addEventListener("click", async (evt) => {
+      evt.stopPropagation();
+      if (confirm("Delete this revenue entry?")) {
+        await api(`/api/revenue/${btn.dataset.delRevenue}`, "DELETE");
+        loadRevenue();
+      }
+    });
+  });
+}
+
 /* ─── PRINT SYSTEM ─────────────────────────────────────────────── */
 
 /** Filter an array to the selected period. dateField defaults to 'createdAt'. */
@@ -967,6 +1079,47 @@ function printReport(type, period) {
       </table>
       ${data.length === 0 ? '<p style="text-align:center;color:#888;padding:24px">No expenses found for this period.</p>' : ""}
     `;
+  } else if (type === "revenue") {
+    const data = filterByPeriod(allRevenue, period);
+    const totals = { all: 0, Stickers: 0, Posters: 0, "Mail Subscription": 0, Other: 0 };
+    data.forEach((r) => {
+      totals.all += r.amount;
+      if (totals[r.category] !== undefined) totals[r.category] += r.amount;
+    });
+
+    section.innerHTML = `
+      <div class="print-brand">
+        <div class="print-brand-name">STATIC</div>
+        <div class="print-brand-sub">Revenue Report &mdash; ${label}</div>
+      </div>
+      <div class="print-meta">
+        <div>Generated: ${dateStr}</div>
+        <div>By: ${escapeHtml(byStr)}</div>
+        <div>Period: ${label}</div>
+      </div>
+      <div class="print-totals-grid">
+        <div class="print-total-item"><span class="print-total-label">Total Revenue</span><span class="print-total-amount print-total-main">${egp(totals.all)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Stickers</span><span class="print-total-amount">${egp(totals.Stickers)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Posters</span><span class="print-total-amount">${egp(totals.Posters)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Mail Sub</span><span class="print-total-amount">${egp(totals["Mail Subscription"])}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Other</span><span class="print-total-amount">${egp(totals.Other)}</span></div>
+      </div>
+      <div class="print-divider"></div>
+      <table class="print-report-table">
+        <thead>
+          <tr><th>#</th><th>Category</th><th>Description</th><th>Amount</th><th>Collected by</th><th>Note</th><th>Date</th></tr>
+        </thead>
+        <tbody>
+          ${data.slice().reverse().map((r, i) => `<tr>
+            <td>${i+1}</td><td>${escapeHtml(r.category)}</td><td>${escapeHtml(r.description)}</td>
+            <td><strong>${egp(r.amount)}</strong></td><td>${escapeHtml(r.collectedBy||"—")}</td>
+            <td>${escapeHtml(r.note||"—")}</td>
+            <td>${formatDate12h(r.createdAt)}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+      ${data.length === 0 ? '<p style="text-align:center;color:#888;padding:24px">No revenue found for this period.</p>' : ""}
+    `;
   }
 
   setTimeout(() => {
@@ -1065,7 +1218,7 @@ function printOrderReceipt(orderId) {
         <div class="receipt-thankyou">********** THANK YOU! **********</div>
 
         <div class="receipt-barcode-wrap">
-          ${generateBarcodeSVG(o.id || orderCode)}
+          ${generateCode128BarcodeSVG(orderCode, { moduleWidth: 2, barHeight: 48, showText: true, displayText: "ORDER #" + orderCode })}
           <div class="receipt-social-link">
             <div class="receipt-ig-handle">@static._.eg</div>
             <div class="receipt-ig-url">instagram.com/static._.eg</div>
@@ -1135,18 +1288,22 @@ $("#openAddExpense").addEventListener("click", () => {
   $("#expAmount").value = "";
   $("#expNote").value = "";
   $("#expError").textContent = "";
-  document.querySelectorAll(".cat-pill").forEach((p) => p.classList.remove("selected"));
+  const group = $("#catPillGroup");
+  if (group) group.querySelectorAll(".cat-pill").forEach((p) => p.classList.remove("selected"));
   $("#expenseModal").classList.remove("hidden");
 });
 
-document.querySelectorAll(".cat-pill").forEach((pill) => {
-  pill.addEventListener("click", () => {
-    document.querySelectorAll(".cat-pill").forEach((p) => p.classList.remove("selected"));
-    pill.classList.add("selected");
-    selectedCategory = pill.dataset.val;
-    $("#expCategory").value = selectedCategory;
+const expPillGroup = $("#catPillGroup");
+if (expPillGroup) {
+  expPillGroup.querySelectorAll(".cat-pill").forEach((pill) => {
+    pill.addEventListener("click", () => {
+      expPillGroup.querySelectorAll(".cat-pill").forEach((p) => p.classList.remove("selected"));
+      pill.classList.add("selected");
+      selectedCategory = pill.dataset.val;
+      $("#expCategory").value = selectedCategory;
+    });
   });
-});
+}
 
 $("#expenseForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -1161,12 +1318,87 @@ $("#expenseForm").addEventListener("submit", async (e) => {
     });
     e.target.reset();
     selectedCategory = "";
-    document.querySelectorAll(".cat-pill").forEach((p) => p.classList.remove("selected"));
+    if (expPillGroup) expPillGroup.querySelectorAll(".cat-pill").forEach((p) => p.classList.remove("selected"));
     $("#expenseModal").classList.add("hidden");
     loadExpenses();
   } catch (err) {
     $("#expError").textContent = err.message;
   }
+});
+
+/* ─── ADD REVENUE MODAL ────────────────────────────────────────── */
+let selectedRevCategory = "";
+
+$("#openAddRevenue").addEventListener("click", () => {
+  selectedRevCategory = "";
+  $("#revCategory").value = "";
+  $("#revDescription").value = "";
+  $("#revAmount").value = "";
+  $("#revNote").value = "";
+  $("#revError").textContent = "";
+  const group = $("#revCatPillGroup");
+  if (group) group.querySelectorAll(".cat-pill").forEach((p) => p.classList.remove("selected"));
+  $("#revenueModal").classList.remove("hidden");
+});
+
+const revPillGroup = $("#revCatPillGroup");
+if (revPillGroup) {
+  revPillGroup.querySelectorAll(".cat-pill").forEach((pill) => {
+    pill.addEventListener("click", () => {
+      revPillGroup.querySelectorAll(".cat-pill").forEach((p) => p.classList.remove("selected"));
+      pill.classList.add("selected");
+      selectedRevCategory = pill.dataset.val;
+      $("#revCategory").value = selectedRevCategory;
+    });
+  });
+}
+
+$("#revenueForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("#revError").textContent = "";
+  if (!selectedRevCategory) { $("#revError").textContent = "Pick a category first."; return; }
+  try {
+    await api("/api/revenue", "POST", {
+      category: selectedRevCategory,
+      description: $("#revDescription").value.trim(),
+      amount: $("#revAmount").value,
+      note: $("#revNote").value.trim() || null,
+    });
+    e.target.reset();
+    selectedRevCategory = "";
+    if (revPillGroup) revPillGroup.querySelectorAll(".cat-pill").forEach((p) => p.classList.remove("selected"));
+    $("#revenueModal").classList.add("hidden");
+    loadRevenue();
+  } catch (err) {
+    $("#revError").textContent = err.message;
+  }
+});
+
+/* ─── REVENUE FILTER BUTTONS ───────────────────────────────────── */
+document.querySelectorAll("[data-rev-filter]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("[data-rev-filter]").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeRevFilter = btn.dataset.revFilter;
+    renderRevenue();
+  });
+});
+
+/* ─── SUMMARY CARDS QUICK-FILTER ──────────────────────────────── */
+document.querySelectorAll("[data-cat]").forEach((card) => {
+  card.addEventListener("click", () => {
+    const cat = card.dataset.cat;
+    const targetBtn = document.querySelector(`[data-filter="${cat}"]`);
+    if (targetBtn) targetBtn.click();
+  });
+});
+
+document.querySelectorAll("[data-rev-cat]").forEach((card) => {
+  card.addEventListener("click", () => {
+    const cat = card.dataset.revCat;
+    const targetBtn = document.querySelector(`[data-rev-filter="${cat}"]`);
+    if (targetBtn) targetBtn.click();
+  });
 });
 
 /* ─── TEAM ─────────────────────────────────────────────────────── */
