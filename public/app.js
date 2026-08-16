@@ -100,6 +100,114 @@ function formatDate12h(dateStr) {
   });
 }
 
+function formatOrderId(id) {
+  if (!id) return "ORD-000000";
+  if (String(id).startsWith("ord_")) {
+    return "ORD-" + String(id).slice(4);
+  }
+  return String(id).toUpperCase();
+}
+
+/* ─── REAL SCANNABLE UPC-A BARCODE SVG GENERATOR ─────────────── */
+function generateBarcodeSVG(orderId, barHeight = 44, guardHeight = 52) {
+  const digitsOnly = String(orderId || '').replace(/\D/g, '');
+  let padded = '0' + (digitsOnly.slice(-10).padStart(10, '0'));
+  if (padded.length < 11) padded = padded.padEnd(11, '0');
+  else if (padded.length > 11) padded = padded.slice(0, 11);
+  
+  let odd = 0, even = 0;
+  for (let i = 0; i < 11; i++) {
+    const d = parseInt(padded[i], 10) || 0;
+    if (i % 2 === 0) odd += d;
+    else even += d;
+  }
+  const check = ((10 - (((odd * 3) + even) % 10)) % 10).toString();
+  const upc = padded + check;
+
+  const L_CODES = [
+    '0001101', '0011001', '0010011', '0111101', '0100011',
+    '0110001', '0101111', '0111011', '0110111', '0001011'
+  ];
+  const R_CODES = [
+    '1110010', '1100110', '1101100', '1000010', '1011100',
+    '1001110', '1010000', '1000100', '1001000', '1110100'
+  ];
+
+  const d1 = upc[0];
+  const left5 = upc.slice(1, 6);
+  const right5 = upc.slice(6, 11);
+  const d12 = upc[11];
+
+  let rects = [];
+  const quietLeft = 11;
+  let currentX = quietLeft;
+
+  // Left Guard: 101
+  const startGuard = '101';
+  for (let i = 0; i < startGuard.length; i++) {
+    if (startGuard[i] === '1') {
+      rects.push(`<rect x="${currentX}" y="0" width="1" height="${guardHeight}" fill="#000"/>`);
+    }
+    currentX += 1;
+  }
+
+  // 6 Left digits (digit 1 to 6)
+  for (let d = 0; d < 6; d++) {
+    const digit = parseInt(upc[d], 10);
+    const pattern = L_CODES[digit];
+    for (let i = 0; i < 7; i++) {
+      if (pattern[i] === '1') {
+        rects.push(`<rect x="${currentX}" y="0" width="1" height="${barHeight}" fill="#000"/>`);
+      }
+      currentX += 1;
+    }
+  }
+
+  // Center Guard: 01010
+  const centerGuard = '01010';
+  for (let i = 0; i < centerGuard.length; i++) {
+    if (centerGuard[i] === '1') {
+      rects.push(`<rect x="${currentX}" y="0" width="1" height="${guardHeight}" fill="#000"/>`);
+    }
+    currentX += 1;
+  }
+
+  // 6 Right digits (digit 7 to 12)
+  for (let d = 6; d < 12; d++) {
+    const digit = parseInt(upc[d], 10);
+    const pattern = R_CODES[digit];
+    for (let i = 0; i < 7; i++) {
+      if (pattern[i] === '1') {
+        rects.push(`<rect x="${currentX}" y="0" width="1" height="${barHeight}" fill="#000"/>`);
+      }
+      currentX += 1;
+    }
+  }
+
+  // Right Guard: 101
+  const endGuard = '101';
+  for (let i = 0; i < endGuard.length; i++) {
+    if (endGuard[i] === '1') {
+      rects.push(`<rect x="${currentX}" y="0" width="1" height="${guardHeight}" fill="#000"/>`);
+    }
+    currentX += 1;
+  }
+
+  const quietRight = 11;
+  const totalSvgWidth = currentX + quietRight;
+  const totalSvgHeight = guardHeight + 11;
+  const textY = guardHeight + 6;
+
+  const textElements = `
+    <text x="5" y="${textY}" font-family="'Courier New', Courier, monospace" font-size="9" font-weight="bold" fill="#000" text-anchor="middle">${d1}</text>
+    <text x="35" y="${textY}" font-family="'Courier New', Courier, monospace" font-size="9" font-weight="bold" fill="#000" text-anchor="middle" letter-spacing="1.5">${left5}</text>
+    <text x="81" y="${textY}" font-family="'Courier New', Courier, monospace" font-size="9" font-weight="bold" fill="#000" text-anchor="middle" letter-spacing="1.5">${right5}</text>
+    <text x="111" y="${textY}" font-family="'Courier New', Courier, monospace" font-size="9" font-weight="bold" fill="#000" text-anchor="middle">${d12}</text>
+  `;
+
+  return `<svg viewBox="0 0 ${totalSvgWidth} ${totalSvgHeight}" class="receipt-upc-barcode">${rects.join('')}${textElements}</svg>`;
+}
+
 /* ─── DARK MODE ────────────────────────────────────────────────── */
 function applyDarkMode(dark) {
   document.body.classList.toggle("dark", dark);
@@ -244,6 +352,8 @@ function openOrderDetail(orderId) {
 
   const total = (o.items || []).reduce((sum, it) => sum + it.qty * it.price, 0) + Number(o.shippingPrice || 0);
 
+  const idEl = $("#orderDetailId");
+  if (idEl) idEl.textContent = "#" + formatOrderId(o.id);
   $("#orderDetailCustomer").textContent = o.customerName;
   $("#orderDetailContact").textContent = [o.phone, o.email].filter(Boolean).join(" • ");
   $("#orderDetailTotal").textContent = money(total) + " EGP";
@@ -314,6 +424,7 @@ async function loadOrders() {
     tr.className = "clickable-row";
     tr.innerHTML = `
       <td data-label="Customer">
+        <div style="font-size:10.5px;font-family:var(--font-mono);color:var(--accent);font-weight:700;letter-spacing:0.5px;margin-bottom:2px">#${escapeHtml(formatOrderId(o.id))}</div>
         <div style="font-weight:600;font-family:var(--font)">${escapeHtml(o.customerName)}</div>
         ${o.email ? `<div style="font-size:11px;color:var(--text-muted)">${escapeHtml(o.email)}</div>` : ""}
       </td>
@@ -872,93 +983,108 @@ function printOrderReceipt(orderId) {
   const o = allOrders.find((item) => String(item.id) === String(orderId));
   if (!o) return;
 
+  // Clear any potential scroll lock from open modals/sidebars
+  document.body.style.overflow = "";
+  document.documentElement.style.overflow = "";
+
   const itemsSubtotal = (o.items || []).reduce((sum, it) => sum + it.qty * it.price, 0);
   const shipping      = Number(o.shippingPrice || 0);
   const grandTotal    = itemsSubtotal + shipping;
 
-  const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
-  const orderDate = formatDate12h(o.createdAt);
+  const orderDate = new Date(o.createdAt || Date.now());
+  const dateFormatted = !isNaN(orderDate.getTime())
+    ? orderDate.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : new Date().toLocaleDateString("en-GB");
+  const timeFormatted = !isNaN(orderDate.getTime())
+    ? orderDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })
+    : "";
 
-  const itemsRows = (o.items || []).map((it, idx) => `
-    <tr>
-      <td>${idx + 1}</td>
-      <td>${escapeHtml(it.name)}</td>
-      <td style="text-align:center">${it.qty}</td>
-      <td style="text-align:right">${money(it.price)} EGP</td>
-      <td style="text-align:right;font-weight:600">${money(it.qty * it.price)} EGP</td>
-    </tr>
-  `).join("");
+  const orderCode = formatOrderId(o.id);
+
+  const itemsRows = (o.items && o.items.length > 0)
+    ? o.items.map((it) => `
+        <div class="receipt-item-line">
+          <span class="receipt-item-name">${it.qty} x ${escapeHtml(it.name)}</span>
+          <span class="receipt-item-price">${money(it.qty * it.price)} EGP</span>
+        </div>
+      `).join("")
+    : `<div class="receipt-item-line"><span>1 x Custom Order</span><span>${money(grandTotal)} EGP</span></div>`;
 
   const section = $("#printSection");
   section.innerHTML = `
     <div class="print-receipt">
-      <div class="receipt-header">
-        <div class="receipt-brand">STATIC</div>
-        <div class="receipt-brand-sub">Order Receipt</div>
-        <div class="receipt-order-num">Date: ${orderDate}</div>
-      </div>
+      <div class="receipt-paper">
+        <div class="receipt-stars">****************************************</div>
+        <div class="receipt-title">RECEIPT</div>
+        <div class="receipt-subtitle">STATIC</div>
+        <div class="receipt-stars">****************************************</div>
 
-      <div class="receipt-customer">
-        <div class="receipt-customer-name">${escapeHtml(o.customerName)}</div>
-        <div class="receipt-customer-detail">
-          ${o.phone ? `<div>${escapeHtml(o.phone)}</div>` : ""}
-          ${o.email ? `<div>${escapeHtml(o.email)}</div>` : ""}
-          ${o.address ? `<div>${escapeHtml(o.address)}</div>` : ""}
+        <div class="receipt-meta-row">
+          <span>Order #${escapeHtml(orderCode)}</span>
+          <span>${dateFormatted}  ${timeFormatted}</span>
         </div>
-      </div>
+        <div class="receipt-meta-row">
+          <span>Customer:</span>
+          <span style="font-weight:700;">${escapeHtml(o.customerName || "Customer")}</span>
+        </div>
+        ${o.phone ? `
+        <div class="receipt-meta-row">
+          <span>Phone:</span>
+          <span>${escapeHtml(o.phone)}</span>
+        </div>` : ""}
+        ${o.address ? `
+        <div class="receipt-meta-row" style="align-items:flex-start;">
+          <span>Address:</span>
+          <span style="text-align:right;max-width:65%;word-break:break-word;">${escapeHtml(o.address)}</span>
+        </div>` : ""}
 
-      <table class="receipt-items-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Item</th>
-            <th style="text-align:center">Qty</th>
-            <th style="text-align:right">Price</th>
-            <th style="text-align:right">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itemsRows || `<tr><td colspan="5" style="text-align:center;color:#888">No items</td></tr>`}
-        </tbody>
-      </table>
+        <div class="receipt-divider-dash">----------------------------------------</div>
 
-      <div class="receipt-total-section">
-        <div class="receipt-total-final">
-          <span>Total</span>
+        <div class="receipt-items-list">
+          ${itemsRows}
+        </div>
+
+        <div class="receipt-divider-dash">----------------------------------------</div>
+
+        <div class="receipt-total-row">
+          <span>TOTAL AMOUNT</span>
           <span>${money(grandTotal)} EGP</span>
         </div>
-      </div>
 
-      <div class="receipt-status">
-        <div class="receipt-status-item">
-          <span class="receipt-status-label">Payment</span>
-          <span class="receipt-status-value">${o.paymentStatus || '—'}</span>
+        <div class="receipt-meta-row" style="margin-top:8px;">
+          <span>PAYMENT</span>
+          <span style="text-transform:uppercase;font-weight:700;">${escapeHtml(o.paymentStatus || "UNPAID")}</span>
         </div>
-        <div class="receipt-status-item">
-          <span class="receipt-status-label">Delivery</span>
-          <span class="receipt-status-value">${o.deliveryStatus || '—'}</span>
+        <div class="receipt-meta-row">
+          <span>DELIVERY</span>
+          <span style="text-transform:uppercase;font-weight:700;">${escapeHtml(o.deliveryStatus || "PROCESSING")}</span>
         </div>
-        <div class="receipt-status-item">
-          <span class="receipt-status-label">Printed</span>
-          <span class="receipt-status-value">${dateStr}</span>
-        </div>
-      </div>
 
-      <div class="receipt-footer">
-        <strong>STATIC</strong>
-        Thank you for your order!<br/>
-        For enquiries contact us at your purchase channel.
+        <div class="receipt-divider-dash">----------------------------------------</div>
+
+        <div class="receipt-thankyou">********** THANK YOU! **********</div>
+
+        <div class="receipt-barcode-wrap">
+          ${generateBarcodeSVG(o.id || orderCode)}
+          <div class="receipt-social-link">
+            <div class="receipt-ig-handle">@static._.eg</div>
+            <div class="receipt-ig-url">instagram.com/static._.eg</div>
+          </div>
+        </div>
       </div>
     </div>
   `;
 
   setTimeout(() => {
     window.print();
-  }, 50);
+  }, 120);
 
-  window.addEventListener("afterprint", () => {
+  const cleanup = () => {
     section.innerHTML = "";
-  }, { once: true });
+    window.removeEventListener("afterprint", cleanup);
+  };
+  window.addEventListener("afterprint", cleanup, { once: true });
+  setTimeout(cleanup, 4000);
 }
 
 /* ─── PRINT DROPDOWN TOGGLES ──────────────────────────────────── */
