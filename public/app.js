@@ -1836,6 +1836,8 @@ function saveScanHistory() {
 let isCameraScanning = false;
 let html5QrCodeInstance = null;
 let currentCameraFacing = "environment"; // Rear camera default on phones
+let selectedCameraDeviceId = localStorage.getItem("static_selected_camera_id") || null;
+let activeZoomLevel = 1.0;
 let scannerCurrentMode = "decrement";   // "decrement" | "custom_decrement" | "increment" | "lookup"
 let scannerSoundEnabled = true;
 let lastScannedCode = null;
@@ -1880,11 +1882,105 @@ function playScanAudioBeep(success = true) {
   }
 }
 
+async function populateCameraDevices() {
+  const cameraSelect = $("#scannerCameraSelect");
+  if (!cameraSelect) return;
+
+  if (!window.Html5Qrcode) return;
+
+  try {
+    const devices = await Html5Qrcode.getCameras();
+    cameraSelect.innerHTML = "";
+
+    if (!devices || devices.length === 0) {
+      cameraSelect.innerHTML = '<option value="">No cameras detected</option>';
+      return;
+    }
+
+    // Populate camera options
+    let matchedSaved = false;
+    devices.forEach((dev, idx) => {
+      const opt = document.createElement("option");
+      opt.value = dev.id;
+      // Clean up descriptive labels (e.g. USB Camera, Back Camera, FaceTime HD)
+      const label = dev.label || `Camera ${idx + 1} (${dev.id.slice(0, 8)}...)`;
+      opt.textContent = label;
+
+      if (selectedCameraDeviceId && dev.id === selectedCameraDeviceId) {
+        opt.selected = true;
+        matchedSaved = true;
+      }
+      cameraSelect.appendChild(opt);
+    });
+
+    // If no saved selection matched, prefer back/external/USB camera
+    if (!matchedSaved && devices.length > 0) {
+      let defaultIdx = 0;
+      const lowerLabels = devices.map((d) => (d.label || "").toLowerCase());
+      const externalOrBackIdx = lowerLabels.findIndex(
+        (l) => l.includes("usb") || l.includes("external") || l.includes("back") || l.includes("rear") || l.includes("environment")
+      );
+      if (externalOrBackIdx !== -1) defaultIdx = externalOrBackIdx;
+
+      cameraSelect.selectedIndex = defaultIdx;
+      selectedCameraDeviceId = devices[defaultIdx].id;
+      localStorage.setItem("static_selected_camera_id", selectedCameraDeviceId);
+    }
+  } catch (err) {
+    console.warn("Could not enumerate camera devices:", err);
+    cameraSelect.innerHTML = '<option value="">Camera access needed (click Start)</option>';
+  }
+}
+
 function initBarcodeScanner() {
   // Shortcut from Stock Tab
   const stockScanShortcut = $("#openStockScannerBtn");
   if (stockScanShortcut) {
     stockScanShortcut.addEventListener("click", () => switchTab("scanner"));
+  }
+
+  // Populate available camera devices list
+  populateCameraDevices();
+
+  // Camera device selector dropdown change
+  const cameraSelect = $("#scannerCameraSelect");
+  if (cameraSelect) {
+    cameraSelect.addEventListener("change", async () => {
+      selectedCameraDeviceId = cameraSelect.value;
+      if (selectedCameraDeviceId) {
+        localStorage.setItem("static_selected_camera_id", selectedCameraDeviceId);
+      }
+      if (isCameraScanning) {
+        await stopCameraScanner();
+        await startCameraScanner();
+      }
+    });
+  }
+
+  // Refresh cameras list button
+  const refreshCamBtn = $("#refreshCamerasBtn");
+  if (refreshCamBtn) {
+    refreshCamBtn.addEventListener("click", async () => {
+      await populateCameraDevices();
+    });
+  }
+
+  // Zoom preset buttons (Helps fixed-focus USB webcams scan clearly from a distance)
+  document.querySelectorAll(".zoom-preset-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".zoom-preset-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const zoomVal = parseFloat(btn.dataset.zoom) || 1.0;
+      setScannerZoom(zoomVal);
+    });
+  });
+
+  // Tap on viewfinder to trigger autofocus pulse
+  const viewportWrap = document.querySelector(".scanner-viewport-wrapper");
+  if (viewportWrap) {
+    viewportWrap.addEventListener("click", () => {
+      triggerCameraAutofocus();
+    });
   }
 
   // Mode Selector Pills
@@ -2034,6 +2130,7 @@ async function startCameraScanner() {
   const startBtn = $("#startCameraBtn");
   const stopBtn = $("#stopCameraBtn");
   const switchBtn = $("#switchCameraBtn");
+  const zoomControls = $("#scannerZoomControls");
 
   if (!window.Html5Qrcode) {
     alert("Barcode camera engine is loading. Please check your internet connection or try file upload.");
@@ -2050,23 +2147,44 @@ async function startCameraScanner() {
       statusBadge.textContent = "Starting Camera...";
     }
 
+    // Refresh devices list to ensure names are resolved after permission grant
+    await populateCameraDevices();
+
+    // High-resolution scanner configuration for crisp 1D barcode edge detection
     const config = {
-      fps: 20,
-      qrbox: { width: 270, height: 170 },
+      fps: 25,
+      qrbox: (viewfinderWidth, viewfinderHeight) => {
+        const width = Math.min(Math.floor(viewfinderWidth * 0.86), 380);
+        const height = Math.min(Math.max(140, Math.floor(viewfinderHeight * 0.55)), 220);
+        return { width, height };
+      },
       aspectRatio: 1.333334,
+      videoConstraints: {
+        width: { min: 1280, ideal: 1920 },
+        height: { min: 720, ideal: 1080 },
+        focusMode: "continuous",
+        advanced: [{ focusMode: "continuous" }],
+      },
       experimentalFeatures: {
         useBarCodeDetectorIfSupported: true,
       },
     };
 
+    // Determine target camera: specific selected device ID or facing mode
+    const cameraSelect = $("#scannerCameraSelect");
+    const chosenDeviceId = cameraSelect?.value || selectedCameraDeviceId;
+    const cameraTarget = chosenDeviceId
+      ? { deviceId: { exact: chosenDeviceId } }
+      : { facingMode: currentCameraFacing };
+
     await html5QrCodeInstance.start(
-      { facingMode: currentCameraFacing },
+      cameraTarget,
       config,
       (decodedText) => {
         processBarcodeScan(decodedText, "camera");
       },
       (error) => {
-        // Continuous scan frame processing misses - expected
+        // Continuous scan frame processing misses - normal
       }
     );
 
@@ -2076,19 +2194,78 @@ async function startCameraScanner() {
     if (startBtn) startBtn.classList.add("hidden");
     if (stopBtn) stopBtn.classList.remove("hidden");
     if (switchBtn) switchBtn.classList.remove("hidden");
+    if (zoomControls) zoomControls.classList.remove("hidden");
 
     if (statusBadge) {
       statusBadge.className = "scanner-status-badge status-scanning";
       statusBadge.textContent = "Live Scanning";
     }
+
+    // Apply continuous autofocus and current zoom level
+    setTimeout(() => {
+      triggerCameraAutofocus();
+      setScannerZoom(activeZoomLevel);
+    }, 300);
   } catch (err) {
     console.error("Camera scan start error:", err);
     if (statusBadge) {
       statusBadge.className = "scanner-status-badge status-error";
       statusBadge.textContent = "Camera Error";
     }
-    alert("Camera permission denied or camera not available. You can still upload photos or type SKU codes!");
+    alert("Camera permission denied or selected camera is in use by another app. Try selecting another camera device or uploading a photo!");
     stopCameraScanner();
+  }
+}
+
+function triggerCameraAutofocus() {
+  try {
+    const videoEl = $("#scannerReader video");
+    const stream = videoEl?.srcObject;
+    const track = stream?.getVideoTracks()[0];
+    if (track && track.applyConstraints) {
+      const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+      const constraints = {};
+      if (capabilities.focusMode && capabilities.focusMode.includes("continuous")) {
+        constraints.focusMode = "continuous";
+      }
+      if (Object.keys(constraints).length > 0) {
+        track.applyConstraints({ advanced: [constraints] }).catch(() => {});
+      }
+    }
+  } catch (e) {
+    // Non-critical focus failure
+  }
+}
+
+function setScannerZoom(zoomMultiplier = 1.0) {
+  activeZoomLevel = zoomMultiplier;
+
+  // 1. Attempt hardware track zoom if supported by camera driver
+  try {
+    const videoEl = $("#scannerReader video");
+    const stream = videoEl?.srcObject;
+    const track = stream?.getVideoTracks()[0];
+    if (track && track.applyConstraints) {
+      const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+      if (capabilities.zoom) {
+        const minZ = capabilities.zoom.min || 1;
+        const maxZ = capabilities.zoom.max || 3;
+        const clampedZoom = Math.min(Math.max(zoomMultiplier, minZ), maxZ);
+        track.applyConstraints({ advanced: [{ zoom: clampedZoom }] }).catch(() => {});
+      }
+    }
+
+    // 2. Also apply CSS scale crop (makes fixed-focus webcams razor-sharp at distance)
+    if (videoEl) {
+      if (zoomMultiplier > 1.05) {
+        videoEl.style.transform = `scale(${zoomMultiplier})`;
+        videoEl.style.transformOrigin = "center center";
+      } else {
+        videoEl.style.transform = "none";
+      }
+    }
+  } catch (e) {
+    // Non-critical zoom failure
   }
 }
 
@@ -2099,6 +2276,7 @@ async function stopCameraScanner() {
   const startBtn = $("#startCameraBtn");
   const stopBtn = $("#stopCameraBtn");
   const switchBtn = $("#switchCameraBtn");
+  const zoomControls = $("#scannerZoomControls");
 
   if (html5QrCodeInstance && isCameraScanning) {
     try {
@@ -2114,6 +2292,11 @@ async function stopCameraScanner() {
   if (startBtn) startBtn.classList.remove("hidden");
   if (stopBtn) stopBtn.classList.add("hidden");
   if (switchBtn) switchBtn.classList.add("hidden");
+  if (zoomControls) zoomControls.classList.add("hidden");
+
+  // Reset zoom style
+  const videoEl = $("#scannerReader video");
+  if (videoEl) videoEl.style.transform = "none";
 
   if (statusBadge) {
     statusBadge.className = "scanner-status-badge status-idle";
@@ -2124,6 +2307,8 @@ async function stopCameraScanner() {
 async function switchCameraFacing() {
   if (!isCameraScanning) return;
   currentCameraFacing = currentCameraFacing === "environment" ? "user" : "environment";
+  selectedCameraDeviceId = null;
+  localStorage.removeItem("static_selected_camera_id");
   await stopCameraScanner();
   await startCameraScanner();
 }
