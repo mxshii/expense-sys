@@ -234,6 +234,59 @@ app.put("/api/stock/:id", requireLogin, withDB, async (req, res) => {
   res.json(item);
 });
 
+app.post("/api/stock/scan", requireLogin, withDB, async (req, res) => {
+  const { code, mode = "decrement", qty = 1 } = req.body;
+  if (!code || !String(code).trim()) {
+    return res.status(400).json({ error: "No barcode or SKU code provided" });
+  }
+
+  const rawCode = String(code).trim();
+  const allStock = await db.getStock();
+
+  // Match item by SKU (exact or case-insensitive) or by ID
+  const item = allStock.find((s) => {
+    const sSku = (s.sku || "").trim().toUpperCase();
+    const sId = (s.id || "").trim().toLowerCase();
+    const target = rawCode.toUpperCase();
+    return sSku === target || sId === rawCode.toLowerCase();
+  });
+
+  if (!item) {
+    return res.status(404).json({
+      error: `No stock item found matching barcode "${rawCode}"`,
+      code: rawCode,
+    });
+  }
+
+  const delta = Math.max(1, Number(qty) || 1);
+  const previousQuantity = Number(item.quantity) || 0;
+  let newQuantity = previousQuantity;
+
+  if (mode === "decrement") {
+    newQuantity = Math.max(0, previousQuantity - delta);
+  } else if (mode === "increment") {
+    newQuantity = previousQuantity + delta;
+  } else if (mode === "lookup") {
+    newQuantity = previousQuantity;
+  }
+
+  let updatedItem = item;
+  if (mode !== "lookup") {
+    updatedItem = await db.updateStockItem(item.id, { quantity: newQuantity });
+  }
+
+  res.json({
+    ok: true,
+    action: mode,
+    delta,
+    previousQuantity,
+    newQuantity: updatedItem ? updatedItem.quantity : newQuantity,
+    item: updatedItem || item,
+    code: rawCode,
+    scannedAt: new Date().toISOString(),
+  });
+});
+
 app.delete("/api/stock/:id", requireLogin, requireFounder, withDB, async (req, res) => {
   await db.deleteStockItem(req.params.id);
   res.json({ ok: true });

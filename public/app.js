@@ -296,12 +296,25 @@ function enterApp() {
   loadExpenses();
   loadRevenue();
   if (me.role === "founder") loadUsers();
+  initBarcodeScanner();
 }
 
 /* ─── NAV TABS ─────────────────────────────────────────────────── */
-const pageTitles = { orders: "Orders", stock: "Stock", expenses: "Expenses", revenue: "Revenue", team: "Team Access" };
+const pageTitles = {
+  orders: "Orders",
+  stock: "Stock",
+  scanner: "Barcode Scanner",
+  expenses: "Expenses",
+  revenue: "Revenue",
+  team: "Team Access",
+};
 
 function switchTab(tab) {
+  // If moving away from scanner, stop the camera to conserve battery and release hardware
+  if (tab !== "scanner" && isCameraScanning) {
+    stopCameraScanner();
+  }
+
   document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
   document.querySelectorAll(".mobile-nav-btn").forEach((b) => b.classList.remove("active"));
   document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
@@ -311,6 +324,13 @@ function switchTab(tab) {
   const titleEl = $("#pageTitle");
   if (titleEl) titleEl.textContent = pageTitles[tab] || tab;
   window.scrollTo(0, 0);
+
+  if (tab === "scanner") {
+    setTimeout(() => {
+      const input = $("#scannerManualInput");
+      if (input && document.activeElement !== input) input.focus();
+    }, 100);
+  }
 }
 
 document.querySelectorAll(".nav-item").forEach((btn) => {
@@ -1786,3 +1806,571 @@ document.querySelectorAll(".modal").forEach((modal) => {
     if (e.target === modal) modal.classList.add("hidden");
   });
 });
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BARCODE SCANNER MODULE (Camera Live Stream, File Upload, Instant Decrement)
+   ═══════════════════════════════════════════════════════════════════════════ */
+const SCAN_HISTORY_STORAGE_KEY = "static_barcode_scan_history_v1";
+
+function loadSavedScanHistory() {
+  try {
+    const raw = localStorage.getItem(SCAN_HISTORY_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.slice(0, 100);
+    }
+  } catch (e) {
+    console.warn("Could not load scan history from localStorage:", e);
+  }
+  return [];
+}
+
+function saveScanHistory() {
+  try {
+    localStorage.setItem(SCAN_HISTORY_STORAGE_KEY, JSON.stringify(sessionScanHistory.slice(0, 100)));
+  } catch (e) {
+    console.warn("Could not save scan history to localStorage:", e);
+  }
+}
+
+let isCameraScanning = false;
+let html5QrCodeInstance = null;
+let currentCameraFacing = "environment"; // Rear camera default on phones
+let scannerCurrentMode = "decrement";   // "decrement" | "custom_decrement" | "increment" | "lookup"
+let scannerSoundEnabled = true;
+let lastScannedCode = null;
+let lastScannedTime = 0;
+let lastScanUndoPayload = null;
+let sessionScanHistory = loadSavedScanHistory();
+let audioCtxInstance = null;
+
+function playScanAudioBeep(success = true) {
+  if (!scannerSoundEnabled) return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!audioCtxInstance) audioCtxInstance = new AudioCtx();
+    if (audioCtxInstance.state === "suspended") audioCtxInstance.resume();
+
+    const osc = audioCtxInstance.createOscillator();
+    const gain = audioCtxInstance.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtxInstance.destination);
+
+    if (success) {
+      // Pleasant POS double-tone chime (high E to high A)
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, audioCtxInstance.currentTime);
+      osc.frequency.setValueAtTime(1760, audioCtxInstance.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.2, audioCtxInstance.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtxInstance.currentTime + 0.22);
+      osc.start();
+      osc.stop(audioCtxInstance.currentTime + 0.22);
+    } else {
+      // Error low buzz
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(220, audioCtxInstance.currentTime);
+      gain.gain.setValueAtTime(0.25, audioCtxInstance.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtxInstance.currentTime + 0.35);
+      osc.start();
+      osc.stop(audioCtxInstance.currentTime + 0.35);
+    }
+  } catch (e) {
+    // Silently ignore audio context failures
+  }
+}
+
+function initBarcodeScanner() {
+  // Shortcut from Stock Tab
+  const stockScanShortcut = $("#openStockScannerBtn");
+  if (stockScanShortcut) {
+    stockScanShortcut.addEventListener("click", () => switchTab("scanner"));
+  }
+
+  // Mode Selector Pills
+  document.querySelectorAll("#scannerModeSelector .mode-pill").forEach((pill) => {
+    pill.addEventListener("click", () => {
+      document.querySelectorAll("#scannerModeSelector .mode-pill").forEach((p) => p.classList.remove("active"));
+      pill.classList.add("active");
+      scannerCurrentMode = pill.dataset.mode || "decrement";
+
+      const customQtyWrap = $("#scannerCustomQtyWrap");
+      if (customQtyWrap) {
+        customQtyWrap.classList.toggle("hidden", scannerCurrentMode !== "custom_decrement");
+        if (scannerCurrentMode === "custom_decrement") {
+          const input = $("#scannerCustomQtyInput");
+          if (input) input.focus();
+        }
+      }
+    });
+  });
+
+  // Custom Quantity Stepper Buttons
+  const qtyMinusBtn = $("#scannerQtyMinusBtn");
+  const qtyPlusBtn = $("#scannerQtyPlusBtn");
+  const customQtyInput = $("#scannerCustomQtyInput");
+
+  if (qtyMinusBtn && customQtyInput) {
+    qtyMinusBtn.addEventListener("click", () => {
+      let val = Math.max(1, (parseInt(customQtyInput.value, 10) || 1) - 1);
+      customQtyInput.value = val;
+    });
+  }
+
+  if (qtyPlusBtn && customQtyInput) {
+    qtyPlusBtn.addEventListener("click", () => {
+      let val = Math.max(1, (parseInt(customQtyInput.value, 10) || 1) + 1);
+      customQtyInput.value = val;
+    });
+  }
+
+  // Sound Chime Toggle
+  const soundToggle = $("#scannerSoundToggle");
+  if (soundToggle) {
+    soundToggle.addEventListener("click", () => {
+      scannerSoundEnabled = !scannerSoundEnabled;
+      soundToggle.classList.toggle("active-toggle", scannerSoundEnabled);
+      const span = soundToggle.querySelector("span");
+      if (span) span.textContent = scannerSoundEnabled ? "Sound ON" : "Sound OFF";
+    });
+  }
+
+  // Camera Controls
+  const startBtn = $("#startCameraBtn");
+  if (startBtn) startBtn.addEventListener("click", startCameraScanner);
+
+  const stopBtn = $("#stopCameraBtn");
+  if (stopBtn) stopBtn.addEventListener("click", stopCameraScanner);
+
+  const switchBtn = $("#switchCameraBtn");
+  if (switchBtn) switchBtn.addEventListener("click", switchCameraFacing);
+
+  // File Upload Dropzone
+  const dropzone = $("#scannerDropzone");
+  const fileInput = $("#scannerFileInput");
+  const browseBtn = $("#scannerBrowseBtn");
+
+  if (browseBtn && fileInput) {
+    browseBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+  }
+
+  if (dropzone && fileInput) {
+    dropzone.addEventListener("click", () => fileInput.click());
+
+    ["dragenter", "dragover"].forEach((evtName) => {
+      dropzone.addEventListener(evtName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.add("dragover");
+      });
+    });
+
+    ["dragleave", "drop"].forEach((evtName) => {
+      dropzone.addEventListener(evtName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove("dragover");
+      });
+    });
+
+    dropzone.addEventListener("drop", (e) => {
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        handleBarcodeImageFile(files[0]);
+      }
+    });
+
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files && fileInput.files.length > 0) {
+        handleBarcodeImageFile(fileInput.files[0]);
+        fileInput.value = "";
+      }
+    });
+  }
+
+  // Manual SKU / USB Scanner Input Form
+  const manualForm = $("#scannerManualForm");
+  if (manualForm) {
+    manualForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = $("#scannerManualInput");
+      const code = input?.value.trim();
+      if (!code) return;
+      input.value = "";
+      processBarcodeScan(code, "manual");
+    });
+  }
+
+  // Undo Button
+  const undoBtn = $("#scannerUndoBtn");
+  if (undoBtn) {
+    undoBtn.addEventListener("click", handleScannerUndo);
+  }
+
+  // Clear Session Log
+  const clearHistoryBtn = $("#scannerClearHistoryBtn");
+  if (clearHistoryBtn) {
+    clearHistoryBtn.addEventListener("click", () => {
+      if (sessionScanHistory.length === 0) return;
+      sessionScanHistory = [];
+      saveScanHistory();
+      renderScannerHistoryTable();
+    });
+  }
+
+  // Render any saved history on startup
+  renderScannerHistoryTable();
+}
+
+async function startCameraScanner() {
+  if (isCameraScanning) return;
+
+  const placeholder = $("#scannerCameraPlaceholder");
+  const viewportWrap = document.querySelector(".scanner-viewport-wrapper");
+  const statusBadge = $("#scannerStatusBadge");
+  const startBtn = $("#startCameraBtn");
+  const stopBtn = $("#stopCameraBtn");
+  const switchBtn = $("#switchCameraBtn");
+
+  if (!window.Html5Qrcode) {
+    alert("Barcode camera engine is loading. Please check your internet connection or try file upload.");
+    return;
+  }
+
+  try {
+    if (!html5QrCodeInstance) {
+      html5QrCodeInstance = new Html5Qrcode("scannerReader", { verbose: false });
+    }
+
+    if (statusBadge) {
+      statusBadge.className = "scanner-status-badge status-scanning";
+      statusBadge.textContent = "Starting Camera...";
+    }
+
+    const config = {
+      fps: 20,
+      qrbox: { width: 270, height: 170 },
+      aspectRatio: 1.333334,
+      experimentalFeatures: {
+        useBarCodeDetectorIfSupported: true,
+      },
+    };
+
+    await html5QrCodeInstance.start(
+      { facingMode: currentCameraFacing },
+      config,
+      (decodedText) => {
+        processBarcodeScan(decodedText, "camera");
+      },
+      (error) => {
+        // Continuous scan frame processing misses - expected
+      }
+    );
+
+    isCameraScanning = true;
+    if (placeholder) placeholder.style.display = "none";
+    if (viewportWrap) viewportWrap.classList.add("is-scanning");
+    if (startBtn) startBtn.classList.add("hidden");
+    if (stopBtn) stopBtn.classList.remove("hidden");
+    if (switchBtn) switchBtn.classList.remove("hidden");
+
+    if (statusBadge) {
+      statusBadge.className = "scanner-status-badge status-scanning";
+      statusBadge.textContent = "Live Scanning";
+    }
+  } catch (err) {
+    console.error("Camera scan start error:", err);
+    if (statusBadge) {
+      statusBadge.className = "scanner-status-badge status-error";
+      statusBadge.textContent = "Camera Error";
+    }
+    alert("Camera permission denied or camera not available. You can still upload photos or type SKU codes!");
+    stopCameraScanner();
+  }
+}
+
+async function stopCameraScanner() {
+  const placeholder = $("#scannerCameraPlaceholder");
+  const viewportWrap = document.querySelector(".scanner-viewport-wrapper");
+  const statusBadge = $("#scannerStatusBadge");
+  const startBtn = $("#startCameraBtn");
+  const stopBtn = $("#stopCameraBtn");
+  const switchBtn = $("#switchCameraBtn");
+
+  if (html5QrCodeInstance && isCameraScanning) {
+    try {
+      await html5QrCodeInstance.stop();
+    } catch (e) {
+      console.warn("Camera stop error:", e);
+    }
+  }
+
+  isCameraScanning = false;
+  if (placeholder) placeholder.style.display = "flex";
+  if (viewportWrap) viewportWrap.classList.remove("is-scanning");
+  if (startBtn) startBtn.classList.remove("hidden");
+  if (stopBtn) stopBtn.classList.add("hidden");
+  if (switchBtn) switchBtn.classList.add("hidden");
+
+  if (statusBadge) {
+    statusBadge.className = "scanner-status-badge status-idle";
+    statusBadge.textContent = "Ready";
+  }
+}
+
+async function switchCameraFacing() {
+  if (!isCameraScanning) return;
+  currentCameraFacing = currentCameraFacing === "environment" ? "user" : "environment";
+  await stopCameraScanner();
+  await startCameraScanner();
+}
+
+async function handleBarcodeImageFile(file) {
+  if (!file || !file.type.startsWith("image/")) {
+    alert("Please select a valid image file (PNG, JPG, WEBP).");
+    return;
+  }
+
+  const statusBadge = $("#scannerStatusBadge");
+  if (statusBadge) {
+    statusBadge.className = "scanner-status-badge status-scanning";
+    statusBadge.textContent = "Decoding Image...";
+  }
+
+  try {
+    // 1. Try Native BarcodeDetector if available (instant hardware decode)
+    if ("BarcodeDetector" in window) {
+      try {
+        const detector = new BarcodeDetector({
+          formats: ["code_128", "code_39", "ean_13", "ean_8", "qr_code", "upc_a", "upc_e"],
+        });
+        const bitmap = await createImageBitmap(file);
+        const barcodes = await detector.detect(bitmap);
+        if (barcodes && barcodes.length > 0) {
+          processBarcodeScan(barcodes[0].rawValue, "upload");
+          return;
+        }
+      } catch (nativeErr) {
+        // Fall back to html5-qrcode
+      }
+    }
+
+    // 2. Fallback to Html5Qrcode scanFile engine
+    let tempScanner = html5QrCodeInstance;
+    if (!tempScanner && window.Html5Qrcode) {
+      tempScanner = new Html5Qrcode("scannerReader", { verbose: false });
+    }
+
+    if (tempScanner) {
+      const decodedResult = await tempScanner.scanFile(file, true);
+      if (decodedResult) {
+        processBarcodeScan(decodedResult, "upload");
+        return;
+      }
+    }
+
+    throw new Error("No barcode detected");
+  } catch (err) {
+    console.error("Image decode error:", err);
+    playScanAudioBeep(false);
+    showScanResultError(`Could not detect a clear barcode in "${file.name}". Please ensure the barcode is sharp and well-lit.`);
+  } finally {
+    if (statusBadge && !isCameraScanning) {
+      statusBadge.className = "scanner-status-badge status-idle";
+      statusBadge.textContent = "Ready";
+    }
+  }
+}
+
+async function processBarcodeScan(rawCode, source = "camera") {
+  if (!rawCode || !String(rawCode).trim()) return;
+  const cleanCode = String(rawCode).trim().toUpperCase();
+
+  // Throttle rapid repeated scans for the same barcode within 1.8s
+  const now = Date.now();
+  if (cleanCode === lastScannedCode && now - lastScannedTime < 1800) {
+    return;
+  }
+  lastScannedCode = cleanCode;
+  lastScannedTime = now;
+
+  try {
+    let apiMode = "decrement";
+    let scanQty = 1;
+
+    if (scannerCurrentMode === "custom_decrement") {
+      const customInput = $("#scannerCustomQtyInput");
+      scanQty = Math.max(1, parseInt(customInput ? customInput.value : 1, 10) || 1);
+      apiMode = "decrement";
+    } else if (scannerCurrentMode === "increment") {
+      apiMode = "increment";
+      scanQty = 1;
+    } else if (scannerCurrentMode === "lookup") {
+      apiMode = "lookup";
+      scanQty = 0;
+    } else {
+      apiMode = "decrement";
+      scanQty = 1;
+    }
+
+    const res = await api("/api/stock/scan", "POST", {
+      code: cleanCode,
+      mode: apiMode,
+      qty: scanQty,
+    });
+
+    playScanAudioBeep(true);
+    showScanResultSuccess(res);
+
+    // Save undo information
+    lastScanUndoPayload = {
+      itemId: res.item.id,
+      previousQty: res.previousQuantity,
+      sku: res.item.sku,
+      itemName: res.item.itemName,
+    };
+
+    // Log to session history
+    sessionScanHistory.unshift({
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+      itemName: res.item.itemName,
+      sku: res.item.sku || cleanCode,
+      price: res.item.price,
+      action: res.action,
+      delta: res.delta,
+      previousQty: res.previousQuantity,
+      newQty: res.newQuantity,
+    });
+
+    saveScanHistory();
+    renderScannerHistoryTable();
+
+    // Refresh stock list in background
+    loadStock();
+  } catch (err) {
+    console.error("Stock scan error:", err);
+    playScanAudioBeep(false);
+    showScanResultError(err.message || `No stock item found matching barcode "${cleanCode}"`);
+  }
+}
+
+function showScanResultSuccess(data) {
+  const card = $("#scannerResultCard");
+  if (!card) return;
+
+  card.classList.remove("hidden", "is-error");
+
+  const icon = $("#resultStatusIcon");
+  if (icon) {
+    icon.className = "result-status-icon success";
+    icon.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`;
+  }
+
+  $("#resultItemName").textContent = data.item.itemName;
+  $("#resultSkuBadge").textContent = data.item.sku || data.code;
+  $("#resultPriceBadge").textContent = `${money(data.item.price)} EGP`;
+
+  const transitionEl = $("#resultStockTransition");
+  if (transitionEl) {
+    if (data.action === "decrement") {
+      transitionEl.innerHTML = `Stock deducted: <strong>${data.previousQuantity}</strong> ➔ <span class="new-qty-highlight">${data.newQuantity} in stock (-${data.delta})</span> &bull; Price: <strong>${money(data.item.price)} EGP</strong>`;
+    } else if (data.action === "increment") {
+      transitionEl.innerHTML = `Stock increased: <strong>${data.previousQuantity}</strong> ➔ <span class="new-qty-highlight">${data.newQuantity} in stock (+${data.delta})</span> &bull; Price: <strong>${money(data.item.price)} EGP</strong>`;
+    } else {
+      transitionEl.innerHTML = `Product found: <span class="new-qty-highlight">${data.newQuantity} currently in stock</span> &bull; Price: <strong>${money(data.item.price)} EGP</strong>`;
+    }
+  }
+
+  const undoBtn = $("#scannerUndoBtn");
+  if (undoBtn) {
+    undoBtn.style.display = data.action === "lookup" ? "none" : "inline-flex";
+  }
+}
+
+function showScanResultError(msg) {
+  const card = $("#scannerResultCard");
+  if (!card) return;
+
+  card.classList.remove("hidden");
+  card.classList.add("is-error");
+
+  const icon = $("#resultStatusIcon");
+  if (icon) {
+    icon.className = "result-status-icon error";
+    icon.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  }
+
+  $("#resultItemName").textContent = "Item Not Found";
+  $("#resultSkuBadge").textContent = lastScannedCode || "ERROR";
+  $("#resultPriceBadge").textContent = "";
+
+  const transitionEl = $("#resultStockTransition");
+  if (transitionEl) {
+    transitionEl.innerHTML = `<span style="color:#ef4444;font-weight:600;">${escapeHtml(msg)}</span>`;
+  }
+
+  const undoBtn = $("#scannerUndoBtn");
+  if (undoBtn) undoBtn.style.display = "none";
+}
+
+async function handleScannerUndo() {
+  if (!lastScanUndoPayload) return;
+  const p = lastScanUndoPayload;
+
+  try {
+    await api(`/api/stock/${p.itemId}`, "PUT", { quantity: p.previousQty });
+    lastScanUndoPayload = null;
+
+    const transitionEl = $("#resultStockTransition");
+    if (transitionEl) {
+      transitionEl.innerHTML = `Stock restored: <span class="new-qty-highlight">${p.previousQty} in stock (reverted)</span>`;
+    }
+
+    const undoBtn = $("#scannerUndoBtn");
+    if (undoBtn) undoBtn.style.display = "none";
+
+    loadStock();
+  } catch (err) {
+    alert("Could not undo: " + err.message);
+  }
+}
+
+function renderScannerHistoryTable() {
+  const tbody = $("#scannerHistoryBody");
+  if (!tbody) return;
+
+  if (sessionScanHistory.length === 0) {
+    tbody.innerHTML = `
+      <tr id="scannerHistoryEmptyRow">
+        <td colspan="7" style="text-align:center;color:var(--text-muted);padding:18px;">No barcodes scanned yet in this session.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = sessionScanHistory
+    .map((s) => {
+      let actionBadge = `<span class="badge" style="background:rgba(239,68,68,0.12);color:#ef4444;font-weight:700;">-${s.delta || 1} Deduct</span>`;
+      if (s.action === "increment") {
+        actionBadge = `<span class="badge" style="background:rgba(34,197,94,0.12);color:#16a34a;font-weight:700;">+${s.delta || 1} Restock</span>`;
+      } else if (s.action === "lookup") {
+        actionBadge = `<span class="badge" style="background:rgba(160,120,96,0.12);color:var(--accent);font-weight:700;">Lookup</span>`;
+      }
+
+      return `
+        <tr>
+          <td style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">${s.time}</td>
+          <td style="font-weight:600;">${escapeHtml(s.itemName)}</td>
+          <td><span class="stock-sku-badge">${escapeHtml(s.sku)}</span></td>
+          <td style="font-weight:700;color:var(--accent);">${money(s.price)} EGP</td>
+          <td>${actionBadge}</td>
+          <td>${s.previousQty} ➔ ${s.newQty}</td>
+          <td style="font-weight:700;color:var(--text);">${s.newQty} in stock</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
