@@ -1393,6 +1393,315 @@ body.dark .cat-chip-other    { background: rgba(160,165,175,0.18);color: #A0A5AF
   .print-report-table tr:nth-child(even) td {
     background: #f8f8f8 !important;
   }
+
+  /* ══════════════════════════════════════════════
+     MULTI-BARCODE STICKER SHEET PRINTING
+     ══════════════════════════════════════════════ */
+  .print-barcode-sheet {
+    width: 100% !important;
+    max-width: 202mm !important;
+    margin: 0 auto !important;
+    padding: 2mm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 60 labels per sheet (4 columns × 15 rows) */
+  .print-barcode-sheet.sheet-grid-60 {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 1mm 1.5mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-60 .barcode-sticker-cell {
+    height: 17.5mm !important;
+    max-height: 17.5mm !important;
+    padding: 1.2mm 1.5mm 3.2mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-60 .sticker-header {
+    height: 2.8mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-60 .sticker-brand-tag {
+    font-size: 5pt !important;
+    padding: 0.4px 2px !important;
+  }
+  .print-barcode-sheet.sheet-grid-60 .sticker-item-title {
+    font-size: 6pt !important;
+    max-width: 24mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-60 .sticker-price-badge {
+    font-size: 6.5pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-60 .sticker-barcode-container {
+    height: 7.5mm !important;
+    max-height: 7.5mm !important;
+    margin: 0.4mm 0 0.3mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-60 .sticker-sku-text {
+    font-size: 5.5pt !important;
+    margin-top: 0.3mm !important;
+  }
+
+  /* 30 labels per sheet (3 columns × 10 rows) */
+  .print-barcode-sheet.sheet-grid-30 {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 1.8mm 2.2mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-30 .barcode-sticker-cell {
+    height: 26mm !important;
+    max-height: 26mm !important;
+    padding: 1.8mm 2.5mm 4.5mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-30 .sticker-header {
+    height: 3.5mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-30 .sticker-brand-tag {
+    font-size: 6pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-30 .sticker-item-title {
+    font-size: 7.5pt !important;
+    max-width: 36mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-30 .sticker-price-badge {
+    font-size: 8pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-30 .sticker-barcode-container {
+    height: 11mm !important;
+    max-height: 11mm !important;
+    margin: 1mm 0 0.8mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-30 .sticker-sku-text {
+    font-size: 6.8pt !important;
+    margin-top: 0.8mm !important;
+  }
+
+  /* 24 labels per sheet (3 columns × 8 rows) */
+  .print-barcode-sheet.sheet-grid-24 {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 2.2mm 2.5mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-24 .barcode-sticker-cell {
+    height: 32mm !important;
+    max-height: 32mm !important;
+    padding: 2.2mm 3mm 5.5mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-24 .sticker-header {
+    height: 4mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-24 .sticker-brand-tag {
+    font-size: 7pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-24 .sticker-item-title {
+    font-size: 8.5pt !important;
+    max-width: 38mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-24 .sticker-price-badge {
+    font-size: 9pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-24 .sticker-barcode-container {
+    height: 14mm !important;
+    max-height: 14mm !important;
+    margin: 1.2mm 0 1mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-24 .sticker-sku-text {
+    font-size: 7.5pt !important;
+    margin-top: 1mm !important;
+  }
+
+  /* 12 labels per sheet (2 columns × 6 rows) */
+  .print-barcode-sheet.sheet-grid-12 {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 3mm 3.5mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-12 .barcode-sticker-cell {
+    height: 43mm !important;
+    max-height: 43mm !important;
+    padding: 3mm 4mm 7.5mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-12 .sticker-header {
+    height: 5mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-12 .sticker-brand-tag {
+    font-size: 8.5pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-12 .sticker-item-title {
+    font-size: 10pt !important;
+    max-width: 52mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-12 .sticker-price-badge {
+    font-size: 10.5pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-12 .sticker-barcode-container {
+    height: 19mm !important;
+    max-height: 19mm !important;
+    margin: 1.8mm 0 1.5mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-12 .sticker-sku-text {
+    font-size: 9pt !important;
+    margin-top: 1.5mm !important;
+  }
+
+  /* Thermal roll (single continuous column) */
+  .print-barcode-sheet.sheet-grid-thermal {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 4mm !important;
+    padding: 2mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-thermal .barcode-sticker-cell {
+    width: 50mm !important;
+    height: 28mm !important;
+    max-height: 28mm !important;
+    padding: 2mm 3mm 4.5mm !important;
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+  .print-barcode-sheet.sheet-grid-thermal .sticker-header {
+    height: 3.8mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-thermal .sticker-brand-tag {
+    font-size: 6.5pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-thermal .sticker-item-title {
+    font-size: 7.5pt !important;
+    max-width: 26mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-thermal .sticker-price-badge {
+    font-size: 8pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-thermal .sticker-barcode-container {
+    height: 11.5mm !important;
+    max-height: 11.5mm !important;
+    margin: 1mm 0 0.8mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-thermal .sticker-sku-text {
+    font-size: 7pt !important;
+    margin-top: 0.8mm !important;
+  }
+
+  /* Individual Sticker Cell */
+  .barcode-sticker-cell {
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: hidden !important;
+    position: relative !important;
+  }
+
+  .barcode-sticker-cell.has-border {
+    border: 0.5pt dashed #b0b5bd !important;
+    border-radius: 4px !important;
+  }
+  .barcode-sticker-cell:not(.has-border) {
+    border: 0.5pt solid transparent !important;
+  }
+
+  .barcode-sticker-cell .sticker-header {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+    line-height: 1.1 !important;
+  }
+
+  .barcode-sticker-cell .sticker-product-info {
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    max-width: 70% !important;
+  }
+
+  .barcode-sticker-cell .sticker-brand-tag {
+    font-weight: 800 !important;
+    letter-spacing: 0.6px !important;
+    text-transform: uppercase !important;
+    color: #374151 !important;
+    background: #f3f4f6 !important;
+    border-radius: 2px !important;
+    padding: 0.5px 2.5px !important;
+    line-height: 1 !important;
+    flex-shrink: 0 !important;
+  }
+
+  .barcode-sticker-cell .sticker-ig-tag {
+    font-size: 5.5pt !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.2px !important;
+    color: #4b5563 !important;
+    background: #f3f4f6 !important;
+    border-radius: 2px !important;
+    padding: 0.5px 2.5px !important;
+    line-height: 1 !important;
+    flex-shrink: 0 !important;
+  }
+
+  .barcode-sticker-cell .sticker-item-title {
+    font-weight: 700 !important;
+    color: #111827 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    line-height: 1 !important;
+  }
+
+  .barcode-sticker-cell .sticker-price-badge {
+    font-weight: 800 !important;
+    color: #000000 !important;
+    white-space: nowrap !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+    line-height: 1 !important;
+  }
+
+  .barcode-sticker-cell .sticker-price-badge small {
+    font-size: 0.75em !important;
+    font-weight: 600 !important;
+    color: #6b7280 !important;
+  }
+
+  .barcode-sticker-cell .sticker-barcode-container {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  .barcode-sticker-cell .sticker-barcode-container svg {
+    display: block !important;
+    height: 100% !important;
+    width: auto !important;
+    max-width: 96% !important;
+    margin: 0 auto !important;
+  }
+
+  .barcode-sticker-cell .sticker-sku-text {
+    font-family: 'SF Mono', 'Roboto Mono', Menlo, Consolas, monospace !important;
+    font-weight: 700 !important;
+    color: #1f2937 !important;
+    letter-spacing: 1px !important;
+    line-height: 1 !important;
+    text-align: center !important;
+    width: 100% !important;
+    flex-shrink: 0 !important;
+    margin-bottom: auto !important;
+  }
 }
 
 /* ══════════════════════════════════════════════
@@ -1567,6 +1876,216 @@ body.dark .cat-chip-other    { background: rgba(160,165,175,0.18);color: #A0A5AF
   letter-spacing: 0.5px;
   color: #444444;
   font-family: 'Courier New', Courier, monospace;
+}
+
+/* ══════════════════════════════════════════════
+   STOCK SKU BADGES & PRINT BARCODE MODAL (Screen)
+   ══════════════════════════════════════════════ */
+.stock-sku-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  padding: 2.5px 7px;
+  border-radius: 5px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.barcode-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.barcode-action-btn:hover {
+  background: var(--accent);
+  color: #F5F0E6;
+  border-color: var(--accent);
+}
+
+.barcode-preview-section {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.barcode-live-mockup-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 4px;
+}
+.barcode-sticker-mockup {
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 14px 14px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.14);
+  width: 250px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+.barcode-sticker-mockup.has-mockup-border {
+  border: 1.5px dashed #9ca3af;
+}
+.barcode-sticker-mockup .mockup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  line-height: 1.2;
+}
+.barcode-sticker-mockup .mockup-product-info {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 68%;
+}
+.barcode-sticker-mockup .mockup-brand-tag {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #374151;
+  background: #f3f4f6;
+  padding: 1px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.barcode-sticker-mockup .mockup-ig-tag {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: #4b5563;
+  background: #f3f4f6;
+  padding: 1px 3.5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.barcode-sticker-mockup .mockup-item-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.barcode-sticker-mockup .mockup-price-badge {
+  font-size: 12px;
+  font-weight: 800;
+  color: #000000;
+  white-space: nowrap;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.barcode-sticker-mockup .mockup-price-badge small {
+  font-size: 9px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-left: 1px;
+}
+.barcode-sticker-mockup .mockup-barcode-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 2px 0 1px;
+}
+.barcode-sticker-mockup .mockup-barcode-container svg {
+  max-width: 95%;
+  height: 32px;
+  display: block;
+}
+.barcode-sticker-mockup .mockup-sku-text {
+  font-family: 'SF Mono', 'Roboto Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #1f2937;
+  text-align: center;
+  width: 100%;
+}
+
+/* Preset Chips */
+.barcode-qty-preset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.qty-chip {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.qty-chip:hover {
+  border-color: var(--accent);
+}
+.qty-chip.active {
+  background: var(--accent);
+  color: #F5F0E6;
+  border-color: var(--accent);
+}
+
+/* Options Grid */
+.barcode-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.barcode-check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s;
+}
+.barcode-check-label:hover {
+  border-color: var(--accent);
+}
+.barcode-check-label input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: var(--accent);
+  margin: 0;
+  padding: 0;
 }
 
 

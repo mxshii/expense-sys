@@ -201,22 +201,33 @@ app.get("/api/stock", requireLogin, withDB, async (req, res) => {
 });
 
 app.post("/api/stock", requireLogin, withDB, async (req, res) => {
-  const { itemName, quantity, price } = req.body;
+  const { itemName, quantity, price, sku } = req.body;
   if (!itemName) return res.status(400).json({ error: "item needs a name" });
+  const stockId = "stk_" + Date.now();
+  const finalSku = (sku && String(sku).trim()) 
+    ? String(sku).trim().toUpperCase() 
+    : "STK-" + stockId.slice(-6);
+
   const item = await db.insertStockItem({
-    id: "stk_" + Date.now(),
-    itemName,
+    id: stockId,
+    itemName: itemName.trim(),
     quantity: Number(quantity) || 0,
     price: Number(price) || 0,
+    sku: finalSku,
   });
   res.json(item);
 });
 
 app.put("/api/stock/:id", requireLogin, withDB, async (req, res) => {
-  const { itemName, quantity, price } = req.body;
+  const { itemName, quantity, price, sku } = req.body;
   // Staff can only update quantity; founder can update everything
   const updates = req.user.role === "founder"
-    ? { itemName, quantity: quantity !== undefined ? Number(quantity) : undefined, price: price !== undefined ? Number(price) : undefined }
+    ? {
+        itemName: itemName !== undefined ? itemName.trim() : undefined,
+        quantity: quantity !== undefined ? Number(quantity) : undefined,
+        price: price !== undefined ? Number(price) : undefined,
+        sku: sku !== undefined ? (String(sku).trim().toUpperCase() || null) : undefined,
+      }
     : { quantity: quantity !== undefined ? Number(quantity) : undefined };
   const item = await db.updateStockItem(req.params.id, updates);
   if (!item) return res.status(404).json({ error: "stock item not found" });

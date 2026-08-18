@@ -114,6 +114,18 @@ function formatOrderId(id) {
   return str;
 }
 
+function formatStockSku(item) {
+  if (!item) return "STK-1001";
+  if (item.sku && String(item.sku).trim()) {
+    return String(item.sku).trim().toUpperCase();
+  }
+  const idStr = String(item.id || "");
+  if (idStr.startsWith("stk_")) {
+    return "STK-" + idStr.slice(4).slice(-6);
+  }
+  return "STK-" + idStr.slice(-6);
+}
+
 /* ─── REAL SCANNABLE ISO/IEC 15417 CODE 128 BARCODE GENERATOR ──── */
 const CODE128_PATTERNS = [
   "212222", "222122", "222221", "121223", "121322", "131222", "122213", "122312", "132212", "221213", // 0-9
@@ -135,7 +147,8 @@ function generateCode128BarcodeSVG(rawText, options = {}) {
   const barHeight   = options.barHeight || 46;
   const showText    = options.showText !== false;
   const displayText = options.displayText || text;
-  const quietModules = 12; // 12 modules quiet zone on each side
+  const fontSize    = options.fontSize || 11.5;
+  const quietModules = options.quietModules !== undefined ? options.quietModules : 12; // 12 modules quiet zone
 
   // Code 128 Character Set B encoding
   const codes = [104]; // Start Code B
@@ -153,7 +166,7 @@ function generateCode128BarcodeSVG(rawText, options = {}) {
 
   // Build SVG rects
   let currentX = quietModules * moduleWidth;
-  const topY = 4;
+  const topY = 2;
   const rects = [];
 
   for (let c = 0; c < codes.length; c++) {
@@ -170,14 +183,15 @@ function generateCode128BarcodeSVG(rawText, options = {}) {
   }
 
   const totalWidth = currentX + (quietModules * moduleWidth);
-  const textY = topY + barHeight + 13;
-  const totalHeight = showText ? (textY + 4) : (topY + barHeight + 4);
+  const textY = topY + barHeight + Math.round(fontSize * 1.15);
+  const totalHeight = showText ? (textY + 4) : (topY + barHeight + 3);
 
   const textElement = showText
-    ? `<text x="${totalWidth / 2}" y="${textY}" font-family="'SF Mono', 'Courier New', Courier, monospace" font-size="11.5" font-weight="700" fill="#000000" text-anchor="middle" letter-spacing="1.2">${escapeHtml(displayText)}</text>`
+    ? `<text x="${totalWidth / 2}" y="${textY}" font-family="'SF Mono', 'Courier New', Courier, monospace" font-size="${fontSize}" font-weight="700" fill="#000000" text-anchor="middle" letter-spacing="1.2">${escapeHtml(displayText)}</text>`
     : "";
 
-  return `<svg viewBox="0 0 ${totalWidth} ${totalHeight}" class="receipt-upc-barcode" style="max-width:100%;height:auto;background:#ffffff;border-radius:4px;"><rect width="${totalWidth}" height="${totalHeight}" fill="#ffffff"/>${rects.join("")}${textElement}</svg>`;
+  const cls = options.className || "receipt-upc-barcode";
+  return `<svg viewBox="0 0 ${totalWidth} ${totalHeight}" class="${cls}" style="max-width:100%;height:auto;background:#ffffff;border-radius:2px;"><rect width="${totalWidth}" height="${totalHeight}" fill="#ffffff"/>${rects.join("")}${textElement}</svg>`;
 }
 
 // Backward compatibility alias
@@ -524,8 +538,9 @@ function addItemRow() {
   const options = stockCache
     .map((s) => {
       const isOut = s.quantity <= 0;
+      const sku = formatStockSku(s);
       return `<option value="${s.id}" data-price="${s.price}" data-name="${escapeHtml(s.itemName)}" ${isOut ? 'disabled' : ''}>
-        ${escapeHtml(s.itemName)} ${isOut ? '(Out of Stock)' : `(${s.quantity} in stock)`} — ${money(s.price)} EGP
+        [${escapeHtml(sku)}] ${escapeHtml(s.itemName)} ${isOut ? '(Out of Stock)' : `(${s.quantity} in stock)`} — ${money(s.price)} EGP
       </option>`;
     })
     .join("");
@@ -599,21 +614,47 @@ $("#orderForm").addEventListener("submit", async (e) => {
 /* ─── STOCK ────────────────────────────────────────────────────── */
 let allStock = [];
 let activeStockDetailId = null;
+let activeBarcodeStockItem = null;
 
 function openStockDetail(stockId) {
   const s = allStock.find((item) => String(item.id) === String(stockId));
   if (!s) return;
   activeStockDetailId = s.id;
 
+  const sku = formatStockSku(s);
   $("#modalStockName").value = s.itemName;
+  $("#modalStockSku").value = sku;
   $("#modalStockPrice").value = s.price;
   $("#modalStockQty").value = s.quantity;
 
+  const skuBadge = $("#stockDetailBarcodeSkuBadge");
+  if (skuBadge) skuBadge.textContent = sku;
+
+  const barcodeSvgWrap = $("#stockDetailBarcodeSvg");
+  if (barcodeSvgWrap) {
+    barcodeSvgWrap.innerHTML = generateCode128BarcodeSVG(sku, {
+      moduleWidth: 2,
+      barHeight: 46,
+      showText: true,
+      displayText: sku,
+    });
+  }
+
+  const printBtn = $("#modalStockPrintBarcodesBtn");
+  if (printBtn) {
+    printBtn.onclick = () => {
+      $("#stockDetailModal").classList.add("hidden");
+      openStockBarcodeModal(s.id);
+    };
+  }
+
   if (me.role !== "founder") {
     $("#modalStockName").disabled = true;
+    $("#modalStockSku").disabled = true;
     $("#modalStockPrice").disabled = true;
   } else {
     $("#modalStockName").disabled = false;
+    $("#modalStockSku").disabled = false;
     $("#modalStockPrice").disabled = false;
   }
 
@@ -652,6 +693,7 @@ $("#stockDetailForm").addEventListener("submit", async (e) => {
     const payload = me.role === "founder"
       ? {
           itemName: $("#modalStockName").value.trim(),
+          sku: $("#modalStockSku").value.trim(),
           price: Number($("#modalStockPrice").value),
           quantity: Number($("#modalStockQty").value),
         }
@@ -673,17 +715,27 @@ async function loadStock() {
   $("#stockEmpty").classList.toggle("hidden", allStock.length > 0);
 
   allStock.forEach((s) => {
+    const sku = formatStockSku(s);
     const tr = document.createElement("tr");
     tr.className = "clickable-row";
     tr.innerHTML = `
-      <td data-label="Item" style="font-family:var(--font);font-weight:500">${escapeHtml(s.itemName)}</td>
+      <td data-label="Item" style="font-family:var(--font);font-weight:600">${escapeHtml(s.itemName)}</td>
+      <td data-label="SKU"><span class="stock-sku-badge">${escapeHtml(sku)}</span></td>
       <td data-label="Qty"><input type="number" min="0" value="${s.quantity}" data-qty-id="${s.id}" style="width:80px;font-size:13px;padding:5px 8px" /></td>
-      <td data-label="Price">${money(s.price)} EGP</td>
-      <td>${me.role === "founder" ? `<button class="icon-btn" data-del-stock="${s.id}" title="Remove">✕</button>` : ""}</td>
+      <td data-label="Price" style="font-weight:600">${money(s.price)} EGP</td>
+      <td>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button type="button" class="barcode-action-btn" data-barcode-stock="${s.id}" title="Print Barcodes (e.g. 60x)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="vertical-align:middle"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8v8"/><path d="M10 8v8"/><path d="M14 8v8"/><path d="M17 8v8"/></svg>
+            Barcodes
+          </button>
+          ${me.role === "founder" ? `<button class="icon-btn" data-del-stock="${s.id}" title="Remove">✕</button>` : ""}
+        </div>
+      </td>
     `;
 
     tr.addEventListener("click", (evt) => {
-      if (evt.target.closest("input") || evt.target.closest("[data-del-stock]")) return;
+      if (evt.target.closest("input") || evt.target.closest("[data-del-stock]") || evt.target.closest("[data-barcode-stock]")) return;
       openStockDetail(s.id);
     });
 
@@ -705,10 +757,17 @@ async function loadStock() {
       }
     });
   });
+  body.querySelectorAll("[data-barcode-stock]").forEach((btn) => {
+    btn.addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      openStockBarcodeModal(btn.dataset.barcodeStock);
+    });
+  });
 }
 
 $("#openAddStock").addEventListener("click", () => {
   $("#stkName").value = "";
+  $("#stkSku").value = "";
   $("#stkQty").value = "0";
   $("#stkPrice").value = "0";
   $("#stockModal").classList.remove("hidden");
@@ -718,6 +777,7 @@ $("#stockForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   await api("/api/stock", "POST", {
     itemName: $("#stkName").value.trim(),
+    sku: $("#stkSku").value.trim() || undefined,
     quantity: Number($("#stkQty").value),
     price: Number($("#stkPrice").value),
   });
@@ -725,6 +785,217 @@ $("#stockForm").addEventListener("submit", async (e) => {
   $("#stockModal").classList.add("hidden");
   loadStock();
 });
+
+/* ─── PRINT STOCK BARCODES MODAL & GENERATION ──────────────────── */
+function openStockBarcodeModal(stockId) {
+  const s = allStock.find((item) => String(item.id) === String(stockId));
+  if (!s) return;
+  activeBarcodeStockItem = s;
+
+  const sku = formatStockSku(s);
+  $("#barcodeModalItemName").textContent = s.itemName;
+  $("#barcodeModalSku").textContent = sku;
+  $("#barcodeModalPrice").textContent = money(s.price) + " EGP";
+  $("#barcodeModalStock").textContent = `Qty: ${s.quantity} in stock`;
+
+  const matchChip = $("#barcodeChipMatchStock");
+  if (matchChip) {
+    matchChip.textContent = s.quantity > 0 ? `Stock (${s.quantity})` : "Stock (0)";
+  }
+
+  updateBarcodeLivePreview();
+  $("#stockBarcodeModal").classList.remove("hidden");
+}
+
+function updateBarcodeLivePreview() {
+  if (!activeBarcodeStockItem) return;
+  const s = activeBarcodeStockItem;
+  const sku = formatStockSku(s);
+
+  const showBrand  = $("#optShowBrand")?.checked ?? true;
+  const showIg     = $("#optShowIg")?.checked ?? true;
+  const showName   = $("#optShowName")?.checked ?? true;
+  const showPrice  = $("#optShowPrice")?.checked ?? true;
+  const showSku    = $("#optShowSku")?.checked ?? true;
+  const showBorder = $("#optShowBorder")?.checked ?? true;
+
+  const qtyInput = $("#barcodePrintQty");
+  let qty = parseInt(qtyInput.value, 10);
+  if (isNaN(qty) || qty < 1) qty = 1;
+
+  const layout = $("#barcodeSheetLayout")?.value || "60";
+
+  // Calculate pages estimate
+  const estimateEl = $("#barcodeTotalPagesEstimate");
+  if (estimateEl) {
+    if (layout === "thermal") {
+      estimateEl.textContent = `${qty} Label${qty > 1 ? "s" : ""} on Roll`;
+    } else {
+      const perSheet = parseInt(layout, 10) || 60;
+      const sheets = Math.ceil(qty / perSheet);
+      estimateEl.textContent = `${sheets} Sheet${sheets > 1 ? "s" : ""} (${qty} labels total)`;
+    }
+  }
+
+  // Update confirm button text
+  const confirmBtn = $("#confirmPrintBarcodesBtn");
+  if (confirmBtn) {
+    confirmBtn.textContent = `🖨️ Print ${qty} Barcode${qty > 1 ? "s" : ""}`;
+  }
+
+  // Render live single label mockup
+  const mockupEl = $("#barcodeLiveMockup");
+  if (mockupEl) {
+    mockupEl.classList.toggle("has-mockup-border", showBorder);
+    
+    // Barcode SVG for mockup preview
+    const svgCode = generateCode128BarcodeSVG(sku, {
+      moduleWidth: 1.5,
+      barHeight: 30,
+      showText: false,
+      quietModules: 6,
+    });
+
+    mockupEl.innerHTML = `
+      ${(showBrand || showIg || showName || showPrice) ? `
+      <div class="mockup-header">
+        <div class="mockup-product-info">
+          ${showBrand ? `<span class="mockup-brand-tag">STATIC</span>` : ""}
+          ${showIg ? `<span class="mockup-ig-tag">@static._.eg</span>` : ""}
+          ${showName ? `<span class="mockup-item-title" title="${escapeHtml(s.itemName)}">${escapeHtml(s.itemName)}</span>` : ""}
+        </div>
+        ${showPrice ? `<span class="mockup-price-badge">${money(s.price)} <small>EGP</small></span>` : ""}
+      </div>` : ""}
+      <div class="mockup-barcode-container">${svgCode}</div>
+      ${showSku ? `<div class="mockup-sku-text">${escapeHtml(sku)}</div>` : ""}
+    `;
+  }
+}
+
+// Preset Qty Chips
+document.querySelectorAll("#barcodeQtyChips .qty-chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll("#barcodeQtyChips .qty-chip").forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    const val = chip.dataset.qty;
+    if (val === "match") {
+      $("#barcodePrintQty").value = activeBarcodeStockItem ? Math.max(1, activeBarcodeStockItem.quantity) : 1;
+    } else {
+      $("#barcodePrintQty").value = val;
+    }
+    updateBarcodeLivePreview();
+  });
+});
+
+$("#barcodePrintQty").addEventListener("input", () => {
+  document.querySelectorAll("#barcodeQtyChips .qty-chip").forEach((c) => c.classList.remove("active"));
+  updateBarcodeLivePreview();
+});
+
+$("#barcodeSheetLayout").addEventListener("change", updateBarcodeLivePreview);
+
+["optShowBrand", "optShowIg", "optShowName", "optShowPrice", "optShowSku", "optShowBorder"].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("change", updateBarcodeLivePreview);
+});
+
+$("#confirmPrintBarcodesBtn").addEventListener("click", () => {
+  if (!activeBarcodeStockItem) return;
+  const qty = Math.max(1, parseInt($("#barcodePrintQty").value, 10) || 60);
+  const layout = $("#barcodeSheetLayout").value || "60";
+  const options = {
+    showBrand:  $("#optShowBrand").checked,
+    showIg:     $("#optShowIg") ? $("#optShowIg").checked : true,
+    showName:   $("#optShowName").checked,
+    showPrice:  $("#optShowPrice").checked,
+    showSku:    $("#optShowSku").checked,
+    showBorder: $("#optShowBorder").checked,
+  };
+
+  $("#stockBarcodeModal").classList.add("hidden");
+  printStockBarcodesSheet(activeBarcodeStockItem, qty, layout, options);
+});
+
+function printStockBarcodesSheet(item, qty, layout, options = {}) {
+  // Clear any scroll lock
+  document.body.style.overflow = "";
+  document.documentElement.style.overflow = "";
+
+  const sku = formatStockSku(item);
+  const section = $("#printSection");
+  if (!section) return;
+
+  const showBrand  = options.showBrand !== false;
+  const showIg     = options.showIg !== false;
+  const showName   = options.showName !== false;
+  const showPrice  = options.showPrice !== false;
+  const showSku    = options.showSku !== false;
+  const showBorder = options.showBorder !== false;
+
+  // Determine SVG barHeight & moduleWidth based on layout density
+  let barHeight = 20;
+  let moduleWidth = 1.15;
+  if (layout === "60") {
+    barHeight = 15;
+    moduleWidth = 1.0;
+  } else if (layout === "30") {
+    barHeight = 22;
+    moduleWidth = 1.2;
+  } else if (layout === "24") {
+    barHeight = 26;
+    moduleWidth = 1.3;
+  } else if (layout === "12") {
+    barHeight = 36;
+    moduleWidth = 1.6;
+  } else if (layout === "thermal") {
+    barHeight = 24;
+    moduleWidth = 1.25;
+  }
+
+  // Pre-generate the crisp SVG barcode once for optimal speed
+  const singleBarcodeSvg = generateCode128BarcodeSVG(sku, {
+    moduleWidth,
+    barHeight,
+    showText: false,
+    quietModules: 6,
+  });
+
+  const cells = [];
+  for (let i = 0; i < qty; i++) {
+    cells.push(`
+      <div class="barcode-sticker-cell ${showBorder ? 'has-border' : ''}">
+        ${(showBrand || showIg || showName || showPrice) ? `
+        <div class="sticker-header">
+          <div class="sticker-product-info">
+            ${showBrand ? `<span class="sticker-brand-tag">STATIC</span>` : ""}
+            ${showIg ? `<span class="sticker-ig-tag">@static._.eg</span>` : ""}
+            ${showName ? `<span class="sticker-item-title">${escapeHtml(item.itemName)}</span>` : ""}
+          </div>
+          ${showPrice ? `<span class="sticker-price-badge">${money(item.price)} <small>EGP</small></span>` : ""}
+        </div>` : ""}
+        <div class="sticker-barcode-container">${singleBarcodeSvg}</div>
+        ${showSku ? `<div class="sticker-sku-text">${escapeHtml(sku)}</div>` : ""}
+      </div>
+    `);
+  }
+
+  section.innerHTML = `
+    <div class="print-barcode-sheet sheet-grid-${layout}">
+      ${cells.join("")}
+    </div>
+  `;
+
+  setTimeout(() => {
+    window.print();
+  }, 100);
+
+  const cleanup = () => {
+    section.innerHTML = "";
+    window.removeEventListener("afterprint", cleanup);
+  };
+  window.addEventListener("afterprint", cleanup, { once: true });
+  setTimeout(cleanup, 4000);
+}
 
 /* ─── EXPENSES ─────────────────────────────────────────────────── */
 const CAT_ICON = {
