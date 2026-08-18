@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
 </head>
 <body>
 
@@ -294,7 +295,7 @@
                 <div class="scanner-corner bl"></div>
                 <div class="scanner-corner br"></div>
                 <div class="scanner-laser-bar"></div>
-                <div class="scanner-guide-text">Align barcode inside box · Tap video to focus</div>
+                <div class="scanner-guide-text">Hold barcode 20–30 cm away · Tap to Focus</div>
               </div>
 
               <!-- Animated Tap Focus Ring -->
@@ -335,10 +336,11 @@
               <!-- Zoom Controls -->
               <div id="scannerZoomControls" class="scanner-zoom-controls hidden">
                 <span class="zoom-label">Zoom:</span>
-                <button type="button" class="zoom-preset-btn active" data-zoom="1">1x</button>
+                <button type="button" class="zoom-preset-btn" data-zoom="1">1x</button>
                 <button type="button" class="zoom-preset-btn" data-zoom="1.5">1.5x</button>
-                <button type="button" class="zoom-preset-btn" data-zoom="2">2x</button>
+                <button type="button" class="zoom-preset-btn active" data-zoom="2">2x</button>
                 <button type="button" class="zoom-preset-btn" data-zoom="2.5">2.5x</button>
+                <button type="button" class="zoom-preset-btn" data-zoom="3">3x</button>
               </div>
               
               <button type="button" id="switchCameraBtn" class="icon-btn-secondary hidden" title="Flip Front/Back Camera">

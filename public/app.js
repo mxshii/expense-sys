@@ -1836,9 +1836,9 @@ function saveScanHistory() {
 let isCameraScanning = false;
 let html5QrCodeInstance = null;
 let currentCameraFacing = "environment"; // Rear camera default on phones
-let activeZoomLevel = 1.0;
-let currentFocusMode = "auto"; // "auto" | "macro" | "far"
-let scannerCurrentMode = "decrement";   // "decrement" | "custom_decrement" | "increment" | "lookup"
+let activeZoomLevel = 2.0;               // 2.0x default zoom so barcodes are sharp at natural 25cm distance
+let currentFocusMode = "auto";          // "auto" | "macro" | "far"
+let scannerCurrentMode = "decrement";    // "decrement" | "custom_decrement" | "increment" | "lookup"
 let scannerSoundEnabled = true;
 let lastScannedCode = null;
 let lastScannedTime = 0;
@@ -1846,6 +1846,7 @@ let lastScanUndoPayload = null;
 let sessionScanHistory = loadSavedScanHistory();
 let audioCtxInstance = null;
 let nativeBarcodeDetectorInstance = null;
+let zxingMultiFormatReaderInstance = null;
 let frameScanIntervalId = null;
 let offscreenCanvas = null;
 let offscreenCtx = null;
@@ -1858,6 +1859,48 @@ if ("BarcodeDetector" in window) {
     });
   } catch (e) {
     console.warn("BarcodeDetector init error:", e);
+  }
+}
+
+// Initialize ZXing MultiFormatReader cross-platform fallback
+function getZXingReader() {
+  if (zxingMultiFormatReaderInstance) return zxingMultiFormatReaderInstance;
+  if (window.ZXing && window.ZXing.MultiFormatReader) {
+    try {
+      const hints = new Map();
+      const formats = [
+        ZXing.BarcodeFormat.CODE_128,
+        ZXing.BarcodeFormat.CODE_39,
+        ZXing.BarcodeFormat.EAN_13,
+        ZXing.BarcodeFormat.EAN_8,
+        ZXing.BarcodeFormat.UPC_A,
+        ZXing.BarcodeFormat.UPC_E,
+        ZXing.BarcodeFormat.QR_CODE,
+      ];
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      zxingMultiFormatReaderInstance = new ZXing.MultiFormatReader();
+      zxingMultiFormatReaderInstance.setHints(hints);
+      return zxingMultiFormatReaderInstance;
+    } catch (e) {
+      console.warn("ZXing reader init error:", e);
+    }
+  }
+  return null;
+}
+
+function decodeCanvasWithZXing(canvas) {
+  const reader = getZXingReader();
+  if (!reader || !window.ZXing) return null;
+  try {
+    const ctx = canvas.getContext("2d");
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const lumSource = new ZXing.RGBLuminanceSource(imgData.data, canvas.width, canvas.height);
+    const bin = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lumSource));
+    const result = reader.decode(bin);
+    return result ? result.getText() : null;
+  } catch (e) {
+    return null;
   }
 }
 
@@ -2112,8 +2155,8 @@ async function startCameraScanner() {
     const config = {
       fps: 25,
       qrbox: (viewfinderWidth, viewfinderHeight) => {
-        const width = Math.min(Math.floor(viewfinderWidth * 0.90), 420);
-        const height = Math.min(Math.max(140, Math.floor(viewfinderHeight * 0.60)), 240);
+        const width = Math.min(Math.floor(viewfinderWidth * 0.92), 440);
+        const height = Math.min(Math.max(140, Math.floor(viewfinderHeight * 0.62)), 250);
         return { width, height };
       },
       aspectRatio: 1.333334,
@@ -2122,7 +2165,7 @@ async function startCameraScanner() {
         width: { min: 1280, ideal: 1920 },
         height: { min: 720, ideal: 1080 },
         focusMode: "continuous",
-        advanced: [{ focusMode: "continuous" }],
+        advanced: [{ focusMode: "continuous" }, { zoom: 2.0 }],
       },
       experimentalFeatures: {
         useBarCodeDetectorIfSupported: true,
@@ -2158,7 +2201,7 @@ async function startCameraScanner() {
     // Start direct high-speed hardware & contrast booster scanning loop
     startHighSpeedScannerLoop();
 
-    // Initial focus & zoom application
+    // Initial focus & zoom application (default 2.0x for sharp focal distance)
     setTimeout(() => {
       triggerCameraAutofocus(null, false);
       setScannerZoom(activeZoomLevel);
@@ -2174,7 +2217,7 @@ async function startCameraScanner() {
   }
 }
 
-// High-speed frame scanner with real-time contrast enhancer
+// High-speed frame scanner with multi-pass real-time contrast enhancer
 function startHighSpeedScannerLoop() {
   if (frameScanIntervalId) clearInterval(frameScanIntervalId);
 
@@ -2199,12 +2242,12 @@ function startHighSpeedScannerLoop() {
       } catch (e) {}
     }
 
-    // 2. High-contrast enhancement pass for blurry/low-light barcodes
+    // 2. High-resolution center crop for small / medium barcodes
     try {
       const vW = videoEl.videoWidth || 640;
       const vH = videoEl.videoHeight || 480;
-      const cropW = Math.floor(vW * 0.7);
-      const cropH = Math.floor(vH * 0.45);
+      const cropW = Math.floor(vW * 0.75);
+      const cropH = Math.floor(vH * 0.55);
       const startX = Math.floor((vW - cropW) / 2);
       const startY = Math.floor((vH - cropH) / 2);
 
@@ -2215,13 +2258,31 @@ function startHighSpeedScannerLoop() {
 
       offscreenCtx.drawImage(videoEl, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
 
-      // Boost contrast / sharpen dark bars
+      // Try BarcodeDetector on raw center crop
+      if (nativeBarcodeDetectorInstance) {
+        try {
+          const cropBarcodes = await nativeBarcodeDetectorInstance.detect(offscreenCanvas);
+          if (cropBarcodes && cropBarcodes.length > 0) {
+            processBarcodeScan(cropBarcodes[0].rawValue, "camera");
+            return;
+          }
+        } catch (e) {}
+      }
+
+      // Try ZXing on raw center crop
+      const zxRaw = decodeCanvasWithZXing(offscreenCanvas);
+      if (zxRaw) {
+        processBarcodeScan(zxRaw, "camera");
+        return;
+      }
+
+      // 3. High-contrast enhancement pass for blurry/low-light/low-focus barcodes
       const imgData = offscreenCtx.getImageData(0, 0, cropW, cropH);
       const d = imgData.data;
       for (let i = 0; i < d.length; i += 4) {
         const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-        // Binarize threshold to make blurry grey stripes solid black/white
-        const val = lum < 128 ? 0 : 255;
+        // Binarize threshold to turn blurry grey stripes into crisp pure black and white
+        const val = lum < 125 ? 0 : 255;
         d[i] = val;
         d[i + 1] = val;
         d[i + 2] = val;
@@ -2229,13 +2290,23 @@ function startHighSpeedScannerLoop() {
       offscreenCtx.putImageData(imgData, 0, 0);
 
       if (nativeBarcodeDetectorInstance) {
-        const enhancedBarcodes = await nativeBarcodeDetectorInstance.detect(offscreenCanvas);
-        if (enhancedBarcodes && enhancedBarcodes.length > 0) {
-          processBarcodeScan(enhancedBarcodes[0].rawValue, "camera");
-        }
+        try {
+          const enhancedBarcodes = await nativeBarcodeDetectorInstance.detect(offscreenCanvas);
+          if (enhancedBarcodes && enhancedBarcodes.length > 0) {
+            processBarcodeScan(enhancedBarcodes[0].rawValue, "camera");
+            return;
+          }
+        } catch (e) {}
+      }
+
+      // Try ZXing on enhanced binarized crop
+      const zxEnhanced = decodeCanvasWithZXing(offscreenCanvas);
+      if (zxEnhanced) {
+        processBarcodeScan(zxEnhanced, "camera");
+        return;
       }
     } catch (err) {}
-  }, 90);
+  }, 75);
 }
 
 function triggerCameraAutofocus(e = null, showRing = true) {
