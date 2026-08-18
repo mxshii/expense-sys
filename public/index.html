@@ -346,6 +346,13 @@
               <button type="button" id="switchCameraBtn" class="icon-btn-secondary hidden" title="Flip Front/Back Camera">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 16v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8"/><path d="M4 12h16"/><polyline points="16 8 20 12 16 16"/></svg>
               </button>
+
+              <!-- Native Camera App Trigger -->
+              <input type="file" id="scannerNativeCameraInput" accept="image/*" capture="environment" style="display:none;" />
+              <button type="button" id="snapWithCameraAppBtn" class="primary-btn" style="padding:9px 15px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;background:linear-gradient(135deg, #0284c7, #0369a1);border:none;" title="Open device Camera App with full hardware autofocus & flash">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <span>📸 Open Camera App</span>
+              </button>
             </div>
           </div>
 
@@ -357,16 +364,22 @@
               <div class="scanner-card-header">
                 <div style="display:flex;align-items:center;gap:8px;">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  <h3 style="margin:0;font-size:15px;">Scan from Image / Photo</h3>
+                  <h3 style="margin:0;font-size:15px;">Scan from Photo / Camera App</h3>
                 </div>
               </div>
               
               <div class="scanner-dropzone" id="scannerDropzone">
                 <input type="file" id="scannerFileInput" accept="image/*" class="scanner-file-hidden-input" />
-                <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--accent);margin-bottom:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <div style="font-size:13.5px;font-weight:700;color:var(--text);">Drag & Drop or Choose Image</div>
-                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">PNG, JPG, WEBP, or Photo from camera</div>
-                <button type="button" class="primary-btn" id="scannerBrowseBtn" style="margin-top:12px;padding:7px 16px;font-size:12.5px;">Browse Files</button>
+                <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--accent);margin-bottom:8px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <div style="font-size:13.5px;font-weight:700;color:var(--text);">Take a Photo or Upload Image</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Uses your phone's native camera with full hardware auto-focus</div>
+                <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;justify-content:center;">
+                  <button type="button" class="primary-btn" id="scannerSnapPhotoBtn" style="padding:7px 16px;font-size:12.5px;display:flex;align-items:center;gap:6px;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    <span>📸 Take Photo with Camera</span>
+                  </button>
+                  <button type="button" class="ghost-btn" id="scannerBrowseBtn" style="padding:7px 16px;font-size:12.5px;">Browse Files</button>
+                </div>
               </div>
             </div>
 

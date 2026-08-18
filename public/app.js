@@ -2043,6 +2043,31 @@ function initBarcodeScanner() {
   const switchBtn = $("#switchCameraBtn");
   if (switchBtn) switchBtn.addEventListener("click", switchCameraFacing);
 
+  // Native Camera App Triggers (Opens system Camera App with full hardware autofocus/macro/flash)
+  const nativeCameraInput = $("#scannerNativeCameraInput");
+  const snapWithCameraAppBtn = $("#snapWithCameraAppBtn");
+  const scannerSnapPhotoBtn = $("#scannerSnapPhotoBtn");
+
+  if (nativeCameraInput) {
+    if (snapWithCameraAppBtn) {
+      snapWithCameraAppBtn.addEventListener("click", () => {
+        nativeCameraInput.click();
+      });
+    }
+    if (scannerSnapPhotoBtn) {
+      scannerSnapPhotoBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        nativeCameraInput.click();
+      });
+    }
+    nativeCameraInput.addEventListener("change", () => {
+      if (nativeCameraInput.files && nativeCameraInput.files.length > 0) {
+        handleBarcodeImageFile(nativeCameraInput.files[0]);
+        nativeCameraInput.value = "";
+      }
+    });
+  }
+
   // File Upload Dropzone
   const dropzone = $("#scannerDropzone");
   const fileInput = $("#scannerFileInput");
@@ -2056,7 +2081,11 @@ function initBarcodeScanner() {
   }
 
   if (dropzone && fileInput) {
-    dropzone.addEventListener("click", () => fileInput.click());
+    dropzone.addEventListener("click", (e) => {
+      // Don't trigger if clicked on the Take Photo button
+      if (e.target.closest("#scannerSnapPhotoBtn") || e.target.closest("#scannerBrowseBtn")) return;
+      fileInput.click();
+    });
 
     ["dragenter", "dragover"].forEach((evtName) => {
       dropzone.addEventListener(evtName, (e) => {
@@ -2463,28 +2492,92 @@ async function handleBarcodeImageFile(file) {
   const statusBadge = $("#scannerStatusBadge");
   if (statusBadge) {
     statusBadge.className = "scanner-status-badge status-scanning";
-    statusBadge.textContent = "Decoding Image...";
+    statusBadge.textContent = "Decoding Photo...";
   }
 
   try {
-    // 1. Try Native BarcodeDetector if available (instant hardware decode)
-    if ("BarcodeDetector" in window) {
+    const bitmap = await createImageBitmap(file);
+
+    // 1. Direct Native BarcodeDetector on full-res image
+    if (nativeBarcodeDetectorInstance) {
       try {
-        const detector = new BarcodeDetector({
-          formats: ["code_128", "code_39", "ean_13", "ean_8", "qr_code", "upc_a", "upc_e"],
-        });
-        const bitmap = await createImageBitmap(file);
-        const barcodes = await detector.detect(bitmap);
+        const barcodes = await nativeBarcodeDetectorInstance.detect(bitmap);
         if (barcodes && barcodes.length > 0) {
           processBarcodeScan(barcodes[0].rawValue, "upload");
           return;
         }
-      } catch (nativeErr) {
-        // Fall back to html5-qrcode
-      }
+      } catch (nativeErr) {}
     }
 
-    // 2. Fallback to Html5Qrcode scanFile engine
+    // 2. Draw to canvas with optimal downscaling for instant ZXing decoding
+    const photoCanvas = document.createElement("canvas");
+    const photoCtx = photoCanvas.getContext("2d", { willReadFrequently: true });
+    
+    // Scale high-res mobile photos (4000x3000 -> max 1600) for instant decode
+    const maxDim = 1600;
+    let targetW = bitmap.width;
+    let targetH = bitmap.height;
+    if (targetW > maxDim || targetH > maxDim) {
+      if (targetW > targetH) {
+        targetH = Math.round((targetH * maxDim) / targetW);
+        targetW = maxDim;
+      } else {
+        targetW = Math.round((targetW * maxDim) / targetH);
+        targetH = maxDim;
+      }
+    }
+    photoCanvas.width = targetW;
+    photoCanvas.height = targetH;
+    photoCtx.drawImage(bitmap, 0, 0, targetW, targetH);
+
+    // Try BarcodeDetector on scaled canvas
+    if (nativeBarcodeDetectorInstance) {
+      try {
+        const barcodes = await nativeBarcodeDetectorInstance.detect(photoCanvas);
+        if (barcodes && barcodes.length > 0) {
+          processBarcodeScan(barcodes[0].rawValue, "upload");
+          return;
+        }
+      } catch (e) {}
+    }
+
+    // Try ZXing MultiFormat on scaled canvas
+    const zxCode = decodeCanvasWithZXing(photoCanvas);
+    if (zxCode) {
+      processBarcodeScan(zxCode, "upload");
+      return;
+    }
+
+    // 3. Contrast threshold enhancement pass for low-light/distant photos
+    const imgData = photoCtx.getImageData(0, 0, targetW, targetH);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+      const val = lum < 128 ? 0 : 255;
+      d[i] = val;
+      d[i + 1] = val;
+      d[i + 2] = val;
+    }
+    photoCtx.putImageData(imgData, 0, 0);
+
+    // Try ZXing on high-contrast enhanced canvas
+    const zxEnhanced = decodeCanvasWithZXing(photoCanvas);
+    if (zxEnhanced) {
+      processBarcodeScan(zxEnhanced, "upload");
+      return;
+    }
+
+    if (nativeBarcodeDetectorInstance) {
+      try {
+        const enhancedBarcodes = await nativeBarcodeDetectorInstance.detect(photoCanvas);
+        if (enhancedBarcodes && enhancedBarcodes.length > 0) {
+          processBarcodeScan(enhancedBarcodes[0].rawValue, "upload");
+          return;
+        }
+      } catch (e) {}
+    }
+
+    // 4. Fallback to Html5Qrcode scanFile engine
     let tempScanner = html5QrCodeInstance;
     if (!tempScanner && window.Html5Qrcode) {
       tempScanner = new Html5Qrcode("scannerReader", { verbose: false });
@@ -2498,11 +2591,11 @@ async function handleBarcodeImageFile(file) {
       }
     }
 
-    throw new Error("No barcode detected");
+    throw new Error("No barcode detected in image");
   } catch (err) {
     console.error("Image decode error:", err);
     playScanAudioBeep(false);
-    showScanResultError(`Could not detect a clear barcode in "${file.name}". Please ensure the barcode is sharp and well-lit.`);
+    showScanResultError(`Could not detect a clear barcode in "${file.name}". Please snap the photo directly facing the barcode lines.`);
   } finally {
     if (statusBadge && !isCameraScanning) {
       statusBadge.className = "scanner-status-badge status-idle";
