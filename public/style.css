@@ -2614,6 +2614,60 @@ body.dark .cat-chip-other    { background: rgba(160,165,175,0.18);color: #A0A5AF
   pointer-events: none;
 }
 
+/* Tap-to-Focus Reticle Ring */
+.scanner-focus-ring {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  border: 2px solid #22c55e;
+  border-radius: 50%;
+  box-shadow: 0 0 12px #22c55e;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+  animation: focusRingPulse 0.6s ease-out forwards;
+}
+
+@keyframes focusRingPulse {
+  0% { transform: translate(-50%, -50%) scale(1.4); opacity: 1; border-color: #f59e0b; }
+  60% { transform: translate(-50%, -50%) scale(0.9); opacity: 1; border-color: #22c55e; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+/* Focus Modes Selector (Auto, Macro, Normal) */
+.scanner-focus-modes-wrap {
+  display: inline-flex;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.focus-mode-chip {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.focus-mode-chip:hover {
+  color: var(--text);
+}
+
+.focus-mode-chip.active {
+  background: var(--surface);
+  color: var(--accent);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
 /* Digital Zoom Controls Toolbar */
 .scanner-zoom-controls {
   display: inline-flex;

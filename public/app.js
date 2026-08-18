@@ -1836,8 +1836,8 @@ function saveScanHistory() {
 let isCameraScanning = false;
 let html5QrCodeInstance = null;
 let currentCameraFacing = "environment"; // Rear camera default on phones
-let selectedCameraDeviceId = localStorage.getItem("static_selected_camera_id") || null;
 let activeZoomLevel = 1.0;
+let currentFocusMode = "auto"; // "auto" | "macro" | "far"
 let scannerCurrentMode = "decrement";   // "decrement" | "custom_decrement" | "increment" | "lookup"
 let scannerSoundEnabled = true;
 let lastScannedCode = null;
@@ -1845,6 +1845,21 @@ let lastScannedTime = 0;
 let lastScanUndoPayload = null;
 let sessionScanHistory = loadSavedScanHistory();
 let audioCtxInstance = null;
+let nativeBarcodeDetectorInstance = null;
+let frameScanIntervalId = null;
+let offscreenCanvas = null;
+let offscreenCtx = null;
+
+// Initialize native hardware BarcodeDetector if available
+if ("BarcodeDetector" in window) {
+  try {
+    nativeBarcodeDetectorInstance = new BarcodeDetector({
+      formats: ["code_128", "code_39", "ean_13", "ean_8", "qr_code", "upc_a", "upc_e"],
+    });
+  } catch (e) {
+    console.warn("BarcodeDetector init error:", e);
+  }
+}
 
 function playScanAudioBeep(success = true) {
   if (!scannerSoundEnabled) return;
@@ -1882,56 +1897,6 @@ function playScanAudioBeep(success = true) {
   }
 }
 
-async function populateCameraDevices() {
-  const cameraSelect = $("#scannerCameraSelect");
-  if (!cameraSelect) return;
-
-  if (!window.Html5Qrcode) return;
-
-  try {
-    const devices = await Html5Qrcode.getCameras();
-    cameraSelect.innerHTML = "";
-
-    if (!devices || devices.length === 0) {
-      cameraSelect.innerHTML = '<option value="">No cameras detected</option>';
-      return;
-    }
-
-    // Populate camera options
-    let matchedSaved = false;
-    devices.forEach((dev, idx) => {
-      const opt = document.createElement("option");
-      opt.value = dev.id;
-      // Clean up descriptive labels (e.g. USB Camera, Back Camera, FaceTime HD)
-      const label = dev.label || `Camera ${idx + 1} (${dev.id.slice(0, 8)}...)`;
-      opt.textContent = label;
-
-      if (selectedCameraDeviceId && dev.id === selectedCameraDeviceId) {
-        opt.selected = true;
-        matchedSaved = true;
-      }
-      cameraSelect.appendChild(opt);
-    });
-
-    // If no saved selection matched, prefer back/external/USB camera
-    if (!matchedSaved && devices.length > 0) {
-      let defaultIdx = 0;
-      const lowerLabels = devices.map((d) => (d.label || "").toLowerCase());
-      const externalOrBackIdx = lowerLabels.findIndex(
-        (l) => l.includes("usb") || l.includes("external") || l.includes("back") || l.includes("rear") || l.includes("environment")
-      );
-      if (externalOrBackIdx !== -1) defaultIdx = externalOrBackIdx;
-
-      cameraSelect.selectedIndex = defaultIdx;
-      selectedCameraDeviceId = devices[defaultIdx].id;
-      localStorage.setItem("static_selected_camera_id", selectedCameraDeviceId);
-    }
-  } catch (err) {
-    console.warn("Could not enumerate camera devices:", err);
-    cameraSelect.innerHTML = '<option value="">Camera access needed (click Start)</option>';
-  }
-}
-
 function initBarcodeScanner() {
   // Shortcut from Stock Tab
   const stockScanShortcut = $("#openStockScannerBtn");
@@ -1939,33 +1904,25 @@ function initBarcodeScanner() {
     stockScanShortcut.addEventListener("click", () => switchTab("scanner"));
   }
 
-  // Populate available camera devices list
-  populateCameraDevices();
-
-  // Camera device selector dropdown change
-  const cameraSelect = $("#scannerCameraSelect");
-  if (cameraSelect) {
-    cameraSelect.addEventListener("change", async () => {
-      selectedCameraDeviceId = cameraSelect.value;
-      if (selectedCameraDeviceId) {
-        localStorage.setItem("static_selected_camera_id", selectedCameraDeviceId);
-      }
-      if (isCameraScanning) {
-        await stopCameraScanner();
-        await startCameraScanner();
-      }
+  // Focus & Sharpen button
+  const triggerFocusBtn = $("#scannerTriggerFocusBtn");
+  if (triggerFocusBtn) {
+    triggerFocusBtn.addEventListener("click", () => {
+      triggerCameraAutofocus(null, true);
     });
   }
 
-  // Refresh cameras list button
-  const refreshCamBtn = $("#refreshCamerasBtn");
-  if (refreshCamBtn) {
-    refreshCamBtn.addEventListener("click", async () => {
-      await populateCameraDevices();
+  // Focus mode selector chips (Auto, Macro, Far)
+  document.querySelectorAll(".focus-mode-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll(".focus-mode-chip").forEach((c) => c.classList.remove("active"));
+      chip.classList.add("active");
+      currentFocusMode = chip.dataset.focus || "auto";
+      triggerCameraAutofocus(null, true);
     });
-  }
+  });
 
-  // Zoom preset buttons (Helps fixed-focus USB webcams scan clearly from a distance)
+  // Zoom preset buttons (Helps fixed-focus webcams scan clearly from a distance)
   document.querySelectorAll(".zoom-preset-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".zoom-preset-btn").forEach((b) => b.classList.remove("active"));
@@ -1975,11 +1932,13 @@ function initBarcodeScanner() {
     });
   });
 
-  // Tap on viewfinder to trigger autofocus pulse
-  const viewportWrap = document.querySelector(".scanner-viewport-wrapper");
+  // Tap on viewfinder to trigger autofocus reticle
+  const viewportWrap = $("#scannerViewport");
   if (viewportWrap) {
-    viewportWrap.addEventListener("click", () => {
-      triggerCameraAutofocus();
+    viewportWrap.addEventListener("click", (e) => {
+      // Don't trigger if clicked on controls
+      if (e.target.closest(".scanner-camera-controls")) return;
+      triggerCameraAutofocus(e, true);
     });
   }
 
@@ -2125,12 +2084,14 @@ async function startCameraScanner() {
   if (isCameraScanning) return;
 
   const placeholder = $("#scannerCameraPlaceholder");
-  const viewportWrap = document.querySelector(".scanner-viewport-wrapper");
+  const viewportWrap = $("#scannerViewport");
   const statusBadge = $("#scannerStatusBadge");
   const startBtn = $("#startCameraBtn");
   const stopBtn = $("#stopCameraBtn");
   const switchBtn = $("#switchCameraBtn");
   const zoomControls = $("#scannerZoomControls");
+  const triggerFocusBtn = $("#scannerTriggerFocusBtn");
+  const focusModes = $("#scannerFocusModes");
 
   if (!window.Html5Qrcode) {
     alert("Barcode camera engine is loading. Please check your internet connection or try file upload.");
@@ -2147,19 +2108,17 @@ async function startCameraScanner() {
       statusBadge.textContent = "Starting Camera...";
     }
 
-    // Refresh devices list to ensure names are resolved after permission grant
-    await populateCameraDevices();
-
-    // High-resolution scanner configuration for crisp 1D barcode edge detection
+    // High-resolution camera configuration with continuous autofocus
     const config = {
       fps: 25,
       qrbox: (viewfinderWidth, viewfinderHeight) => {
-        const width = Math.min(Math.floor(viewfinderWidth * 0.86), 380);
-        const height = Math.min(Math.max(140, Math.floor(viewfinderHeight * 0.55)), 220);
+        const width = Math.min(Math.floor(viewfinderWidth * 0.90), 420);
+        const height = Math.min(Math.max(140, Math.floor(viewfinderHeight * 0.60)), 240);
         return { width, height };
       },
       aspectRatio: 1.333334,
       videoConstraints: {
+        facingMode: currentCameraFacing,
         width: { min: 1280, ideal: 1920 },
         height: { min: 720, ideal: 1080 },
         focusMode: "continuous",
@@ -2170,15 +2129,8 @@ async function startCameraScanner() {
       },
     };
 
-    // Determine target camera: specific selected device ID or facing mode
-    const cameraSelect = $("#scannerCameraSelect");
-    const chosenDeviceId = cameraSelect?.value || selectedCameraDeviceId;
-    const cameraTarget = chosenDeviceId
-      ? { deviceId: { exact: chosenDeviceId } }
-      : { facingMode: currentCameraFacing };
-
     await html5QrCodeInstance.start(
-      cameraTarget,
+      { facingMode: currentCameraFacing },
       config,
       (decodedText) => {
         processBarcodeScan(decodedText, "camera");
@@ -2195,52 +2147,163 @@ async function startCameraScanner() {
     if (stopBtn) stopBtn.classList.remove("hidden");
     if (switchBtn) switchBtn.classList.remove("hidden");
     if (zoomControls) zoomControls.classList.remove("hidden");
+    if (triggerFocusBtn) triggerFocusBtn.classList.remove("hidden");
+    if (focusModes) focusModes.classList.remove("hidden");
 
     if (statusBadge) {
       statusBadge.className = "scanner-status-badge status-scanning";
       statusBadge.textContent = "Live Scanning";
     }
 
-    // Apply continuous autofocus and current zoom level
+    // Start direct high-speed hardware & contrast booster scanning loop
+    startHighSpeedScannerLoop();
+
+    // Initial focus & zoom application
     setTimeout(() => {
-      triggerCameraAutofocus();
+      triggerCameraAutofocus(null, false);
       setScannerZoom(activeZoomLevel);
-    }, 300);
+    }, 350);
   } catch (err) {
     console.error("Camera scan start error:", err);
     if (statusBadge) {
       statusBadge.className = "scanner-status-badge status-error";
       statusBadge.textContent = "Camera Error";
     }
-    alert("Camera permission denied or selected camera is in use by another app. Try selecting another camera device or uploading a photo!");
+    alert("Camera permission denied or camera is in use by another app. You can also upload photos or type SKU codes!");
     stopCameraScanner();
   }
 }
 
-function triggerCameraAutofocus() {
+// High-speed frame scanner with real-time contrast enhancer
+function startHighSpeedScannerLoop() {
+  if (frameScanIntervalId) clearInterval(frameScanIntervalId);
+
+  if (!offscreenCanvas) {
+    offscreenCanvas = document.createElement("canvas");
+    offscreenCtx = offscreenCanvas.getContext("2d", { willReadFrequently: true });
+  }
+
+  frameScanIntervalId = setInterval(async () => {
+    if (!isCameraScanning) return;
+    const videoEl = $("#scannerReader video");
+    if (!videoEl || videoEl.readyState < 2) return;
+
+    // 1. Direct hardware BarcodeDetector scan on live video frame
+    if (nativeBarcodeDetectorInstance) {
+      try {
+        const barcodes = await nativeBarcodeDetectorInstance.detect(videoEl);
+        if (barcodes && barcodes.length > 0) {
+          processBarcodeScan(barcodes[0].rawValue, "camera");
+          return;
+        }
+      } catch (e) {}
+    }
+
+    // 2. High-contrast enhancement pass for blurry/low-light barcodes
+    try {
+      const vW = videoEl.videoWidth || 640;
+      const vH = videoEl.videoHeight || 480;
+      const cropW = Math.floor(vW * 0.7);
+      const cropH = Math.floor(vH * 0.45);
+      const startX = Math.floor((vW - cropW) / 2);
+      const startY = Math.floor((vH - cropH) / 2);
+
+      if (offscreenCanvas.width !== cropW || offscreenCanvas.height !== cropH) {
+        offscreenCanvas.width = cropW;
+        offscreenCanvas.height = cropH;
+      }
+
+      offscreenCtx.drawImage(videoEl, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
+
+      // Boost contrast / sharpen dark bars
+      const imgData = offscreenCtx.getImageData(0, 0, cropW, cropH);
+      const d = imgData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+        // Binarize threshold to make blurry grey stripes solid black/white
+        const val = lum < 128 ? 0 : 255;
+        d[i] = val;
+        d[i + 1] = val;
+        d[i + 2] = val;
+      }
+      offscreenCtx.putImageData(imgData, 0, 0);
+
+      if (nativeBarcodeDetectorInstance) {
+        const enhancedBarcodes = await nativeBarcodeDetectorInstance.detect(offscreenCanvas);
+        if (enhancedBarcodes && enhancedBarcodes.length > 0) {
+          processBarcodeScan(enhancedBarcodes[0].rawValue, "camera");
+        }
+      }
+    } catch (err) {}
+  }, 90);
+}
+
+function triggerCameraAutofocus(e = null, showRing = true) {
+  // Show visual tap focus ring
+  if (showRing) {
+    const ring = $("#scannerFocusRing");
+    const viewport = $("#scannerViewport");
+    if (ring && viewport) {
+      let x = viewport.clientWidth / 2;
+      let y = viewport.clientHeight / 2;
+      if (e) {
+        const rect = viewport.getBoundingClientRect();
+        x = e.clientX - rect.left;
+        y = e.clientY - rect.top;
+      }
+      ring.style.left = `${x}px`;
+      ring.style.top = `${y}px`;
+      ring.classList.remove("hidden");
+      ring.style.animation = "none";
+      void ring.offsetWidth; // trigger reflow
+      ring.style.animation = "focusRingPulse 0.6s ease-out forwards";
+    }
+  }
+
+  // Apply track hardware focus constraints
   try {
     const videoEl = $("#scannerReader video");
     const stream = videoEl?.srcObject;
     const track = stream?.getVideoTracks()[0];
     if (track && track.applyConstraints) {
       const capabilities = track.getCapabilities ? track.getCapabilities() : {};
-      const constraints = {};
-      if (capabilities.focusMode && capabilities.focusMode.includes("continuous")) {
-        constraints.focusMode = "continuous";
+      const advanced = [];
+
+      // Points of interest
+      if (e) {
+        const viewport = $("#scannerViewport");
+        if (viewport) {
+          const rect = viewport.getBoundingClientRect();
+          const normX = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+          const normY = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+          advanced.push({ pointsOfInterest: [{ x: normX, y: normY }] });
+        }
       }
-      if (Object.keys(constraints).length > 0) {
-        track.applyConstraints({ advanced: [constraints] }).catch(() => {});
+
+      if (currentFocusMode === "macro") {
+        const minDist = capabilities.focusDistance?.min || 0.05;
+        advanced.push({ focusMode: "manual", focusDistance: minDist });
+      } else if (currentFocusMode === "far") {
+        advanced.push({ focusMode: "continuous", focusDistance: 0.6 });
+      } else {
+        if (capabilities.focusMode && capabilities.focusMode.includes("continuous")) {
+          advanced.push({ focusMode: "continuous" });
+        }
+      }
+
+      if (advanced.length > 0) {
+        track.applyConstraints({ advanced }).catch(() => {});
       }
     }
-  } catch (e) {
-    // Non-critical focus failure
+  } catch (err) {
+    // Non-critical focus constraint failure
   }
 }
 
 function setScannerZoom(zoomMultiplier = 1.0) {
   activeZoomLevel = zoomMultiplier;
 
-  // 1. Attempt hardware track zoom if supported by camera driver
+  // 1. Attempt hardware track zoom
   try {
     const videoEl = $("#scannerReader video");
     const stream = videoEl?.srcObject;
@@ -2255,7 +2318,7 @@ function setScannerZoom(zoomMultiplier = 1.0) {
       }
     }
 
-    // 2. Also apply CSS scale crop (makes fixed-focus webcams razor-sharp at distance)
+    // 2. Also apply CSS scale crop (makes barcodes huge & sharp from a natural distance)
     if (videoEl) {
       if (zoomMultiplier > 1.05) {
         videoEl.style.transform = `scale(${zoomMultiplier})`;
@@ -2270,13 +2333,20 @@ function setScannerZoom(zoomMultiplier = 1.0) {
 }
 
 async function stopCameraScanner() {
+  if (frameScanIntervalId) {
+    clearInterval(frameScanIntervalId);
+    frameScanIntervalId = null;
+  }
+
   const placeholder = $("#scannerCameraPlaceholder");
-  const viewportWrap = document.querySelector(".scanner-viewport-wrapper");
+  const viewportWrap = $("#scannerViewport");
   const statusBadge = $("#scannerStatusBadge");
   const startBtn = $("#startCameraBtn");
   const stopBtn = $("#stopCameraBtn");
   const switchBtn = $("#switchCameraBtn");
   const zoomControls = $("#scannerZoomControls");
+  const triggerFocusBtn = $("#scannerTriggerFocusBtn");
+  const focusModes = $("#scannerFocusModes");
 
   if (html5QrCodeInstance && isCameraScanning) {
     try {
@@ -2293,6 +2363,8 @@ async function stopCameraScanner() {
   if (stopBtn) stopBtn.classList.add("hidden");
   if (switchBtn) switchBtn.classList.add("hidden");
   if (zoomControls) zoomControls.classList.add("hidden");
+  if (triggerFocusBtn) triggerFocusBtn.classList.add("hidden");
+  if (focusModes) focusModes.classList.add("hidden");
 
   // Reset zoom style
   const videoEl = $("#scannerReader video");
@@ -2307,8 +2379,6 @@ async function stopCameraScanner() {
 async function switchCameraFacing() {
   if (!isCameraScanning) return;
   currentCameraFacing = currentCameraFacing === "environment" ? "user" : "environment";
-  selectedCameraDeviceId = null;
-  localStorage.removeItem("static_selected_camera_id");
   await stopCameraScanner();
   await startCameraScanner();
 }

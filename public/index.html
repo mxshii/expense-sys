@@ -283,21 +283,7 @@
               <span id="scannerStatusBadge" class="scanner-status-badge status-idle">Ready</span>
             </div>
 
-            <!-- External Camera / Webcam Selector -->
-            <div class="scanner-camera-picker-bar" id="scannerCameraPickerBar">
-              <label for="scannerCameraSelect" class="camera-picker-label">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                <span>Camera Device:</span>
-              </label>
-              <select id="scannerCameraSelect" class="scanner-camera-select" title="Choose external webcam or phone camera">
-                <option value="">Auto-Detecting Cameras...</option>
-              </select>
-              <button type="button" id="refreshCamerasBtn" class="icon-btn-secondary" title="Refresh Connected Camera Devices" style="padding:5px 8px;">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-              </button>
-            </div>
-
-            <div class="scanner-viewport-wrapper">
+            <div class="scanner-viewport-wrapper" id="scannerViewport">
               <!-- HTML5 QR / Barcode element -->
               <div id="scannerReader" class="scanner-reader-box"></div>
               
@@ -308,14 +294,17 @@
                 <div class="scanner-corner bl"></div>
                 <div class="scanner-corner br"></div>
                 <div class="scanner-laser-bar"></div>
-                <div class="scanner-guide-text">Align barcode inside box</div>
+                <div class="scanner-guide-text">Align barcode inside box · Tap video to focus</div>
               </div>
+
+              <!-- Animated Tap Focus Ring -->
+              <div id="scannerFocusRing" class="scanner-focus-ring hidden"></div>
 
               <!-- Camera Placeholder / Off state -->
               <div id="scannerCameraPlaceholder" class="scanner-camera-placeholder">
                 <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-muted);opacity:0.6;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                 <p style="margin:8px 0 2px;font-size:13.5px;font-weight:600;color:var(--text);">Camera is currently idle</p>
-                <p style="margin:0;font-size:12px;color:var(--text-muted);">Choose a camera above and click Start</p>
+                <p style="margin:0;font-size:12px;color:var(--text-muted);">Click Start Camera to begin scanning</p>
               </div>
             </div>
 
@@ -323,28 +312,37 @@
             <div class="scanner-camera-controls">
               <button type="button" id="startCameraBtn" class="primary-btn" style="padding:9px 18px;font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:6px;">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
-                <span>Start Camera Scanner</span>
+                <span>Start Camera</span>
               </button>
               <button type="button" id="stopCameraBtn" class="ghost-btn danger hidden" style="padding:9px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12"/></svg>
                 <span>Stop Camera</span>
               </button>
 
-              <!-- Zoom Stepper Controls (Helps fixed-focus external webcams focus sharply from distance) -->
+              <!-- Dedicated Focus / Sharpen Trigger Button -->
+              <button type="button" id="scannerTriggerFocusBtn" class="icon-btn-secondary hidden" title="Force Focus & Sharpen Barcode" style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:7px 12px;">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>
+                <span>Focus / Sharpen</span>
+              </button>
+
+              <!-- Focus Distance Mode Chips (Auto, Macro Close-up, Normal) -->
+              <div id="scannerFocusModes" class="scanner-focus-modes-wrap hidden">
+                <button type="button" class="focus-mode-chip active" data-focus="auto" title="Continuous Auto Focus">Auto</button>
+                <button type="button" class="focus-mode-chip" data-focus="macro" title="Macro close-up mode for small barcodes">Macro 🔍</button>
+                <button type="button" class="focus-mode-chip" data-focus="far" title="Normal distance">Normal 📏</button>
+              </div>
+
+              <!-- Zoom Controls -->
               <div id="scannerZoomControls" class="scanner-zoom-controls hidden">
                 <span class="zoom-label">Zoom:</span>
                 <button type="button" class="zoom-preset-btn active" data-zoom="1">1x</button>
                 <button type="button" class="zoom-preset-btn" data-zoom="1.5">1.5x</button>
                 <button type="button" class="zoom-preset-btn" data-zoom="2">2x</button>
                 <button type="button" class="zoom-preset-btn" data-zoom="2.5">2.5x</button>
-                <button type="button" class="zoom-preset-btn" data-zoom="3">3x</button>
               </div>
               
-              <button type="button" id="switchCameraBtn" class="icon-btn-secondary hidden" title="Flip Camera">
+              <button type="button" id="switchCameraBtn" class="icon-btn-secondary hidden" title="Flip Front/Back Camera">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 16v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8"/><path d="M4 12h16"/><polyline points="16 8 20 12 16 16"/></svg>
-              </button>
-              <button type="button" id="scannerTorchBtn" class="icon-btn-secondary hidden" title="Toggle Flashlight">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
               </button>
             </div>
           </div>
