@@ -1395,13 +1395,10 @@ body.dark .cat-chip-other    { background: rgba(160,165,175,0.18);color: #A0A5AF
   }
 
   /* ══════════════════════════════════════════════
-     MULTI-BARCODE STICKER SHEET PRINTING
+     MULTI-BARCODE STICKER SHEET PRINTING (A4 & A5)
      ══════════════════════════════════════════════ */
   .print-barcode-sheet {
-    width: 100% !important;
-    max-width: 202mm !important;
     margin: 0 auto !important;
-    padding: 2mm !important;
     background: #ffffff !important;
     color: #000000 !important;
     font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
@@ -1410,142 +1407,350 @@ body.dark .cat-chip-other    { background: rgba(160,165,175,0.18);color: #A0A5AF
     box-sizing: border-box !important;
   }
 
-  /* 60 labels per sheet (4 columns × 15 rows) */
+  /* Paper size dimensions */
+  .print-barcode-sheet.sheet-paper-a4 {
+    width: 210mm !important;
+    max-width: 210mm !important;
+    height: 297mm !important;
+    max-height: 297mm !important;
+    padding: 3.5mm 3.5mm !important;
+  }
+  .print-barcode-sheet.sheet-paper-a5 {
+    width: 148mm !important;
+    max-width: 148mm !important;
+    height: 210mm !important;
+    max-height: 210mm !important;
+    padding: 2.5mm 2.5mm !important;
+  }
+  .print-barcode-sheet.sheet-paper-thermal {
+    width: 50mm !important;
+    max-width: 50mm !important;
+    padding: 1.5mm !important;
+  }
+
+  /* ────────── A4 LAYOUTS ────────── */
+
+  /* A4 — 60 labels per sheet (4 columns × 15 rows) */
+  .print-barcode-sheet.sheet-grid-a4-60,
   .print-barcode-sheet.sheet-grid-60 {
     display: grid !important;
     grid-template-columns: repeat(4, 1fr) !important;
     gap: 1mm 1.5mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-60 .barcode-sticker-cell,
   .print-barcode-sheet.sheet-grid-60 .barcode-sticker-cell {
     height: 17.5mm !important;
     max-height: 17.5mm !important;
     padding: 1.2mm 1.5mm 3.2mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-60 .sticker-header,
   .print-barcode-sheet.sheet-grid-60 .sticker-header {
     height: 2.8mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-60 .sticker-brand-tag,
   .print-barcode-sheet.sheet-grid-60 .sticker-brand-tag {
     font-size: 5pt !important;
     padding: 0.4px 2px !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-60 .sticker-item-title,
   .print-barcode-sheet.sheet-grid-60 .sticker-item-title {
     font-size: 6pt !important;
     max-width: 24mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-60 .sticker-price-badge,
   .print-barcode-sheet.sheet-grid-60 .sticker-price-badge {
     font-size: 6.5pt !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-60 .sticker-barcode-container,
   .print-barcode-sheet.sheet-grid-60 .sticker-barcode-container {
     height: 7.5mm !important;
     max-height: 7.5mm !important;
     margin: 0.4mm 0 0.3mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-60 .sticker-sku-text,
   .print-barcode-sheet.sheet-grid-60 .sticker-sku-text {
     font-size: 5.5pt !important;
     margin-top: 0.3mm !important;
   }
 
-  /* 30 labels per sheet (3 columns × 10 rows) */
+  /* A4 — 30 labels per sheet (3 columns × 10 rows) */
+  .print-barcode-sheet.sheet-grid-a4-30,
   .print-barcode-sheet.sheet-grid-30 {
     display: grid !important;
     grid-template-columns: repeat(3, 1fr) !important;
     gap: 1.8mm 2.2mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-30 .barcode-sticker-cell,
   .print-barcode-sheet.sheet-grid-30 .barcode-sticker-cell {
     height: 26mm !important;
     max-height: 26mm !important;
     padding: 1.8mm 2.5mm 4.5mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-30 .sticker-header,
   .print-barcode-sheet.sheet-grid-30 .sticker-header {
     height: 3.5mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-30 .sticker-brand-tag,
   .print-barcode-sheet.sheet-grid-30 .sticker-brand-tag {
     font-size: 6pt !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-30 .sticker-item-title,
   .print-barcode-sheet.sheet-grid-30 .sticker-item-title {
     font-size: 7.5pt !important;
     max-width: 36mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-30 .sticker-price-badge,
   .print-barcode-sheet.sheet-grid-30 .sticker-price-badge {
     font-size: 8pt !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-30 .sticker-barcode-container,
   .print-barcode-sheet.sheet-grid-30 .sticker-barcode-container {
     height: 11mm !important;
     max-height: 11mm !important;
     margin: 1mm 0 0.8mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-30 .sticker-sku-text,
   .print-barcode-sheet.sheet-grid-30 .sticker-sku-text {
     font-size: 6.8pt !important;
     margin-top: 0.8mm !important;
   }
 
-  /* 24 labels per sheet (3 columns × 8 rows) */
+  /* A4 — 24 labels per sheet (3 columns × 8 rows) */
+  .print-barcode-sheet.sheet-grid-a4-24,
   .print-barcode-sheet.sheet-grid-24 {
     display: grid !important;
     grid-template-columns: repeat(3, 1fr) !important;
     gap: 2.2mm 2.5mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-24 .barcode-sticker-cell,
   .print-barcode-sheet.sheet-grid-24 .barcode-sticker-cell {
     height: 32mm !important;
     max-height: 32mm !important;
     padding: 2.2mm 3mm 5.5mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-24 .sticker-header,
   .print-barcode-sheet.sheet-grid-24 .sticker-header {
     height: 4mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-24 .sticker-brand-tag,
   .print-barcode-sheet.sheet-grid-24 .sticker-brand-tag {
     font-size: 7pt !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-24 .sticker-item-title,
   .print-barcode-sheet.sheet-grid-24 .sticker-item-title {
     font-size: 8.5pt !important;
     max-width: 38mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-24 .sticker-price-badge,
   .print-barcode-sheet.sheet-grid-24 .sticker-price-badge {
     font-size: 9pt !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-24 .sticker-barcode-container,
   .print-barcode-sheet.sheet-grid-24 .sticker-barcode-container {
     height: 14mm !important;
     max-height: 14mm !important;
     margin: 1.2mm 0 1mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-24 .sticker-sku-text,
   .print-barcode-sheet.sheet-grid-24 .sticker-sku-text {
     font-size: 7.5pt !important;
     margin-top: 1mm !important;
   }
 
-  /* 12 labels per sheet (2 columns × 6 rows) */
+  /* A4 — 12 labels per sheet (2 columns × 6 rows) */
+  .print-barcode-sheet.sheet-grid-a4-12,
   .print-barcode-sheet.sheet-grid-12 {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 3mm 3.5mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-12 .barcode-sticker-cell,
   .print-barcode-sheet.sheet-grid-12 .barcode-sticker-cell {
     height: 43mm !important;
     max-height: 43mm !important;
     padding: 3mm 4mm 7.5mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-12 .sticker-header,
   .print-barcode-sheet.sheet-grid-12 .sticker-header {
     height: 5mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-12 .sticker-brand-tag,
   .print-barcode-sheet.sheet-grid-12 .sticker-brand-tag {
     font-size: 8.5pt !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-12 .sticker-item-title,
   .print-barcode-sheet.sheet-grid-12 .sticker-item-title {
     font-size: 10pt !important;
     max-width: 52mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-12 .sticker-price-badge,
   .print-barcode-sheet.sheet-grid-12 .sticker-price-badge {
     font-size: 10.5pt !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-12 .sticker-barcode-container,
   .print-barcode-sheet.sheet-grid-12 .sticker-barcode-container {
     height: 19mm !important;
     max-height: 19mm !important;
     margin: 1.8mm 0 1.5mm !important;
   }
+  .print-barcode-sheet.sheet-grid-a4-12 .sticker-sku-text,
   .print-barcode-sheet.sheet-grid-12 .sticker-sku-text {
     font-size: 9pt !important;
     margin-top: 1.5mm !important;
   }
+
+  /* ────────── A5 LAYOUTS ────────── */
+
+  /* A5 — 30 labels per sheet (3 columns × 10 rows) */
+  .print-barcode-sheet.sheet-grid-a5-30 {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 1.2mm 1.5mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-30 .barcode-sticker-cell {
+    height: 18.5mm !important;
+    max-height: 18.5mm !important;
+    padding: 1.2mm 1.5mm 3.2mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-30 .sticker-header {
+    height: 2.8mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-30 .sticker-brand-tag {
+    font-size: 4.8pt !important;
+    padding: 0.4px 2px !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-30 .sticker-ig-tag {
+    font-size: 4.5pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-30 .sticker-item-title {
+    font-size: 5.5pt !important;
+    max-width: 20mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-30 .sticker-price-badge {
+    font-size: 6pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-30 .sticker-barcode-container {
+    height: 7.5mm !important;
+    max-height: 7.5mm !important;
+    margin: 0.4mm 0 0.3mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-30 .sticker-sku-text {
+    font-size: 5.2pt !important;
+    margin-top: 0.3mm !important;
+  }
+
+  /* A5 — 20 labels per sheet (2 columns × 10 rows) */
+  .print-barcode-sheet.sheet-grid-a5-20 {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1.5mm 2mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-20 .barcode-sticker-cell {
+    height: 18.5mm !important;
+    max-height: 18.5mm !important;
+    padding: 1.2mm 2mm 3.2mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-20 .sticker-header {
+    height: 2.8mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-20 .sticker-brand-tag {
+    font-size: 5.2pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-20 .sticker-ig-tag {
+    font-size: 5pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-20 .sticker-item-title {
+    font-size: 6.5pt !important;
+    max-width: 32mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-20 .sticker-price-badge {
+    font-size: 7pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-20 .sticker-barcode-container {
+    height: 8mm !important;
+    max-height: 8mm !important;
+    margin: 0.4mm 0 0.3mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-20 .sticker-sku-text {
+    font-size: 5.8pt !important;
+    margin-top: 0.3mm !important;
+  }
+
+  /* A5 — 12 labels per sheet (2 columns × 6 rows) */
+  .print-barcode-sheet.sheet-grid-a5-12 {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 2mm 2.5mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-12 .barcode-sticker-cell {
+    height: 31mm !important;
+    max-height: 31mm !important;
+    padding: 2mm 2.5mm 5mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-12 .sticker-header {
+    height: 3.8mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-12 .sticker-brand-tag {
+    font-size: 6.5pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-12 .sticker-ig-tag {
+    font-size: 6pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-12 .sticker-item-title {
+    font-size: 8pt !important;
+    max-width: 34mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-12 .sticker-price-badge {
+    font-size: 8.5pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-12 .sticker-barcode-container {
+    height: 13.5mm !important;
+    max-height: 13.5mm !important;
+    margin: 1mm 0 0.8mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-12 .sticker-sku-text {
+    font-size: 7.2pt !important;
+    margin-top: 0.8mm !important;
+  }
+
+  /* A5 — 8 labels per sheet (2 columns × 4 rows) */
+  .print-barcode-sheet.sheet-grid-a5-8 {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 2.5mm 3mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-8 .barcode-sticker-cell {
+    height: 46mm !important;
+    max-height: 46mm !important;
+    padding: 2.5mm 3.5mm 7mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-8 .sticker-header {
+    height: 4.8mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-8 .sticker-brand-tag {
+    font-size: 8pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-8 .sticker-ig-tag {
+    font-size: 7.5pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-8 .sticker-item-title {
+    font-size: 9.5pt !important;
+    max-width: 36mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-8 .sticker-price-badge {
+    font-size: 10pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-8 .sticker-barcode-container {
+    height: 19mm !important;
+    max-height: 19mm !important;
+    margin: 1.5mm 0 1.2mm !important;
+  }
+  .print-barcode-sheet.sheet-grid-a5-8 .sticker-sku-text {
+    font-size: 8.5pt !important;
+    margin-top: 1.2mm !important;
+  }
+
+  /* ────────── THERMAL CONTINUOUS ────────── */
 
   /* Thermal roll (single continuous column) */
   .print-barcode-sheet.sheet-grid-thermal {
@@ -1568,6 +1773,9 @@ body.dark .cat-chip-other    { background: rgba(160,165,175,0.18);color: #A0A5AF
   }
   .print-barcode-sheet.sheet-grid-thermal .sticker-brand-tag {
     font-size: 6.5pt !important;
+  }
+  .print-barcode-sheet.sheet-grid-thermal .sticker-ig-tag {
+    font-size: 6pt !important;
   }
   .print-barcode-sheet.sheet-grid-thermal .sticker-item-title {
     font-size: 7.5pt !important;

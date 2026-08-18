@@ -823,7 +823,7 @@ function updateBarcodeLivePreview() {
   let qty = parseInt(qtyInput.value, 10);
   if (isNaN(qty) || qty < 1) qty = 1;
 
-  const layout = $("#barcodeSheetLayout")?.value || "60";
+  const layout = $("#barcodeSheetLayout")?.value || "a4-60";
 
   // Calculate pages estimate
   const estimateEl = $("#barcodeTotalPagesEstimate");
@@ -831,16 +831,29 @@ function updateBarcodeLivePreview() {
     if (layout === "thermal") {
       estimateEl.textContent = `${qty} Label${qty > 1 ? "s" : ""} on Roll`;
     } else {
-      const perSheet = parseInt(layout, 10) || 60;
+      let perSheet = 60;
+      let paperLabel = "A4 Sheet";
+      if (layout === "a4-60" || layout === "60") { perSheet = 60; paperLabel = "A4 Sheet"; }
+      else if (layout === "a4-30" || layout === "30") { perSheet = 30; paperLabel = "A4 Sheet"; }
+      else if (layout === "a4-24" || layout === "24") { perSheet = 24; paperLabel = "A4 Sheet"; }
+      else if (layout === "a4-12" || layout === "12") { perSheet = 12; paperLabel = "A4 Sheet"; }
+      else if (layout === "a5-30") { perSheet = 30; paperLabel = "A5 Sheet"; }
+      else if (layout === "a5-20") { perSheet = 20; paperLabel = "A5 Sheet"; }
+      else if (layout === "a5-12") { perSheet = 12; paperLabel = "A5 Sheet"; }
+      else if (layout === "a5-8")  { perSheet = 8;  paperLabel = "A5 Sheet"; }
+
       const sheets = Math.ceil(qty / perSheet);
-      estimateEl.textContent = `${sheets} Sheet${sheets > 1 ? "s" : ""} (${qty} labels total)`;
+      estimateEl.textContent = `${sheets} ${paperLabel}${sheets > 1 ? "s" : ""} (${qty} labels total)`;
     }
   }
 
-  // Update confirm button text
+  // Update confirm button text with SVG icon
   const confirmBtn = $("#confirmPrintBarcodesBtn");
   if (confirmBtn) {
-    confirmBtn.textContent = `🖨️ Print ${qty} Barcode${qty > 1 ? "s" : ""}`;
+    confirmBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;display:inline-block;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      <span>Print ${qty} Barcode${qty > 1 ? "s" : ""}</span>
+    `;
   }
 
   // Render live single label mockup
@@ -902,7 +915,7 @@ $("#barcodeSheetLayout").addEventListener("change", updateBarcodeLivePreview);
 $("#confirmPrintBarcodesBtn").addEventListener("click", () => {
   if (!activeBarcodeStockItem) return;
   const qty = Math.max(1, parseInt($("#barcodePrintQty").value, 10) || 60);
-  const layout = $("#barcodeSheetLayout").value || "60";
+  const layout = $("#barcodeSheetLayout").value || "a4-60";
   const options = {
     showBrand:  $("#optShowBrand").checked,
     showIg:     $("#optShowIg") ? $("#optShowIg").checked : true,
@@ -935,21 +948,54 @@ function printStockBarcodesSheet(item, qty, layout, options = {}) {
   // Determine SVG barHeight & moduleWidth based on layout density
   let barHeight = 20;
   let moduleWidth = 1.15;
-  if (layout === "60") {
+  let paperClass = "sheet-paper-a4";
+  let gridClass = "sheet-grid-a4-60";
+
+  if (layout === "a4-60" || layout === "60") {
     barHeight = 15;
     moduleWidth = 1.0;
-  } else if (layout === "30") {
-    barHeight = 22;
-    moduleWidth = 1.2;
-  } else if (layout === "24") {
-    barHeight = 26;
-    moduleWidth = 1.3;
-  } else if (layout === "12") {
-    barHeight = 36;
-    moduleWidth = 1.6;
+    paperClass = "sheet-paper-a4";
+    gridClass = "sheet-grid-a4-60";
+  } else if (layout === "a4-30" || layout === "30") {
+    barHeight = 20;
+    moduleWidth = 1.15;
+    paperClass = "sheet-paper-a4";
+    gridClass = "sheet-grid-a4-30";
+  } else if (layout === "a4-24" || layout === "24") {
+    barHeight = 24;
+    moduleWidth = 1.25;
+    paperClass = "sheet-paper-a4";
+    gridClass = "sheet-grid-a4-24";
+  } else if (layout === "a4-12" || layout === "12") {
+    barHeight = 34;
+    moduleWidth = 1.55;
+    paperClass = "sheet-paper-a4";
+    gridClass = "sheet-grid-a4-12";
+  } else if (layout === "a5-30") {
+    barHeight = 15;
+    moduleWidth = 1.0;
+    paperClass = "sheet-paper-a5";
+    gridClass = "sheet-grid-a5-30";
+  } else if (layout === "a5-20") {
+    barHeight = 18;
+    moduleWidth = 1.1;
+    paperClass = "sheet-paper-a5";
+    gridClass = "sheet-grid-a5-20";
+  } else if (layout === "a5-12") {
+    barHeight = 24;
+    moduleWidth = 1.25;
+    paperClass = "sheet-paper-a5";
+    gridClass = "sheet-grid-a5-12";
+  } else if (layout === "a5-8") {
+    barHeight = 32;
+    moduleWidth = 1.45;
+    paperClass = "sheet-paper-a5";
+    gridClass = "sheet-grid-a5-8";
   } else if (layout === "thermal") {
     barHeight = 24;
     moduleWidth = 1.25;
+    paperClass = "sheet-paper-thermal";
+    gridClass = "sheet-grid-thermal";
   }
 
   // Pre-generate the crisp SVG barcode once for optimal speed
@@ -980,7 +1026,7 @@ function printStockBarcodesSheet(item, qty, layout, options = {}) {
   }
 
   section.innerHTML = `
-    <div class="print-barcode-sheet sheet-grid-${layout}">
+    <div class="print-barcode-sheet ${paperClass} ${gridClass}">
       ${cells.join("")}
     </div>
   `;

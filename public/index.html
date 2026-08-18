@@ -743,8 +743,9 @@
             <span id="stockDetailBarcodeSkuBadge" style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent);background:#f2ebe0;padding:2px 7px;border-radius:4px;"></span>
           </div>
           <div id="stockDetailBarcodeSvg" style="display:flex;justify-content:center;align-items:center;min-height:52px;width:100%;"></div>
-          <button type="button" id="modalStockPrintBarcodesBtn" class="primary-btn" style="width:100%;margin-top:4px;padding:8px 14px;font-size:13px;">
-            🖨️ Print Barcode Labels (e.g. 60x)
+          <button type="button" id="modalStockPrintBarcodesBtn" class="primary-btn" style="width:100%;margin-top:4px;padding:8px 14px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            <span>Print Barcode Labels (e.g. 60x)</span>
           </button>
         </div>
 
@@ -781,7 +782,10 @@
     <div class="modal-card wide-modal" style="max-width: 560px; width: 92vw;">
       <div class="modal-header">
         <div>
-          <h3>Print Barcode Labels</h3>
+          <h3 style="display:flex;align-items:center;gap:8px;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8v8"/><path d="M10 8v8"/><path d="M14 8v8"/><path d="M17 8v8"/></svg>
+            <span>Print Barcode Labels</span>
+          </h3>
           <p class="tagline" style="margin-top:2px;">Generate multi-sticker print sheets or single labels</p>
         </div>
         <button type="button" class="modal-close-btn" data-close="stockBarcodeModal">&#x2715;</button>
@@ -839,13 +843,23 @@
 
         <!-- Sheet Layout Selector -->
         <div class="form-field">
-          <label style="font-size:12.5px;font-weight:600;color:var(--text);">Sticker Sheet / Paper Format</label>
+          <label style="font-size:12.5px;font-weight:600;color:var(--text);">Sticker Sheet / Paper Format (A4 & A5 Support)</label>
           <select id="barcodeSheetLayout" style="font-size:13px;font-weight:500;">
-            <option value="60" selected>A4 Sheet — 60 Labels (4 columns × 15 rows) [Recommended for 60x]</option>
-            <option value="30">A4 Sheet — 30 Labels (3 columns × 10 rows) [Standard Avery 30-up]</option>
-            <option value="24">A4 Sheet — 24 Labels (3 columns × 8 rows) [Medium Labels]</option>
-            <option value="12">A4 Sheet — 12 Labels (2 columns × 6 rows) [Large Product Labels]</option>
-            <option value="thermal">Thermal Roll (50mm × 30mm Continuous Label Printer)</option>
+            <optgroup label="A4 Paper (210 × 297 mm)">
+              <option value="a4-60" selected>A4 Sheet — 60 Labels (4 cols × 15 rows) [Recommended for 60x]</option>
+              <option value="a4-30">A4 Sheet — 30 Labels (3 cols × 10 rows) [Standard Avery 30-up]</option>
+              <option value="a4-24">A4 Sheet — 24 Labels (3 cols × 8 rows) [Medium Labels]</option>
+              <option value="a4-12">A4 Sheet — 12 Labels (2 cols × 6 rows) [Large Product Labels]</option>
+            </optgroup>
+            <optgroup label="A5 Paper (148 × 210 mm) [Half A4]">
+              <option value="a5-30">A5 Sheet — 30 Labels (3 cols × 10 rows) [Compact A5 Sheet]</option>
+              <option value="a5-20">A5 Sheet — 20 Labels (2 cols × 10 rows) [Wide Compact A5]</option>
+              <option value="a5-12">A5 Sheet — 12 Labels (2 cols × 6 rows) [Medium A5 Labels]</option>
+              <option value="a5-8">A5 Sheet — 8 Labels (2 cols × 4 rows) [Large A5 Labels]</option>
+            </optgroup>
+            <optgroup label="Thermal Label Printers">
+              <option value="thermal">Thermal Roll (50mm × 30mm Continuous)</option>
+            </optgroup>
           </select>
         </div>
 
@@ -883,8 +897,9 @@
         <!-- Actions -->
         <div class="modal-actions" style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;">
           <button type="button" class="ghost-btn" data-close="stockBarcodeModal">Cancel</button>
-          <button type="button" id="confirmPrintBarcodesBtn" class="primary-btn" style="padding:10px 24px;font-size:14px;font-weight:700;">
-            🖨️ Print 60 Barcodes
+          <button type="button" id="confirmPrintBarcodesBtn" class="primary-btn" style="padding:10px 24px;font-size:14px;font-weight:700;display:inline-flex;align-items:center;gap:7px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            <span>Print 60 Barcodes</span>
           </button>
         </div>
 
