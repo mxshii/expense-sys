@@ -75,7 +75,10 @@
           <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd"/></svg>
           <span>Revenue</span>
         </button>
-        <button class="nav-item founder-only hidden" data-tab="team" id="navTeam">
+        <button class="nav-item founder-only hidden" data-tab="customers" id="navCustomers">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v1h8v-1zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-1a4.978 4.978 0 00-.86-2.788A3.001 3.001 0 0119 17v1h-3zM4.138 15.212A4.98 4.98 0 004 17v1H1v-1a3 3 0 013.138-2.788z"/></svg>
+          <span>Customers</span>
+        </button>        <button class="nav-item founder-only hidden" data-tab="team" id="navTeam">
           <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
           <span>Team</span>
         </button>
@@ -657,6 +660,31 @@
               <tr><th>Username</th><th>Role</th><th></th></tr>
             </thead>
             <tbody id="usersBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- CUSTOMERS TAB -->
+      <section id="tab-customers" class="tab-panel">
+        <div class="panel-header">
+          <h2>Website Customers</h2>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <input type="text" id="customerSearch" placeholder="Search by name or email..." class="search-input" style="width:260px;" />
+            <span id="customerCount" style="font-size:13px;color:var(--text-muted);white-space:nowrap"></span>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Joined</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="customersBody"></tbody>
           </table>
         </div>
       </section>

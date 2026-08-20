@@ -483,6 +483,49 @@ app.delete("/api/orders/:id", requireLogin, requireFounder, withDB, async (req, 
   res.json({ ok: true });
 });
 
+
+// Customer self-delete (authenticated via Bearer token from website)
+app.delete("/api/customers/me", async (req, res) => {
+  const auth = req.headers.authorization || "";
+  const token = auth.replace("Bearer ", "").trim();
+  if (!token) return res.status(401).json({ error: "not authenticated" });
+  try {
+    const payload = jwt.verify(token, CUSTOMER_JWT_SECRET);
+    await customerPool.query("DELETE FROM customers WHERE id = $1", [payload.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    if (e.name === "JsonWebTokenError" || e.name === "TokenExpiredError") {
+      return res.status(401).json({ error: "session expired" });
+    }
+    console.error("self-delete:", e.message);
+    res.status(500).json({ error: "could not delete account" });
+  }
+});
+// --- WEBSITE CUSTOMERS MANAGEMENT (founder only) -----------------------------
+
+// List all website customers
+app.get("/api/customers", requireLogin, requireFounder, async (req, res) => {
+  try {
+    const { rows } = await customerPool.query(
+      "SELECT id, name, email, phone, address, created_at AS \"createdAt\" FROM customers ORDER BY created_at DESC"
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error("list customers:", e.message);
+    res.status(500).json({ error: "could not load customers" });
+  }
+});
+
+// Delete a website customer account
+app.delete("/api/customers/:id", requireLogin, requireFounder, async (req, res) => {
+  try {
+    await customerPool.query("DELETE FROM customers WHERE id = $1", [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("delete customer:", e.message);
+    res.status(500).json({ error: "could not delete customer" });
+  }
+});
 // --- SPA FALLBACK ------------------------------------------------------------
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "index.html"));

@@ -1,6 +1,7 @@
 let me = null;
 let allExpenses = [];
 let allOrders   = [];
+let allCustomers = [];
 let activeFilter = "all";
 
 const $ = (sel) => document.querySelector(sel);
@@ -347,6 +348,7 @@ async function syncAll() {
   if (!me) return;
   if (document.visibilityState === "hidden") return;
   await Promise.all([loadOrders(), loadStock(), loadExpenses(), loadRevenue()]);
+  loadCustomers(); // load customers in background (founder only)
   if (me.role === "founder") await loadUsers();
   $("#syncTime").textContent = new Date().toLocaleTimeString();
 }
@@ -2793,3 +2795,69 @@ function renderScannerHistoryTable() {
     })
     .join("");
 }
+
+// ── CUSTOMERS ─────────────────────────────────────────────────────────────────
+async function loadCustomers() {
+  if (!currentUser || currentUser.role !== "founder") return;
+  try {
+    const data = await apiFetch("/api/customers");
+    allCustomers = data || [];
+    renderCustomers(allCustomers);
+  } catch (e) {
+    console.warn("customers load:", e.message);
+  }
+}
+
+function renderCustomers(list) {
+  const tbody = document.getElementById("customersBody");
+  const countEl = document.getElementById("customerCount");
+  if (!tbody) return;
+  if (countEl) countEl.textContent = list.length + " customer" + (list.length !== 1 ? "s" : "");
+
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:40px">No customers yet</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map(c => `
+    <tr>
+      <td><strong>${escapeHtml(c.name)}</strong></td>
+      <td style="color:var(--text-muted)">${escapeHtml(c.email)}</td>
+      <td style="color:var(--text-muted)">${escapeHtml(c.phone || "-")}</td>
+      <td style="color:var(--text-muted);white-space:nowrap">${new Date(c.createdAt).toLocaleDateString("en-GB")}</td>
+      <td style="text-align:right">
+        <button class="danger-btn" onclick="deleteCustomer('${c.id}', '${escapeHtml(c.name)}')">Delete</button>
+      </td>
+    </tr>
+  `).join("");
+}
+
+async function deleteCustomer(id, name) {
+  if (!confirm(`Delete account for "${name}"?\n\nThis cannot be undone.`)) return;
+  try {
+    await apiFetch("/api/customers/" + id, { method: "DELETE" });
+    allCustomers = allCustomers.filter(c => c.id !== id);
+    renderCustomers(allCustomers);
+    showToast("Customer account deleted");
+  } catch (e) {
+    alert("Failed to delete: " + e.message);
+  }
+}
+
+// Customer search filter
+document.addEventListener("DOMContentLoaded", () => {
+  const searchEl = document.getElementById("customerSearch");
+  if (searchEl) {
+    searchEl.addEventListener("input", () => {
+      const q = searchEl.value.toLowerCase();
+      const filtered = q
+        ? allCustomers.filter(c =>
+            c.name.toLowerCase().includes(q) ||
+            c.email.toLowerCase().includes(q) ||
+            (c.phone || "").includes(q)
+          )
+        : allCustomers;
+      renderCustomers(filtered);
+    });
+  }
+});
