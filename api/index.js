@@ -10,7 +10,7 @@ const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || "yeetSecretDoNotDeployToTheMoonWithThis";
 
 
-// --- CORS � allow the Static storefront website to call this API --------------
+// --- CORS  allow the Static storefront website to call this API --------------
 app.use((req, res, next) => {
   const origin = req.headers.origin || "";
   const allowed = (process.env.STOREFRONT_ORIGINS || "").split(",").map(s => s.trim());
@@ -36,7 +36,7 @@ app.use(express.static(path.join(__dirname, "..", "public")));
 const CATEGORIES = ["Ads", "Printing", "Packaging", "Delivery"];
 const REVENUE_CATEGORIES = ["Stickers", "Posters", "Mail Subscription", "Other"];
 
-// ─── DB SEEDING ───────────────────────────────────────────────────────────────
+// --- DB SEEDING ---------------------------------------------------------------
 let seeded = false;
 async function ensureFounderSeeded() {
   if (seeded) return;
@@ -89,10 +89,10 @@ function cookieOptions() {
   };
 }
 
-// ─── HEALTH CHECK ─────────────────────────────────────────────────────────────
+// --- HEALTH CHECK -------------------------------------------------------------
 app.get("/api/ping", (req, res) => res.json({ ok: true }));
 
-// ─── AUTH ─────────────────────────────────────────────────────────────────────
+// --- AUTH ---------------------------------------------------------------------
 app.get("/api/me", (req, res) => {
   const token = req.cookies.token;
   if (!token) return res.json({ user: null });
@@ -131,7 +131,7 @@ app.post("/api/change-password", requireLogin, withDB, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ─── USERS ────────────────────────────────────────────────────────────────────
+// --- USERS --------------------------------------------------------------------
 app.get("/api/users", requireLogin, requireFounder, withDB, async (req, res) => {
   res.json(await db.getUsers());
 });
@@ -155,7 +155,7 @@ app.delete("/api/users/:id", requireLogin, requireFounder, withDB, async (req, r
   res.json({ ok: true });
 });
 
-// ─── EXPENSES ─────────────────────────────────────────────────────────────────
+// --- EXPENSES -----------------------------------------------------------------
 app.get("/api/expenses", requireLogin, withDB, async (req, res) => {
   res.json(await db.getExpenses());
 });
@@ -184,7 +184,7 @@ app.delete("/api/expenses/:id", requireLogin, requireFounder, withDB, async (req
   res.json({ ok: true });
 });
 
-// ─── REVENUE ──────────────────────────────────────────────────────────────────
+// --- REVENUE ------------------------------------------------------------------
 app.get("/api/revenue", requireLogin, withDB, async (req, res) => {
   res.json(await db.getRevenue());
 });
@@ -213,7 +213,7 @@ app.delete("/api/revenue/:id", requireLogin, requireFounder, withDB, async (req,
   res.json({ ok: true });
 });
 
-// ─── STOCK ────────────────────────────────────────────────────────────────────
+// --- STOCK --------------------------------------------------------------------
 app.get("/api/stock", requireLogin, withDB, async (req, res) => {
   res.json(await db.getStock());
 });
@@ -310,8 +310,8 @@ app.delete("/api/stock/:id", requireLogin, requireFounder, withDB, async (req, r
   res.json({ ok: true });
 });
 
-// ─── ORDERS ───────────────────────────────────────────────────────────────────
-// PUBLIC � no login required � used by the Static storefront website
+// --- ORDERS -------------------------------------------------------------------
+// PUBLIC  no login required  used by the Static storefront website
 app.post("/api/orders/storefront", withDB, async (req, res) => {
   const { customerName, phone, email, items, address, shippingPrice, note } = req.body;
   if (!customerName || !address)
@@ -395,7 +395,7 @@ app.delete("/api/orders/:id", requireLogin, requireFounder, withDB, async (req, 
   res.json({ ok: true });
 });
 
-// ─── SPA FALLBACK ─────────────────────────────────────────────────────────────
+// --- SPA FALLBACK -------------------------------------------------------------
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "index.html"));
 });
