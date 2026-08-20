@@ -7,14 +7,15 @@ const db = require("../lib/db");
 
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || "yeetSecretDoNotDeployToTheMoonWithThis";
-const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || JWT_SECRET + "_customer";
+const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || (JWT_SECRET + "_customer");
 
-// --- CORS: allow ANY origin (storefront is public) ----------------------------
+// ─── CORS: allow all origins for public storefront & APIs ─────────────────────
 app.use((req, res, next) => {
   const origin = req.headers.origin || "*";
   res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Vary", "Origin");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -27,7 +28,7 @@ app.use(express.static(path.join(__dirname, "..", "public")));
 const CATEGORIES = ["Ads", "Printing", "Packaging", "Delivery"];
 const REVENUE_CATEGORIES = ["Stickers", "Posters", "Mail Subscription", "Other"];
 
-// --- DB SEEDING ---------------------------------------------------------------
+// ─── DB SEEDING ───────────────────────────────────────────────────────────────
 let seeded = false;
 async function ensureFounderSeeded() {
   if (seeded) return;
@@ -49,7 +50,7 @@ async function withDB(req, res, next) {
     next();
   } catch (err) {
     console.error("DB error:", err.message);
-    next(err);
+    res.status(500).json({ error: "database error" });
   }
 }
 
@@ -80,118 +81,151 @@ function cookieOptions() {
   };
 }
 
-// --- HEALTH CHECK -------------------------------------------------------------
+// ─── HEALTH CHECK ─────────────────────────────────────────────────────────────
 app.get("/api/ping", (req, res) => res.json({ ok: true }));
 
-// --- PUBLIC STOCK (no login needed) ------------------------------------------
+// ─── PUBLIC STOCK (website shop catalog) ──────────────────────────────────────
 app.get("/api/stock/public", withDB, async (req, res) => {
-  const stock = await db.getStock();
-  // Only return items with stock > 0 and a price set
-  const available = stock.filter(s => s.quantity > 0 || s.quantity === 0);
-  res.json(available);
-});
-
-// --- CUSTOMER AUTH (website accounts) ----------------------------------------
-// Single shared pg pool — reused for all customer queries (saves free-tier connections)
-const { Pool } = require("pg");
-const customerPool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
-  max: 2, // reserve connections for main db.js pool
-});
-
-// Create customers table once on startup
-(async () => {
   try {
-    await customerPool.query(`
-      CREATE TABLE IF NOT EXISTS customers (
-        id            TEXT PRIMARY KEY,
-        name          TEXT NOT NULL,
-        email         TEXT UNIQUE NOT NULL,
-        phone         TEXT,
-        address       TEXT,
-        password_hash TEXT NOT NULL,
-        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
+    const stock = await db.getStock();
+    res.json(stock);
   } catch (e) {
-    console.error("customers table init:", e.message);
+    console.error("public stock error:", e.message);
+    res.status(500).json({ error: "could not load stock" });
   }
-})();
+});
 
-app.post("/api/customers/register", async (req, res) => {
+// ─── CUSTOMER AUTH (website customer accounts) ────────────────────────────────
+app.post("/api/customers/register", withDB, async (req, res) => {
   const { name, email, password, phone, address } = req.body;
   if (!name || !email || !password)
     return res.status(400).json({ error: "name, email and password are required" });
-  if (password.length < 6)
+  if (String(password).length < 6)
     return res.status(400).json({ error: "password must be at least 6 characters" });
 
-  
   try {
-    const existing = await customerPool.query("SELECT id FROM customers WHERE email = $1", [email.toLowerCase()]);
-    if (existing.rows.length > 0) {
-      
+    const existing = await db.getCustomerByEmail(email.trim());
+    if (existing) {
       return res.status(400).json({ error: "an account with this email already exists" });
     }
     const id = "cust_" + Date.now();
     const hash = bcrypt.hashSync(password, 10);
-    const { rows } = await customerPool.query(
-      `INSERT INTO customers (id, name, email, phone, address, password_hash)
-       VALUES ($1,$2,$3,$4,$5,$6)
-       RETURNING id, name, email, phone, address, created_at AS "createdAt"`,
-      [id, name, email.toLowerCase(), phone || null, address || null, hash]
+    const customer = await db.insertCustomer({
+      id,
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone?.trim() || null,
+      address: address?.trim() || null,
+      passwordHash: hash,
+    });
+    const token = jwt.sign(
+      { id: customer.id, email: customer.email, name: customer.name },
+      CUSTOMER_JWT_SECRET,
+      { expiresIn: "30d" }
     );
-    
-    const customer = rows[0];
-    const token = jwt.sign({ id: customer.id, email: customer.email, name: customer.name }, CUSTOMER_JWT_SECRET, { expiresIn: "30d" });
     res.json({ ok: true, customer, token });
   } catch (e) {
-    
     console.error("register error:", e.message);
     res.status(500).json({ error: "registration failed" });
   }
 });
 
-app.post("/api/customers/login", async (req, res) => {
+app.post("/api/customers/login", withDB, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password)
     return res.status(400).json({ error: "email and password are required" });
 
-  
   try {
-    const { rows } = await customerPool.query("SELECT * FROM customers WHERE email = $1", [email.toLowerCase()]);
-    
-    if (!rows.length || !bcrypt.compareSync(password, rows[0].password_hash))
+    const customer = await db.getCustomerByEmail(email.trim());
+    if (!customer || !bcrypt.compareSync(password, customer.password_hash)) {
       return res.status(401).json({ error: "wrong email or password" });
-    const c = rows[0];
-    const token = jwt.sign({ id: c.id, email: c.email, name: c.name }, CUSTOMER_JWT_SECRET, { expiresIn: "30d" });
-    res.json({ ok: true, customer: { id: c.id, name: c.name, email: c.email, phone: c.phone, address: c.address }, token });
+    }
+    const token = jwt.sign(
+      { id: customer.id, email: customer.email, name: customer.name },
+      CUSTOMER_JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+    res.json({
+      ok: true,
+      customer: {
+        id: customer.id,
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        address: customer.address,
+      },
+      token,
+    });
   } catch (e) {
     console.error("login error:", e.message);
     res.status(500).json({ error: "login failed" });
   }
 });
 
-app.get("/api/customers/orders", async (req, res) => {
+app.get("/api/customers/orders", withDB, async (req, res) => {
   const auth = req.headers.authorization || "";
-  const token = auth.replace("Bearer ", "");
+  const token = auth.replace("Bearer ", "").trim();
   if (!token) return res.status(401).json({ error: "not logged in" });
   try {
     const payload = jwt.verify(token, CUSTOMER_JWT_SECRET);
     const orders = await db.getOrders();
-    const mine = orders.filter(o => o.email && o.email.toLowerCase() === payload.email.toLowerCase());
+    const mine = orders.filter(
+      (o) => o.email && o.email.toLowerCase() === payload.email.toLowerCase()
+    );
     res.json(mine);
   } catch {
     res.status(401).json({ error: "session expired" });
   }
 });
 
-// --- AUTH (staff/founder) ----------------------------------------------------
+// Customer self-delete account
+app.delete("/api/customers/me", withDB, async (req, res) => {
+  const auth = req.headers.authorization || "";
+  const token = auth.replace("Bearer ", "").trim();
+  if (!token) return res.status(401).json({ error: "not authenticated" });
+  try {
+    const payload = jwt.verify(token, CUSTOMER_JWT_SECRET);
+    await db.deleteCustomer(payload.id);
+    res.json({ ok: true });
+  } catch (e) {
+    if (e.name === "JsonWebTokenError" || e.name === "TokenExpiredError") {
+      return res.status(401).json({ error: "session expired" });
+    }
+    console.error("self-delete error:", e.message);
+    res.status(500).json({ error: "could not delete account" });
+  }
+});
+
+// ─── WEBSITE CUSTOMERS MANAGEMENT (admin / founder only) ──────────────────────
+app.get("/api/customers", requireLogin, requireFounder, withDB, async (req, res) => {
+  try {
+    const rows = await db.getCustomers();
+    res.json(rows);
+  } catch (e) {
+    console.error("list customers error:", e.message);
+    res.status(500).json({ error: "could not load customers" });
+  }
+});
+
+app.delete("/api/customers/:id", requireLogin, requireFounder, withDB, async (req, res) => {
+  try {
+    await db.deleteCustomer(req.params.id);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("delete customer error:", e.message);
+    res.status(500).json({ error: "could not delete customer" });
+  }
+});
+
+// ─── ADMIN AUTH (staff / founder login to dashboard) ──────────────────────────
 app.get("/api/me", (req, res) => {
   const token = req.cookies.token;
   if (!token) return res.json({ user: null });
-  try { res.json({ user: jwt.verify(token, JWT_SECRET) }); }
-  catch { res.json({ user: null }); }
+  try {
+    res.json({ user: jwt.verify(token, JWT_SECRET) });
+  } catch {
+    res.json({ user: null });
+  }
 });
 
 app.post("/api/logout", (req, res) => {
@@ -225,7 +259,7 @@ app.post("/api/change-password", requireLogin, withDB, async (req, res) => {
   res.json({ ok: true });
 });
 
-// --- USERS -------------------------------------------------------------------
+// ─── USERS (staff / team management) ──────────────────────────────────────────
 app.get("/api/users", requireLogin, requireFounder, withDB, async (req, res) => {
   res.json(await db.getUsers());
 });
@@ -236,7 +270,12 @@ app.post("/api/users", requireLogin, requireFounder, withDB, async (req, res) =>
     return res.status(400).json({ error: "need a username and password" });
   if (await db.getUserByUsername(username))
     return res.status(400).json({ error: "that username is already taken" });
-  const newUser = { id: "u_" + Date.now(), username, passwordHash: bcrypt.hashSync(password, 10), role: "staff" };
+  const newUser = {
+    id: "u_" + Date.now(),
+    username,
+    passwordHash: bcrypt.hashSync(password, 10),
+    role: "staff",
+  };
   await db.insertUser(newUser);
   res.json({ id: newUser.id, username: newUser.username, role: newUser.role });
 });
@@ -249,7 +288,7 @@ app.delete("/api/users/:id", requireLogin, requireFounder, withDB, async (req, r
   res.json({ ok: true });
 });
 
-// --- EXPENSES ----------------------------------------------------------------
+// ─── EXPENSES ─────────────────────────────────────────────────────────────────
 app.get("/api/expenses", requireLogin, withDB, async (req, res) => {
   res.json(await db.getExpenses());
 });
@@ -278,7 +317,7 @@ app.delete("/api/expenses/:id", requireLogin, requireFounder, withDB, async (req
   res.json({ ok: true });
 });
 
-// --- REVENUE -----------------------------------------------------------------
+// ─── REVENUE ──────────────────────────────────────────────────────────────────
 app.get("/api/revenue", requireLogin, withDB, async (req, res) => {
   res.json(await db.getRevenue());
 });
@@ -307,7 +346,7 @@ app.delete("/api/revenue/:id", requireLogin, requireFounder, withDB, async (req,
   res.json({ ok: true });
 });
 
-// --- STOCK -------------------------------------------------------------------
+// ─── STOCK ────────────────────────────────────────────────────────────────────
 app.get("/api/stock", requireLogin, withDB, async (req, res) => {
   res.json(await db.getStock());
 });
@@ -392,9 +431,9 @@ app.delete("/api/stock/:id", requireLogin, requireFounder, withDB, async (req, r
   res.json({ ok: true });
 });
 
-// --- ORDERS ------------------------------------------------------------------
+// ─── ORDERS ───────────────────────────────────────────────────────────────────
 
-// PUBLIC: storefront website places orders (no login needed)
+// PUBLIC: Storefront order submission (no login required)
 app.post("/api/orders/storefront", withDB, async (req, res) => {
   const { customerName, phone, email, items, address, shippingPrice, note, paymentMethod } = req.body;
   if (!customerName || !address)
@@ -406,18 +445,17 @@ app.post("/api/orders/storefront", withDB, async (req, res) => {
 
   const orderId = await db.getNextOrderId();
 
-  // Embed payment method + note into address (orders table has no note column)
   const noteParts = [address];
   if (paymentMethod) noteParts.push("[Payment: " + paymentMethod + "]");
   if (note) noteParts.push("[Note: " + note + "]");
 
   const order = await db.insertOrder({
     id: orderId,
-    customerName,
-    phone,
-    email: email || null,
+    customerName: customerName.trim(),
+    phone: phone.trim(),
+    email: email ? email.trim() : null,
     items,
-    address: noteParts.join(" -- "),
+    address: noteParts.join(" — "),
     shippingPrice: Number(shippingPrice) || 0,
     paymentStatus: "unpaid",
     deliveryStatus: "processing",
@@ -483,50 +521,7 @@ app.delete("/api/orders/:id", requireLogin, requireFounder, withDB, async (req, 
   res.json({ ok: true });
 });
 
-
-// Customer self-delete (authenticated via Bearer token from website)
-app.delete("/api/customers/me", async (req, res) => {
-  const auth = req.headers.authorization || "";
-  const token = auth.replace("Bearer ", "").trim();
-  if (!token) return res.status(401).json({ error: "not authenticated" });
-  try {
-    const payload = jwt.verify(token, CUSTOMER_JWT_SECRET);
-    await customerPool.query("DELETE FROM customers WHERE id = $1", [payload.id]);
-    res.json({ ok: true });
-  } catch (e) {
-    if (e.name === "JsonWebTokenError" || e.name === "TokenExpiredError") {
-      return res.status(401).json({ error: "session expired" });
-    }
-    console.error("self-delete:", e.message);
-    res.status(500).json({ error: "could not delete account" });
-  }
-});
-// --- WEBSITE CUSTOMERS MANAGEMENT (founder only) -----------------------------
-
-// List all website customers
-app.get("/api/customers", requireLogin, requireFounder, async (req, res) => {
-  try {
-    const { rows } = await customerPool.query(
-      "SELECT id, name, email, phone, address, created_at AS \"createdAt\" FROM customers ORDER BY created_at DESC"
-    );
-    res.json(rows);
-  } catch (e) {
-    console.error("list customers:", e.message);
-    res.status(500).json({ error: "could not load customers" });
-  }
-});
-
-// Delete a website customer account
-app.delete("/api/customers/:id", requireLogin, requireFounder, async (req, res) => {
-  try {
-    await customerPool.query("DELETE FROM customers WHERE id = $1", [req.params.id]);
-    res.json({ ok: true });
-  } catch (e) {
-    console.error("delete customer:", e.message);
-    res.status(500).json({ error: "could not delete customer" });
-  }
-});
-// --- SPA FALLBACK ------------------------------------------------------------
+// ─── SPA FALLBACK ─────────────────────────────────────────────────────────────
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "index.html"));
 });

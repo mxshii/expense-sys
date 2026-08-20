@@ -326,6 +326,13 @@ function switchTab(tab) {
   if (titleEl) titleEl.textContent = pageTitles[tab] || tab;
   window.scrollTo(0, 0);
 
+  if (tab === "customers" && me?.role === "founder") {
+    loadCustomers();
+  }
+  if (tab === "team" && me?.role === "founder") {
+    loadUsers();
+  }
+
   if (tab === "scanner") {
     setTimeout(() => {
       const input = $("#scannerManualInput");
@@ -2796,68 +2803,71 @@ function renderScannerHistoryTable() {
     .join("");
 }
 
-// ── CUSTOMERS ─────────────────────────────────────────────────────────────────
+// ─── WEBSITE CUSTOMERS ────────────────────────────────────────────────────────
 async function loadCustomers() {
-  if (!currentUser || currentUser.role !== "founder") return;
+  if (!me || me.role !== "founder") return;
   try {
-    const data = await apiFetch("/api/customers");
+    const data = await api("/api/customers");
     allCustomers = data || [];
     renderCustomers(allCustomers);
   } catch (e) {
-    console.warn("customers load:", e.message);
+    console.error("customers load error:", e.message);
   }
 }
 
 function renderCustomers(list) {
-  const tbody = document.getElementById("customersBody");
-  const countEl = document.getElementById("customerCount");
+  const tbody = $("#customersBody");
+  const countEl = $("#customerCount");
   if (!tbody) return;
   if (countEl) countEl.textContent = list.length + " customer" + (list.length !== 1 ? "s" : "");
 
+  tbody.innerHTML = "";
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:40px">No customers yet</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:40px;">No website customers registered yet</td></tr>';
     return;
   }
 
   tbody.innerHTML = list.map(c => `
     <tr>
-      <td><strong>${escapeHtml(c.name)}</strong></td>
-      <td style="color:var(--text-muted)">${escapeHtml(c.email)}</td>
-      <td style="color:var(--text-muted)">${escapeHtml(c.phone || "-")}</td>
-      <td style="color:var(--text-muted);white-space:nowrap">${new Date(c.createdAt).toLocaleDateString("en-GB")}</td>
+      <td><strong style="color:var(--text);">${escapeHtml(c.name)}</strong></td>
+      <td style="color:var(--text-muted);">${escapeHtml(c.email)}</td>
+      <td style="color:var(--text-muted);">${escapeHtml(c.phone || "—")}</td>
+      <td style="color:var(--text-muted);white-space:nowrap;font-size:12.5px;">${formatDate12h(c.createdAt)}</td>
       <td style="text-align:right">
-        <button class="danger-btn" onclick="deleteCustomer('${c.id}', '${escapeHtml(c.name)}')">Delete</button>
+        <button class="icon-btn" data-del-customer="${c.id}" data-cust-name="${escapeHtml(c.name)}" title="Delete account" style="color:var(--danger,#e53935);">✕</button>
       </td>
     </tr>
   `).join("");
+
+  tbody.querySelectorAll("[data-del-customer]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const name = btn.dataset.custName || "this customer";
+      if (!confirm(`Delete website account for "${name}"?\n\nThis cannot be undone.`)) return;
+      try {
+        await api("/api/customers/" + btn.dataset.delCustomer, "DELETE");
+        await loadCustomers();
+      } catch (err) {
+        alert("Failed to delete customer: " + err.message);
+      }
+    });
+  });
 }
 
-async function deleteCustomer(id, name) {
-  if (!confirm(`Delete account for "${name}"?\n\nThis cannot be undone.`)) return;
-  try {
-    await apiFetch("/api/customers/" + id, { method: "DELETE" });
-    allCustomers = allCustomers.filter(c => c.id !== id);
-    renderCustomers(allCustomers);
-    showToast("Customer account deleted");
-  } catch (e) {
-    alert("Failed to delete: " + e.message);
-  }
-}
-
-// Customer search filter
-document.addEventListener("DOMContentLoaded", () => {
+// Wire up customer search
+(function initCustomerSearch() {
   const searchEl = document.getElementById("customerSearch");
   if (searchEl) {
     searchEl.addEventListener("input", () => {
-      const q = searchEl.value.toLowerCase();
+      const q = searchEl.value.toLowerCase().trim();
       const filtered = q
         ? allCustomers.filter(c =>
-            c.name.toLowerCase().includes(q) ||
-            c.email.toLowerCase().includes(q) ||
-            (c.phone || "").includes(q)
+            (c.name || "").toLowerCase().includes(q) ||
+            (c.email || "").toLowerCase().includes(q) ||
+            (c.phone || "").toLowerCase().includes(q) ||
+            (c.address || "").toLowerCase().includes(q)
           )
         : allCustomers;
       renderCustomers(filtered);
     });
   }
-});
+})();
