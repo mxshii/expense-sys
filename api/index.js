@@ -92,46 +92,32 @@ app.get("/api/stock/public", withDB, async (req, res) => {
 });
 
 // --- CUSTOMER AUTH (website accounts) ----------------------------------------
-// Customer accounts are stored in a separate customers table
-// We create it on first use via a raw pool query
-async function ensureCustomersTable() {
-  const { Pool } = require("pg");
-  const pool = new (Pool || require("pg").Pool)({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
-  });
-  // We borrow the pool from db module via a workaround - just use the db pool
-  // Actually, let's use the db module's pool by exposing it, or just use raw pg here
+// Single shared pg pool — reused for all customer queries (saves free-tier connections)
+const { Pool } = require("pg");
+const customerPool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+  max: 2, // reserve connections for main db.js pool
+});
+
+// Create customers table once on startup
+(async () => {
   try {
-    await pool.query(`
+    await customerPool.query(`
       CREATE TABLE IF NOT EXISTS customers (
-        id           TEXT PRIMARY KEY,
-        name         TEXT NOT NULL,
-        email        TEXT UNIQUE NOT NULL,
-        phone        TEXT,
-        address      TEXT,
+        id            TEXT PRIMARY KEY,
+        name          TEXT NOT NULL,
+        email         TEXT UNIQUE NOT NULL,
+        phone         TEXT,
+        address       TEXT,
         password_hash TEXT NOT NULL,
-        created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
-    pool.end();
   } catch (e) {
-    pool.end();
-    throw e;
+    console.error("customers table init:", e.message);
   }
-}
-
-// Initialize customers table on startup
-ensureCustomersTable().catch(e => console.error("customers table init error:", e.message));
-
-// Helper: get a fresh pool for customer queries
-function getPool() {
-  const { Pool } = require("pg");
-  return new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
-  });
-}
+})();
 
 app.post("/api/customers/register", async (req, res) => {
   const { name, email, password, phone, address } = req.body;
@@ -140,27 +126,27 @@ app.post("/api/customers/register", async (req, res) => {
   if (password.length < 6)
     return res.status(400).json({ error: "password must be at least 6 characters" });
 
-  const pool = getPool();
+  
   try {
-    const existing = await pool.query("SELECT id FROM customers WHERE email = $1", [email.toLowerCase()]);
+    const existing = await customerPool.query("SELECT id FROM customers WHERE email = $1", [email.toLowerCase()]);
     if (existing.rows.length > 0) {
-      await pool.end();
+      
       return res.status(400).json({ error: "an account with this email already exists" });
     }
     const id = "cust_" + Date.now();
     const hash = bcrypt.hashSync(password, 10);
-    const { rows } = await pool.query(
+    const { rows } = await customerPool.query(
       `INSERT INTO customers (id, name, email, phone, address, password_hash)
        VALUES ($1,$2,$3,$4,$5,$6)
        RETURNING id, name, email, phone, address, created_at AS "createdAt"`,
       [id, name, email.toLowerCase(), phone || null, address || null, hash]
     );
-    await pool.end();
+    
     const customer = rows[0];
     const token = jwt.sign({ id: customer.id, email: customer.email, name: customer.name }, CUSTOMER_JWT_SECRET, { expiresIn: "30d" });
     res.json({ ok: true, customer, token });
   } catch (e) {
-    await pool.end();
+    
     console.error("register error:", e.message);
     res.status(500).json({ error: "registration failed" });
   }
@@ -171,10 +157,10 @@ app.post("/api/customers/login", async (req, res) => {
   if (!email || !password)
     return res.status(400).json({ error: "email and password are required" });
 
-  const pool = getPool();
+  
   try {
-    const { rows } = await pool.query("SELECT * FROM customers WHERE email = $1", [email.toLowerCase()]);
-    await pool.end();
+    const { rows } = await customerPool.query("SELECT * FROM customers WHERE email = $1", [email.toLowerCase()]);
+    
     if (!rows.length || !bcrypt.compareSync(password, rows[0].password_hash))
       return res.status(401).json({ error: "wrong email or password" });
     const c = rows[0];
@@ -419,18 +405,23 @@ app.post("/api/orders/storefront", withDB, async (req, res) => {
     return res.status(400).json({ error: "at least one item is required" });
 
   const orderId = await db.getNextOrderId();
+
+  // Embed payment method + note into address (orders table has no note column)
+  const noteParts = [address];
+  if (paymentMethod) noteParts.push("[Payment: " + paymentMethod + "]");
+  if (note) noteParts.push("[Note: " + note + "]");
+
   const order = await db.insertOrder({
     id: orderId,
     customerName,
     phone,
     email: email || null,
     items,
-    address,
+    address: noteParts.join(" -- "),
     shippingPrice: Number(shippingPrice) || 0,
     paymentStatus: "unpaid",
     deliveryStatus: "processing",
     createdBy: "storefront",
-    note: [note, paymentMethod ? "Payment method: " + paymentMethod : null].filter(Boolean).join(" | ") || null,
   });
   res.json({ ok: true, id: order.id });
 });
