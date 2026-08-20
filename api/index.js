@@ -6,31 +6,22 @@ const path = require("path");
 const db = require("../lib/db");
 
 const app = express();
-
 const JWT_SECRET = process.env.JWT_SECRET || "yeetSecretDoNotDeployToTheMoonWithThis";
+const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || JWT_SECRET + "_customer";
 
-
-// --- CORS  allow the Static storefront website to call this API --------------
+// --- CORS: allow ANY origin (storefront is public) ----------------------------
 app.use((req, res, next) => {
-  const origin = req.headers.origin || "";
-  const allowed = (process.env.STOREFRONT_ORIGINS || "").split(",").map(s => s.trim());
-  const isOk =
-    !origin ||
-    allowed.some(o => o && origin.startsWith(o)) ||
-    /^https?:\/\/(localhost|127\.0\.0\.1)/.test(origin);
-  if (isOk) {
-    res.setHeader("Access-Control-Allow-Origin", origin || "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-  }
+  const origin = req.headers.origin || "*";
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  res.setHeader("Vary", "Origin");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
+
 app.use(express.json());
 app.use(cookieParser());
-
-// Serve static files in all environments (local + Vercel)
 app.use(express.static(path.join(__dirname, "..", "public")));
 
 const CATEGORIES = ["Ads", "Printing", "Packaging", "Delivery"];
@@ -92,7 +83,124 @@ function cookieOptions() {
 // --- HEALTH CHECK -------------------------------------------------------------
 app.get("/api/ping", (req, res) => res.json({ ok: true }));
 
-// --- AUTH ---------------------------------------------------------------------
+// --- PUBLIC STOCK (no login needed) ------------------------------------------
+app.get("/api/stock/public", withDB, async (req, res) => {
+  const stock = await db.getStock();
+  // Only return items with stock > 0 and a price set
+  const available = stock.filter(s => s.quantity > 0 || s.quantity === 0);
+  res.json(available);
+});
+
+// --- CUSTOMER AUTH (website accounts) ----------------------------------------
+// Customer accounts are stored in a separate customers table
+// We create it on first use via a raw pool query
+async function ensureCustomersTable() {
+  const { Pool } = require("pg");
+  const pool = new (Pool || require("pg").Pool)({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+  });
+  // We borrow the pool from db module via a workaround - just use the db pool
+  // Actually, let's use the db module's pool by exposing it, or just use raw pg here
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS customers (
+        id           TEXT PRIMARY KEY,
+        name         TEXT NOT NULL,
+        email        TEXT UNIQUE NOT NULL,
+        phone        TEXT,
+        address      TEXT,
+        password_hash TEXT NOT NULL,
+        created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    pool.end();
+  } catch (e) {
+    pool.end();
+    throw e;
+  }
+}
+
+// Initialize customers table on startup
+ensureCustomersTable().catch(e => console.error("customers table init error:", e.message));
+
+// Helper: get a fresh pool for customer queries
+function getPool() {
+  const { Pool } = require("pg");
+  return new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+  });
+}
+
+app.post("/api/customers/register", async (req, res) => {
+  const { name, email, password, phone, address } = req.body;
+  if (!name || !email || !password)
+    return res.status(400).json({ error: "name, email and password are required" });
+  if (password.length < 6)
+    return res.status(400).json({ error: "password must be at least 6 characters" });
+
+  const pool = getPool();
+  try {
+    const existing = await pool.query("SELECT id FROM customers WHERE email = $1", [email.toLowerCase()]);
+    if (existing.rows.length > 0) {
+      await pool.end();
+      return res.status(400).json({ error: "an account with this email already exists" });
+    }
+    const id = "cust_" + Date.now();
+    const hash = bcrypt.hashSync(password, 10);
+    const { rows } = await pool.query(
+      `INSERT INTO customers (id, name, email, phone, address, password_hash)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       RETURNING id, name, email, phone, address, created_at AS "createdAt"`,
+      [id, name, email.toLowerCase(), phone || null, address || null, hash]
+    );
+    await pool.end();
+    const customer = rows[0];
+    const token = jwt.sign({ id: customer.id, email: customer.email, name: customer.name }, CUSTOMER_JWT_SECRET, { expiresIn: "30d" });
+    res.json({ ok: true, customer, token });
+  } catch (e) {
+    await pool.end();
+    console.error("register error:", e.message);
+    res.status(500).json({ error: "registration failed" });
+  }
+});
+
+app.post("/api/customers/login", async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password)
+    return res.status(400).json({ error: "email and password are required" });
+
+  const pool = getPool();
+  try {
+    const { rows } = await pool.query("SELECT * FROM customers WHERE email = $1", [email.toLowerCase()]);
+    await pool.end();
+    if (!rows.length || !bcrypt.compareSync(password, rows[0].password_hash))
+      return res.status(401).json({ error: "wrong email or password" });
+    const c = rows[0];
+    const token = jwt.sign({ id: c.id, email: c.email, name: c.name }, CUSTOMER_JWT_SECRET, { expiresIn: "30d" });
+    res.json({ ok: true, customer: { id: c.id, name: c.name, email: c.email, phone: c.phone, address: c.address }, token });
+  } catch (e) {
+    console.error("login error:", e.message);
+    res.status(500).json({ error: "login failed" });
+  }
+});
+
+app.get("/api/customers/orders", async (req, res) => {
+  const auth = req.headers.authorization || "";
+  const token = auth.replace("Bearer ", "");
+  if (!token) return res.status(401).json({ error: "not logged in" });
+  try {
+    const payload = jwt.verify(token, CUSTOMER_JWT_SECRET);
+    const orders = await db.getOrders();
+    const mine = orders.filter(o => o.email && o.email.toLowerCase() === payload.email.toLowerCase());
+    res.json(mine);
+  } catch {
+    res.status(401).json({ error: "session expired" });
+  }
+});
+
+// --- AUTH (staff/founder) ----------------------------------------------------
 app.get("/api/me", (req, res) => {
   const token = req.cookies.token;
   if (!token) return res.json({ user: null });
@@ -131,7 +239,7 @@ app.post("/api/change-password", requireLogin, withDB, async (req, res) => {
   res.json({ ok: true });
 });
 
-// --- USERS --------------------------------------------------------------------
+// --- USERS -------------------------------------------------------------------
 app.get("/api/users", requireLogin, requireFounder, withDB, async (req, res) => {
   res.json(await db.getUsers());
 });
@@ -155,7 +263,7 @@ app.delete("/api/users/:id", requireLogin, requireFounder, withDB, async (req, r
   res.json({ ok: true });
 });
 
-// --- EXPENSES -----------------------------------------------------------------
+// --- EXPENSES ----------------------------------------------------------------
 app.get("/api/expenses", requireLogin, withDB, async (req, res) => {
   res.json(await db.getExpenses());
 });
@@ -184,7 +292,7 @@ app.delete("/api/expenses/:id", requireLogin, requireFounder, withDB, async (req
   res.json({ ok: true });
 });
 
-// --- REVENUE ------------------------------------------------------------------
+// --- REVENUE -----------------------------------------------------------------
 app.get("/api/revenue", requireLogin, withDB, async (req, res) => {
   res.json(await db.getRevenue());
 });
@@ -213,7 +321,7 @@ app.delete("/api/revenue/:id", requireLogin, requireFounder, withDB, async (req,
   res.json({ ok: true });
 });
 
-// --- STOCK --------------------------------------------------------------------
+// --- STOCK -------------------------------------------------------------------
 app.get("/api/stock", requireLogin, withDB, async (req, res) => {
   res.json(await db.getStock());
 });
@@ -222,10 +330,9 @@ app.post("/api/stock", requireLogin, withDB, async (req, res) => {
   const { itemName, quantity, price, sku } = req.body;
   if (!itemName) return res.status(400).json({ error: "item needs a name" });
   const stockId = "stk_" + Date.now();
-  const finalSku = (sku && String(sku).trim()) 
-    ? String(sku).trim().toUpperCase() 
+  const finalSku = (sku && String(sku).trim())
+    ? String(sku).trim().toUpperCase()
     : "STK-" + stockId.slice(-6);
-
   const item = await db.insertStockItem({
     id: stockId,
     itemName: itemName.trim(),
@@ -238,7 +345,6 @@ app.post("/api/stock", requireLogin, withDB, async (req, res) => {
 
 app.put("/api/stock/:id", requireLogin, withDB, async (req, res) => {
   const { itemName, quantity, price, sku } = req.body;
-  // Staff can only update quantity; founder can update everything
   const updates = req.user.role === "founder"
     ? {
         itemName: itemName !== undefined ? itemName.trim() : undefined,
@@ -257,42 +363,32 @@ app.post("/api/stock/scan", requireLogin, withDB, async (req, res) => {
   if (!code || !String(code).trim()) {
     return res.status(400).json({ error: "No barcode or SKU code provided" });
   }
-
   const rawCode = String(code).trim();
   const allStock = await db.getStock();
-
-  // Match item by SKU (exact or case-insensitive) or by ID
   const item = allStock.find((s) => {
     const sSku = (s.sku || "").trim().toUpperCase();
     const sId = (s.id || "").trim().toLowerCase();
     const target = rawCode.toUpperCase();
     return sSku === target || sId === rawCode.toLowerCase();
   });
-
   if (!item) {
     return res.status(404).json({
       error: `No stock item found matching barcode "${rawCode}"`,
       code: rawCode,
     });
   }
-
   const delta = Math.max(1, Number(qty) || 1);
   const previousQuantity = Number(item.quantity) || 0;
   let newQuantity = previousQuantity;
-
   if (mode === "decrement") {
     newQuantity = Math.max(0, previousQuantity - delta);
   } else if (mode === "increment") {
     newQuantity = previousQuantity + delta;
-  } else if (mode === "lookup") {
-    newQuantity = previousQuantity;
   }
-
   let updatedItem = item;
   if (mode !== "lookup") {
     updatedItem = await db.updateStockItem(item.id, { quantity: newQuantity });
   }
-
   res.json({
     ok: true,
     action: mode,
@@ -310,10 +406,11 @@ app.delete("/api/stock/:id", requireLogin, requireFounder, withDB, async (req, r
   res.json({ ok: true });
 });
 
-// --- ORDERS -------------------------------------------------------------------
-// PUBLIC  no login required  used by the Static storefront website
+// --- ORDERS ------------------------------------------------------------------
+
+// PUBLIC: storefront website places orders (no login needed)
 app.post("/api/orders/storefront", withDB, async (req, res) => {
-  const { customerName, phone, email, items, address, shippingPrice, note } = req.body;
+  const { customerName, phone, email, items, address, shippingPrice, note, paymentMethod } = req.body;
   if (!customerName || !address)
     return res.status(400).json({ error: "name and address are required" });
   if (!phone)
@@ -333,10 +430,11 @@ app.post("/api/orders/storefront", withDB, async (req, res) => {
     paymentStatus: "unpaid",
     deliveryStatus: "processing",
     createdBy: "storefront",
-    note: note || null,
+    note: [note, paymentMethod ? "Payment method: " + paymentMethod : null].filter(Boolean).join(" | ") || null,
   });
   res.json({ ok: true, id: order.id });
 });
+
 app.get("/api/orders", requireLogin, withDB, async (req, res) => {
   res.json(await db.getOrders());
 });
@@ -365,7 +463,6 @@ app.post("/api/orders", requireLogin, withDB, async (req, res) => {
     orderId = await db.getNextOrderId();
   }
 
-  // Deduct stock quantities
   await db.deductStockForOrder(items);
 
   const order = await db.insertOrder({
@@ -395,7 +492,7 @@ app.delete("/api/orders/:id", requireLogin, requireFounder, withDB, async (req, 
   res.json({ ok: true });
 });
 
-// --- SPA FALLBACK -------------------------------------------------------------
+// --- SPA FALLBACK ------------------------------------------------------------
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "public", "index.html"));
 });
