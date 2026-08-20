@@ -87,6 +87,8 @@ app.get("/api/ping", (req, res) => res.json({ ok: true }));
 // ─── PUBLIC STOCK (website shop catalog) ──────────────────────────────────────
 app.get("/api/stock/public", withDB, async (req, res) => {
   try {
+    // Cache stock at Vercel CDN edge for 60s (reduces Neon DB hits to 1 per min)
+    res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
     const stock = await db.getStock();
     res.json(stock);
   } catch (e) {

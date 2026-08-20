@@ -359,7 +359,18 @@ async function syncAll() {
   if (me.role === "founder") await loadUsers();
   $("#syncTime").textContent = new Date().toLocaleTimeString();
 }
-setInterval(syncAll, 120000); // 2 min — lets Neon auto-suspend between polls
+// Smart sync: only poll every 3 mins when user was recently active (saves Neon compute)
+let lastUserActivity = Date.now();
+["mousemove", "keydown", "click", "touchstart"].forEach(evt => {
+  window.addEventListener(evt, () => { lastUserActivity = Date.now(); }, { passive: true });
+});
+
+setInterval(() => {
+  // If user has been inactive for > 10 mins, don't poll (let Neon sleep)
+  if (Date.now() - lastUserActivity < 600000) {
+    syncAll();
+  }
+}, 180000); // 3 min interval
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && me) syncAll();
 });
