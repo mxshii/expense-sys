@@ -9,6 +9,24 @@ const app = express();
 
 const JWT_SECRET = process.env.JWT_SECRET || "yeetSecretDoNotDeployToTheMoonWithThis";
 
+
+// --- CORS � allow the Static storefront website to call this API --------------
+app.use((req, res, next) => {
+  const origin = req.headers.origin || "";
+  const allowed = (process.env.STOREFRONT_ORIGINS || "").split(",").map(s => s.trim());
+  const isOk =
+    !origin ||
+    allowed.some(o => o && origin.startsWith(o)) ||
+    /^https?:\/\/(localhost|127\.0\.0\.1)/.test(origin);
+  if (isOk) {
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  }
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
 app.use(express.json());
 app.use(cookieParser());
 
@@ -293,6 +311,32 @@ app.delete("/api/stock/:id", requireLogin, requireFounder, withDB, async (req, r
 });
 
 // ─── ORDERS ───────────────────────────────────────────────────────────────────
+// PUBLIC � no login required � used by the Static storefront website
+app.post("/api/orders/storefront", withDB, async (req, res) => {
+  const { customerName, phone, email, items, address, shippingPrice, note } = req.body;
+  if (!customerName || !address)
+    return res.status(400).json({ error: "name and address are required" });
+  if (!phone)
+    return res.status(400).json({ error: "phone number is required" });
+  if (!items || items.length === 0)
+    return res.status(400).json({ error: "at least one item is required" });
+
+  const orderId = await db.getNextOrderId();
+  const order = await db.insertOrder({
+    id: orderId,
+    customerName,
+    phone,
+    email: email || null,
+    items,
+    address,
+    shippingPrice: Number(shippingPrice) || 0,
+    paymentStatus: "unpaid",
+    deliveryStatus: "processing",
+    createdBy: "storefront",
+    note: note || null,
+  });
+  res.json({ ok: true, id: order.id });
+});
 app.get("/api/orders", requireLogin, withDB, async (req, res) => {
   res.json(await db.getOrders());
 });
