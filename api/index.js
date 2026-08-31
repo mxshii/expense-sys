@@ -512,9 +512,40 @@ app.post("/api/orders", requireLogin, withDB, async (req, res) => {
 });
 
 app.put("/api/orders/:id", requireLogin, withDB, async (req, res) => {
-  const { paymentStatus, deliveryStatus } = req.body;
-  const order = await db.updateOrder(req.params.id, { paymentStatus, deliveryStatus });
-  if (!order) return res.status(404).json({ error: "order not found" });
+  const { customerName, phone, email, items, address, shippingPrice, paymentStatus, deliveryStatus } = req.body;
+  const existing = await db.getOrderById(req.params.id);
+  if (!existing) return res.status(404).json({ error: "order not found" });
+
+  if (customerName !== undefined && !customerName.trim()) {
+    return res.status(400).json({ error: "customer name cannot be empty" });
+  }
+  if (phone !== undefined && !phone.trim()) {
+    return res.status(400).json({ error: "phone number cannot be empty" });
+  }
+  if (address !== undefined && !address.trim()) {
+    return res.status(400).json({ error: "address cannot be empty" });
+  }
+  if (items !== undefined) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: "order must contain at least one item" });
+    }
+    const oldItems = Array.isArray(existing.items)
+      ? existing.items
+      : (typeof existing.items === "string" ? JSON.parse(existing.items || "[]") : []);
+    await db.reconcileStockForOrder(oldItems, items);
+  }
+
+  const updates = {};
+  if (customerName !== undefined) updates.customerName = customerName.trim();
+  if (phone !== undefined) updates.phone = phone.trim();
+  if (email !== undefined) updates.email = email ? email.trim() : null;
+  if (items !== undefined) updates.items = items;
+  if (address !== undefined) updates.address = address.trim();
+  if (shippingPrice !== undefined) updates.shippingPrice = Number(shippingPrice) || 0;
+  if (paymentStatus !== undefined) updates.paymentStatus = paymentStatus;
+  if (deliveryStatus !== undefined) updates.deliveryStatus = deliveryStatus;
+
+  const order = await db.updateOrder(req.params.id, updates);
   res.json(order);
 });
 

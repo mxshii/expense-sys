@@ -443,6 +443,14 @@ function openOrderDetail(orderId) {
     delWrap.style.display = "none";
   }
 
+  const editBtn = $("#modalOrderEditBtn");
+  if (editBtn) {
+    editBtn.onclick = () => {
+      $("#orderDetailModal").classList.add("hidden");
+      openEditOrderModal(o.id);
+    };
+  }
+
   const receiptBtn = $("#modalOrderReceiptBtn");
   if (receiptBtn) {
     receiptBtn.onclick = () => {
@@ -494,6 +502,9 @@ async function loadOrders() {
       <td data-label="Date" style="white-space:nowrap">${formatDate12h(o.createdAt)}</td>
       <td>
         <div style="display:flex;gap:4px;align-items:center">
+          <button class="icon-btn edit-order-btn" data-edit-order="${o.id}" title="Edit order" style="color:var(--text-muted);font-size:15px">
+            <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;vertical-align:middle"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+          </button>
           <button class="icon-btn receipt-btn" data-receipt-order="${o.id}" title="Print receipt" style="color:var(--text-muted);font-size:15px">
             <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;vertical-align:middle"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
           </button>
@@ -503,7 +514,7 @@ async function loadOrders() {
     `;
 
     tr.addEventListener("click", (evt) => {
-      if (evt.target.closest("select") || evt.target.closest("[data-del-order]") || evt.target.closest(".receipt-btn")) return;
+      if (evt.target.closest("select") || evt.target.closest("[data-del-order]") || evt.target.closest(".receipt-btn") || evt.target.closest(".edit-order-btn")) return;
       openOrderDetail(o.id);
     });
 
@@ -520,6 +531,12 @@ async function loadOrders() {
     sel.addEventListener("change", async (evt) => {
       evt.stopPropagation();
       await api(`/api/orders/${sel.dataset.orderId}`, "PUT", { deliveryStatus: sel.value });
+    });
+  });
+  body.querySelectorAll(".edit-order-btn").forEach((btn) => {
+    btn.addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      openEditOrderModal(btn.dataset.editOrder);
     });
   });
   body.querySelectorAll("[data-del-order]").forEach((btn) => {
@@ -648,6 +665,139 @@ $("#orderForm").addEventListener("submit", async (e) => {
     loadStock(); // refresh stock after deduction
   } catch (err) {
     alert(err.message);
+  }
+});
+
+/* ─── EDIT ORDER MODAL ─────────────────────────────────────────── */
+async function openEditOrderModal(orderId) {
+  await refreshStockCache();
+  const o = allOrders.find((item) => String(item.id) === String(orderId));
+  if (!o) return;
+
+  const orderCode = formatOrderId(o.id);
+  $("#editOrdId").value = o.id;
+  $("#editOrdIdBadge").textContent = "#" + orderCode;
+  $("#editOrdCustomer").value = o.customerName || "";
+  $("#editOrdPhone").value = o.phone || "";
+  $("#editOrdEmail").value = o.email || "";
+  $("#editOrdAddress").value = o.address || "";
+  $("#editOrdShipping").value = o.shippingPrice ?? 0;
+  $("#editOrdPayment").value = o.paymentStatus || "unpaid";
+  $("#editOrdDelivery").value = o.deliveryStatus || "processing";
+
+  const listEl = $("#editOrderItemsList");
+  listEl.innerHTML = "";
+
+  const orderItems = Array.isArray(o.items) ? o.items : [];
+  if (orderItems.length > 0) {
+    orderItems.forEach((it) => {
+      const stockId = it.stockId || it.id || it.stockItemId;
+      addEditItemRow(stockId, it.qty || 1, it.name, it.price);
+    });
+  } else {
+    addEditItemRow();
+  }
+
+  updateEditOrderTotalPreview();
+  $("#editOrderModal").classList.remove("hidden");
+}
+
+function addEditItemRow(selectedStockId = null, qty = 1, fallbackName = "", fallbackPrice = 0) {
+  const row = document.createElement("div");
+  row.className = "item-row";
+
+  let matchFound = false;
+  const options = stockCache
+    .map((s) => {
+      const isSelected = selectedStockId && String(s.id) === String(selectedStockId);
+      if (isSelected) matchFound = true;
+      const isOut = s.quantity <= 0 && !isSelected;
+      const sku = formatStockSku(s);
+      return `<option value="${s.id}" data-price="${s.price}" data-name="${escapeHtml(s.itemName)}" ${isSelected ? 'selected' : ''} ${isOut ? 'disabled' : ''}>
+        [${escapeHtml(sku)}] ${escapeHtml(s.itemName)} ${isOut ? '(Out of Stock)' : `(${s.quantity} in stock)`} — ${money(s.price)} EGP
+      </option>`;
+    })
+    .join("");
+
+  let extraOption = "";
+  if (selectedStockId && !matchFound && fallbackName) {
+    extraOption = `<option value="${escapeHtml(selectedStockId)}" data-price="${fallbackPrice}" data-name="${escapeHtml(fallbackName)}" selected>
+      ${escapeHtml(fallbackName)} (Custom / Archived) — ${money(fallbackPrice)} EGP
+    </option>`;
+  }
+
+  row.innerHTML = `
+    <select class="item-stock-select">${extraOption + options || '<option disabled>No stock items available</option>'}</select>
+    <input type="number" class="item-qty" min="1" value="${Math.max(1, qty)}" />
+    <button type="button" class="icon-btn remove-item-row" title="Remove">✕</button>
+  `;
+  $("#editOrderItemsList").appendChild(row);
+
+  row.querySelector(".item-qty").addEventListener("input", updateEditOrderTotalPreview);
+  row.querySelector(".item-stock-select").addEventListener("change", updateEditOrderTotalPreview);
+  row.querySelector(".remove-item-row").addEventListener("click", () => {
+    row.remove();
+    updateEditOrderTotalPreview();
+  });
+  updateEditOrderTotalPreview();
+}
+
+$("#editAddItemRow").addEventListener("click", () => addEditItemRow());
+
+function collectEditOrderItems() {
+  return Array.from($("#editOrderItemsList").querySelectorAll(".item-row"))
+    .map((row) => {
+      const select = row.querySelector(".item-stock-select");
+      const opt = select.options[select.selectedIndex];
+      if (!opt || opt.disabled) return null;
+      return {
+        stockId: opt.value,
+        name: opt.dataset.name,
+        price: Number(opt.dataset.price),
+        qty: Number(row.querySelector(".item-qty").value) || 1,
+      };
+    })
+    .filter(Boolean);
+}
+
+function updateEditOrderTotalPreview() {
+  const items = collectEditOrderItems();
+  const itemsTotal = items.reduce((sum, it) => sum + it.qty * it.price, 0);
+  const shipping = Number($("#editOrdShipping").value) || 0;
+  $("#editOrderTotalPreview").textContent = money(itemsTotal + shipping) + " EGP";
+}
+$("#editOrdShipping").addEventListener("input", updateEditOrderTotalPreview);
+
+$("#editOrderForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const orderId = $("#editOrdId").value;
+  if (!orderId) return;
+
+  const items = collectEditOrderItems();
+  if (items.length === 0) { alert("Pick at least one item from stock."); return; }
+
+  try {
+    await api(`/api/orders/${orderId}`, "PUT", {
+      customerName: $("#editOrdCustomer").value.trim(),
+      phone: $("#editOrdPhone").value.trim(),
+      email: $("#editOrdEmail").value.trim() || null,
+      address: $("#editOrdAddress").value.trim(),
+      items,
+      shippingPrice: Number($("#editOrdShipping").value) || 0,
+      paymentStatus: $("#editOrdPayment").value,
+      deliveryStatus: $("#editOrdDelivery").value,
+    });
+
+    $("#editOrderModal").classList.add("hidden");
+    await loadOrders();
+    await loadStock(); // refresh stock after reconciliation
+
+    // If order details modal was open for this order, refresh its content
+    if (activeOrderDetailId && String(activeOrderDetailId) === String(orderId)) {
+      openOrderDetail(orderId);
+    }
+  } catch (err) {
+    alert("Could not update order: " + err.message);
   }
 });
 
@@ -1556,18 +1706,20 @@ function printOrderReceipt(orderId) {
 
         <div class="receipt-divider-dash">----------------------------------------</div>
 
+        <div class="receipt-meta-row">
+          <span>Items Subtotal:</span>
+          <span style="font-weight:600;">${money(itemsSubtotal)} EGP</span>
+        </div>
+        <div class="receipt-meta-row">
+          <span>Shipping:</span>
+          <span style="font-weight:600;">${money(shipping)} EGP</span>
+        </div>
+
+        <div class="receipt-divider-dash">----------------------------------------</div>
+
         <div class="receipt-total-row">
           <span>TOTAL AMOUNT</span>
           <span>${money(grandTotal)} EGP</span>
-        </div>
-
-        <div class="receipt-meta-row" style="margin-top:8px;">
-          <span>PAYMENT</span>
-          <span style="text-transform:uppercase;font-weight:700;">${escapeHtml(o.paymentStatus || "UNPAID")}</span>
-        </div>
-        <div class="receipt-meta-row">
-          <span>DELIVERY</span>
-          <span style="text-transform:uppercase;font-weight:700;">${escapeHtml(o.deliveryStatus || "PROCESSING")}</span>
         </div>
 
         <div class="receipt-divider-dash">----------------------------------------</div>
