@@ -1,8 +1,10 @@
 let me = null;
 let allExpenses = [];
+let allBrandExpenses = [];
 let allOrders   = [];
 let allCustomers = [];
 let activeFilter = "all";
+let activeBrandFilter = "all";
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -73,7 +75,10 @@ async function api(url, method = "GET", body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "something broke");
+  if (!res.ok) {
+    if (res.status === 404) throw new Error("Server route not found — please restart your dev server.");
+    throw new Error(data.error || `Server error (${res.status})`);
+  }
   return data;
 }
 
@@ -295,6 +300,7 @@ function enterApp() {
   loadOrders();
   loadStock();
   loadExpenses();
+  loadBrandExpenses();
   loadRevenue();
   if (me.role === "founder") loadUsers();
   initBarcodeScanner();
@@ -305,8 +311,11 @@ const pageTitles = {
   orders: "Orders",
   stock: "Stock",
   scanner: "Barcode Scanner",
-  expenses: "Expenses",
+  expenses: "Personal Expenses",
+  "brand-funds": "Brand Funds & Treasury",
+  "brand-expenses": "Brand Expenses",
   revenue: "Revenue",
+  customers: "Customers",
   team: "Team Access",
 };
 
@@ -314,6 +323,18 @@ function switchTab(tab) {
   // If moving away from scanner, stop the camera to conserve battery and release hardware
   if (tab !== "scanner" && isCameraScanning) {
     stopCameraScanner();
+  }
+
+  // Seamless redirect for subtabs
+  if (tab === "revenue") {
+    switchTab("brand-funds");
+    switchFundsSubTab("subtab-funds-revenue");
+    return;
+  }
+  if (tab === "brand-expenses") {
+    switchTab("brand-funds");
+    switchFundsSubTab("subtab-funds-expenses");
+    return;
   }
 
   document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
@@ -328,6 +349,9 @@ function switchTab(tab) {
 
   if (tab === "customers" && me?.role === "founder") {
     loadCustomers();
+  }
+  if (tab === "brand-funds") {
+    renderBrandFunds();
   }
   if (tab === "team" && me?.role === "founder") {
     loadUsers();
@@ -354,7 +378,7 @@ document.querySelectorAll(".mobile-nav-btn").forEach((btn) => {
 async function syncAll() {
   if (!me) return;
   if (document.visibilityState === "hidden") return;
-  await Promise.all([loadOrders(), loadStock(), loadExpenses(), loadRevenue()]);
+  await Promise.all([loadOrders(), loadStock(), loadExpenses(), loadBrandExpenses(), loadRevenue()]);
   loadCustomers(); // load customers in background (founder only)
   if (me.role === "founder") await loadUsers();
   $("#syncTime").textContent = new Date().toLocaleTimeString();
@@ -416,6 +440,7 @@ function openOrderDetail(orderId) {
   paySel.onchange = async () => {
     await api(`/api/orders/${o.id}`, "PUT", { paymentStatus: paySel.value });
     loadOrders();
+    loadRevenue();
   };
 
   const delSel = $("#modalOrderDelivery");
@@ -437,6 +462,7 @@ function openOrderDetail(orderId) {
         await api(`/api/orders/${o.id}`, "DELETE");
         $("#orderDetailModal").classList.add("hidden");
         loadOrders();
+        loadRevenue();
       }
     };
   } else {
@@ -525,6 +551,7 @@ async function loadOrders() {
     sel.addEventListener("change", async (evt) => {
       evt.stopPropagation();
       await api(`/api/orders/${sel.dataset.orderId}`, "PUT", { paymentStatus: sel.value });
+      loadRevenue();
     });
   });
   body.querySelectorAll(".delivery-select").forEach((sel) => {
@@ -662,6 +689,7 @@ $("#orderForm").addEventListener("submit", async (e) => {
     $("#orderItemsList").innerHTML = "";
     $("#orderModal").classList.add("hidden");
     loadOrders();
+    loadRevenue();
     loadStock(); // refresh stock after deduction
   } catch (err) {
     alert(err.message);
@@ -790,6 +818,7 @@ $("#editOrderForm").addEventListener("submit", async (e) => {
 
     $("#editOrderModal").classList.add("hidden");
     await loadOrders();
+    await loadRevenue();
     await loadStock(); // refresh stock after reconciliation
 
     // If order details modal was open for this order, refresh its content
@@ -1235,17 +1264,21 @@ function printStockBarcodesSheet(item, qty, layout, options = {}) {
 
 /* ─── EXPENSES ─────────────────────────────────────────────────── */
 const CAT_ICON = {
-  Ads:       '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>',
-  Printing:  '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>',
-  Packaging: '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>',
-  Delivery:  '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h.09A2.5 2.5 0 018 14.5h4A2.5 2.5 0 0116.91 16H17a1 1 0 001-1v-5l-3.04-4.56A1 1 0 0014.12 5H3zm7 5V7h4.12l2.02 3H10V9z"/></svg>',
+  Ads:        '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>',
+  Printing:   '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>',
+  Packaging:  '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>',
+  Delivery:   '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h.09A2.5 2.5 0 018 14.5h4A2.5 2.5 0 0116.91 16H17a1 1 0 001-1v-5l-3.04-4.56A1 1 0 0014.12 5H3zm7 5V7h4.12l2.02 3H10V9z"/></svg>',
+  Operations: '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>',
+  Other:      '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>',
 };
 
 const CAT_CHIPS = {
-  Ads:       `<span class="cat-chip cat-chip-ads">${CAT_ICON.Ads} Ads</span>`,
-  Printing:  `<span class="cat-chip cat-chip-printing">${CAT_ICON.Printing} Printing</span>`,
-  Packaging: `<span class="cat-chip cat-chip-packaging">${CAT_ICON.Packaging} Packaging</span>`,
-  Delivery:  `<span class="cat-chip cat-chip-delivery">${CAT_ICON.Delivery} Delivery</span>`,
+  Ads:        `<span class="cat-chip cat-chip-ads">${CAT_ICON.Ads} Ads</span>`,
+  Printing:   `<span class="cat-chip cat-chip-printing">${CAT_ICON.Printing} Printing</span>`,
+  Packaging:  `<span class="cat-chip cat-chip-packaging">${CAT_ICON.Packaging} Packaging</span>`,
+  Delivery:   `<span class="cat-chip cat-chip-delivery">${CAT_ICON.Delivery} Delivery</span>`,
+  Operations: `<span class="cat-chip cat-chip-operations">${CAT_ICON.Operations} Operations</span>`,
+  Other:      `<span class="cat-chip cat-chip-other">${CAT_ICON.Other} Other</span>`,
 };
 
 function egp(n) {
@@ -1256,6 +1289,7 @@ async function loadExpenses() {
   allExpenses = await api("/api/expenses");
   renderExpenses();
   renderSummary();
+  renderBrandFunds();
 }
 
 function renderSummary() {
@@ -1361,11 +1395,111 @@ function renderExpenses() {
   });
 }
 
+/* ─── BRAND EXPENSES (COMPANY MONEY) ────────────────────────── */
+async function loadBrandExpenses() {
+  allBrandExpenses = await api("/api/brand-expenses");
+  renderBrandExpenses();
+  renderBrandSummary();
+  renderBrandFunds();
+}
+
+function renderBrandSummary() {
+  const cats = ["Ads", "Printing", "Packaging", "Delivery", "Operations", "Other"];
+  const totals = { all: 0 };
+  cats.forEach((c) => (totals[c] = 0));
+  allBrandExpenses.forEach((e) => {
+    totals.all += e.amount;
+    if (totals[e.category] !== undefined) totals[e.category] += e.amount;
+  });
+  $("#totalBrandAll").textContent        = egp(totals.all);
+  $("#totalBrandAds").textContent        = egp(totals.Ads);
+  $("#totalBrandPrinting").textContent   = egp(totals.Printing);
+  $("#totalBrandPackaging").textContent  = egp(totals.Packaging);
+  $("#totalBrandDelivery").textContent   = egp(totals.Delivery);
+  $("#totalBrandOperations").textContent = egp(totals.Operations);
+}
+
+function openBrandExpenseDetail(expId) {
+  const exp = allBrandExpenses.find((item) => String(item.id) === String(expId));
+  if (!exp) return;
+
+  $("#brandDetailCatChip").innerHTML = CAT_CHIPS[exp.category] || escapeHtml(exp.category);
+  $("#brandDetailAmount").textContent = egp(exp.amount);
+  $("#brandDetailDesc").textContent = exp.description || "—";
+  $("#brandDetailLoggedBy").textContent = exp.loggedBy || "—";
+  $("#brandDetailDate").textContent = formatDate12h(exp.createdAt);
+  $("#brandDetailNote").textContent = exp.note || "No note added";
+
+  const delWrap = $("#modalBrandExpenseDeleteWrap");
+  if (me.role === "founder") {
+    delWrap.style.display = "block";
+    $("#modalBrandExpenseDeleteBtn").onclick = async () => {
+      if (confirm("Delete this brand expense entry permanently?")) {
+        await api(`/api/brand-expenses/${exp.id}`, "DELETE");
+        $("#brandExpenseDetailModal").classList.add("hidden");
+        loadBrandExpenses();
+      }
+    };
+  } else {
+    delWrap.style.display = "none";
+  }
+
+  $("#brandExpenseDetailModal").classList.remove("hidden");
+}
+
+function renderBrandExpenses() {
+  const filtered = activeBrandFilter === "all"
+    ? allBrandExpenses
+    : allBrandExpenses.filter((e) => e.category === activeBrandFilter);
+
+  const body = $("#brandExpensesBody");
+  body.innerHTML = "";
+  $("#brandExpensesEmpty").classList.toggle("hidden", filtered.length > 0);
+
+  filtered.slice().reverse().forEach((e) => {
+    const tr = document.createElement("tr");
+    tr.className = "clickable-row";
+    const initial = (e.loggedBy || "?").charAt(0).toUpperCase();
+    tr.innerHTML = `
+      <td data-label="Category">${CAT_CHIPS[e.category] || escapeHtml(e.category)}</td>
+      <td data-label="Description" style="font-family:var(--font);font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(e.description)}">${escapeHtml(e.description)}</td>
+      <td data-label="Amount" class="amount-cell" style="color:#C58A36;font-weight:700">${egp(e.amount)}</td>
+      <td data-label="Logged by">
+        <div class="logged-by-cell">
+          <div class="mini-avatar">${escapeHtml(initial)}</div>
+          <span style="font-family:var(--font);font-size:12.5px">${escapeHtml(e.loggedBy || "—")}</span>
+        </div>
+      </td>
+      <td data-label="Note" class="note-cell" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(e.note || "")}">${e.note ? escapeHtml(e.note) : '<span style="opacity:0.35">—</span>'}</td>
+      <td data-label="Date" style="white-space:nowrap">${formatDate12h(e.createdAt)}</td>
+      <td>${me.role === "founder" ? `<button class="icon-btn" data-del-brand-expense="${e.id}" title="Delete">✕</button>` : ""}</td>
+    `;
+
+    tr.addEventListener("click", (evt) => {
+      if (evt.target.closest("[data-del-brand-expense]")) return;
+      openBrandExpenseDetail(e.id);
+    });
+
+    body.appendChild(tr);
+  });
+
+  body.querySelectorAll("[data-del-brand-expense]").forEach((btn) => {
+    btn.addEventListener("click", async (evt) => {
+      evt.stopPropagation();
+      if (confirm("Delete this brand expense entry?")) {
+        await api(`/api/brand-expenses/${btn.dataset.delBrandExpense}`, "DELETE");
+        loadBrandExpenses();
+      }
+    });
+  });
+}
+
 /* ─── REVENUE ─────────────────────────────────────────────────── */
 let allRevenue = [];
 let activeRevFilter = "all";
 
 const REV_CAT_ICON = {
+  Orders:              '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/></svg>',
   Stickers:            '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>',
   Posters:             '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/></svg>',
   "Mail Subscription": '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>',
@@ -1373,6 +1507,7 @@ const REV_CAT_ICON = {
 };
 
 const REV_CAT_CHIPS = {
+  Orders:              `<span class="cat-chip cat-chip-orders">${REV_CAT_ICON.Orders} Orders</span>`,
   Stickers:            `<span class="cat-chip cat-chip-stickers">${REV_CAT_ICON.Stickers} Stickers</span>`,
   Posters:             `<span class="cat-chip cat-chip-posters">${REV_CAT_ICON.Posters} Posters</span>`,
   "Mail Subscription": `<span class="cat-chip cat-chip-mail">${REV_CAT_ICON["Mail Subscription"]} Mail Sub</span>`,
@@ -1383,6 +1518,7 @@ async function loadRevenue() {
   allRevenue = await api("/api/revenue");
   renderRevenue();
   renderRevenueSummary();
+  renderBrandFunds();
 }
 
 function renderRevenueSummary() {
@@ -1410,6 +1546,7 @@ function openRevenueDetail(revId) {
   $("#revDetailNote").textContent = rev.note || "No note added";
 
   const delWrap = $("#modalRevenueDeleteWrap");
+  const editWrap = $("#modalRevenueEditWrap");
   if (me.role === "founder") {
     delWrap.style.display = "block";
     $("#modalRevenueDeleteBtn").onclick = async () => {
@@ -1419,8 +1556,16 @@ function openRevenueDetail(revId) {
         loadRevenue();
       }
     };
+    if (editWrap) {
+      editWrap.style.display = "block";
+      $("#modalRevenueEditBtn").onclick = () => {
+        $("#revenueDetailModal").classList.add("hidden");
+        openEditRevenueModal(rev.id);
+      };
+    }
   } else {
     delWrap.style.display = "none";
+    if (editWrap) editWrap.style.display = "none";
   }
 
   $("#revenueDetailModal").classList.remove("hidden");
@@ -1586,6 +1731,50 @@ function printReport(type, period) {
       </table>
       ${data.length === 0 ? '<p style="text-align:center;color:#888;padding:24px">No expenses found for this period.</p>' : ""}
     `;
+  } else if (type === "brand-expenses") {
+    const data = filterByPeriod(allBrandExpenses, period);
+    const cats = ["Ads", "Printing", "Packaging", "Delivery", "Operations", "Other"];
+    const totals = { all: 0 };
+    cats.forEach((c) => (totals[c] = 0));
+    data.forEach((e) => {
+      totals.all += e.amount;
+      if (totals[e.category] !== undefined) totals[e.category] += e.amount;
+    });
+
+    section.innerHTML = `
+      <div class="print-brand">
+        <div class="print-brand-name">STATIC</div>
+        <div class="print-brand-sub">Brand Expenses Report (Company Funds) &mdash; ${label}</div>
+      </div>
+      <div class="print-meta">
+        <div>Generated: ${dateStr}</div>
+        <div>By: ${escapeHtml(byStr)}</div>
+        <div>Period: ${label}</div>
+      </div>
+      <div class="print-totals-grid">
+        <div class="print-total-item"><span class="print-total-label">Total Brand Spent</span><span class="print-total-amount print-total-main">${egp(totals.all)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Ads</span><span class="print-total-amount">${egp(totals.Ads)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Printing</span><span class="print-total-amount">${egp(totals.Printing)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Packaging</span><span class="print-total-amount">${egp(totals.Packaging)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Delivery</span><span class="print-total-amount">${egp(totals.Delivery)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Operations</span><span class="print-total-amount">${egp(totals.Operations)}</span></div>
+      </div>
+      <div class="print-divider"></div>
+      <table class="print-report-table">
+        <thead>
+          <tr><th>#</th><th>Category</th><th>Description</th><th>Amount</th><th>Logged by</th><th>Note</th><th>Date</th></tr>
+        </thead>
+        <tbody>
+          ${data.slice().reverse().map((e, i) => `<tr>
+            <td>${i+1}</td><td>${escapeHtml(e.category)}</td><td>${escapeHtml(e.description)}</td>
+            <td><strong>${egp(e.amount)}</strong></td><td>${escapeHtml(e.loggedBy||"—")}</td>
+            <td>${escapeHtml(e.note||"—")}</td>
+            <td>${formatDate12h(e.createdAt)}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+      ${data.length === 0 ? '<p style="text-align:center;color:#888;padding:24px">No brand expenses found for this period.</p>' : ""}
+    `;
   } else if (type === "revenue") {
     const data = filterByPeriod(allRevenue, period);
     const totals = { all: 0, Stickers: 0, Posters: 0, "Mail Subscription": 0, Other: 0 };
@@ -1626,6 +1815,52 @@ function printReport(type, period) {
         </tbody>
       </table>
       ${data.length === 0 ? '<p style="text-align:center;color:#888;padding:24px">No revenue found for this period.</p>' : ""}
+    `;
+  } else if (type === "brand-funds") {
+    const revData = filterByPeriod(allRevenue, period);
+    const expData = filterByPeriod(allBrandExpenses, period);
+    const totalRev = revData.reduce((s, r) => s + r.amount, 0);
+    const totalExp = expData.reduce((s, e) => s + e.amount, 0);
+    const netFunds = totalRev - totalExp;
+
+    const txs = [
+      ...revData.map(r => ({ type: "Inflow", ...r })),
+      ...expData.map(e => ({ type: "Outflow", ...e }))
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    section.innerHTML = `
+      <div class="print-brand">
+        <div class="print-brand-name">STATIC</div>
+        <div class="print-brand-sub">Brand Funds & Treasury Report &mdash; ${label}</div>
+      </div>
+      <div class="print-meta">
+        <div>Generated: ${dateStr}</div>
+        <div>By: ${escapeHtml(byStr)}</div>
+        <div>Period: ${label}</div>
+      </div>
+      <div class="print-totals-grid">
+        <div class="print-total-item"><span class="print-total-label">Net Available Funds</span><span class="print-total-amount print-total-main">${egp(netFunds)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Total Revenue Inflow</span><span class="print-total-amount" style="color:#2E7D32">${egp(totalRev)}</span></div>
+        <div class="print-total-item"><span class="print-total-label">Brand Expenses Outflow</span><span class="print-total-amount" style="color:#C58A36">${egp(totalExp)}</span></div>
+      </div>
+      <div class="print-divider"></div>
+      <table class="print-report-table">
+        <thead>
+          <tr><th>#</th><th>Flow</th><th>Category</th><th>Description</th><th>Amount</th><th>Logged by</th><th>Date</th></tr>
+        </thead>
+        <tbody>
+          ${txs.map((t, i) => `<tr>
+            <td>${i+1}</td>
+            <td><strong>${t.type}</strong></td>
+            <td>${escapeHtml(t.category)}</td>
+            <td>${escapeHtml(t.description)}</td>
+            <td style="color:${t.type === 'Inflow' ? '#2E7D32' : '#C58A36'}"><strong>${t.type === 'Inflow' ? '+' : '−'}${egp(Math.abs(t.amount))}</strong></td>
+            <td>${escapeHtml(t.collectedBy || t.loggedBy || "—")}</td>
+            <td>${formatDate12h(t.createdAt)}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+      ${txs.length === 0 ? '<p style="text-align:center;color:#888;padding:24px">No transactions recorded for this period.</p>' : ""}
     `;
   }
 
@@ -1835,6 +2070,69 @@ $("#expenseForm").addEventListener("submit", async (e) => {
   }
 });
 
+/* ─── BRAND EXPENSE FILTERS & FORM ────────────────────────────── */
+document.querySelectorAll("[data-brand-filter]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("[data-brand-filter]").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeBrandFilter = btn.dataset.brandFilter;
+    renderBrandExpenses();
+  });
+});
+
+let selectedBrandCategory = "";
+
+const openAddBrandExpenseBtn = $("#openAddBrandExpense");
+if (openAddBrandExpenseBtn) {
+  openAddBrandExpenseBtn.addEventListener("click", () => {
+    selectedBrandCategory = "";
+    $("#brandExpCategory").value = "";
+    $("#brandExpDescription").value = "";
+    $("#brandExpAmount").value = "";
+    $("#brandExpNote").value = "";
+    $("#brandExpError").textContent = "";
+    const group = $("#brandCatPillGroup");
+    if (group) group.querySelectorAll(".cat-pill").forEach((p) => p.classList.remove("selected"));
+    $("#brandExpenseModal").classList.remove("hidden");
+  });
+}
+
+const brandExpPillGroup = $("#brandCatPillGroup");
+if (brandExpPillGroup) {
+  brandExpPillGroup.querySelectorAll(".cat-pill").forEach((pill) => {
+    pill.addEventListener("click", () => {
+      brandExpPillGroup.querySelectorAll(".cat-pill").forEach((p) => p.classList.remove("selected"));
+      pill.classList.add("selected");
+      selectedBrandCategory = pill.dataset.val;
+      $("#brandExpCategory").value = selectedBrandCategory;
+    });
+  });
+}
+
+const brandExpenseForm = $("#brandExpenseForm");
+if (brandExpenseForm) {
+  brandExpenseForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("#brandExpError").textContent = "";
+    if (!selectedBrandCategory) { $("#brandExpError").textContent = "Pick a category first."; return; }
+    try {
+      await api("/api/brand-expenses", "POST", {
+        category: selectedBrandCategory,
+        description: $("#brandExpDescription").value.trim(),
+        amount: $("#brandExpAmount").value,
+        note: $("#brandExpNote").value.trim() || null,
+      });
+      e.target.reset();
+      selectedBrandCategory = "";
+      if (brandExpPillGroup) brandExpPillGroup.querySelectorAll(".cat-pill").forEach((p) => p.classList.remove("selected"));
+      $("#brandExpenseModal").classList.add("hidden");
+      loadBrandExpenses();
+    } catch (err) {
+      $("#brandExpError").textContent = err.message;
+    }
+  });
+}
+
 /* ─── ADD REVENUE MODAL ────────────────────────────────────────── */
 let selectedRevCategory = "";
 
@@ -1893,6 +2191,204 @@ document.querySelectorAll("[data-rev-filter]").forEach((btn) => {
   });
 });
 
+/* ─── BRAND FUNDS SUB-TABS & QUICK ACTIONS ─────────────────────── */
+function switchFundsSubTab(subtabId) {
+  if (!subtabId) return;
+  const targetId = subtabId.startsWith("subtab-") ? subtabId : ("subtab-" + subtabId);
+  const rawId = targetId.replace(/^subtab-/, "");
+
+  document.querySelectorAll("#brandFundsSubnav .subnav-btn").forEach((btn) => {
+    const val = btn.dataset.subtab;
+    btn.classList.toggle("active", val === targetId || val === rawId);
+  });
+  document.querySelectorAll("#tab-brand-funds .subtab-view").forEach((view) => {
+    view.classList.toggle("hidden", view.id !== targetId);
+  });
+}
+
+document.querySelectorAll("#brandFundsSubnav .subnav-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    switchFundsSubTab(btn.dataset.subtab);
+  });
+});
+
+const fundsQuickAddBtn = $("#fundsQuickLogBrandExp");
+if (fundsQuickAddBtn) {
+  fundsQuickAddBtn.addEventListener("click", () => {
+    switchFundsSubTab("subtab-funds-expenses");
+    const btn = $("#openAddBrandExpense");
+    if (btn) btn.click();
+  });
+}
+
+const fundsQuickAdjustBtn = $("#fundsQuickAdjustTotal");
+if (fundsQuickAdjustBtn) {
+  fundsQuickAdjustBtn.addEventListener("click", () => {
+    openAdjustRevenueModal();
+  });
+}
+
+const openAdjRevBtn = $("#openAdjustRevenue");
+if (openAdjRevBtn) {
+  openAdjRevBtn.addEventListener("click", () => {
+    openAdjustRevenueModal();
+  });
+}
+
+function openAdjustRevenueModal() {
+  const currentTotal = allRevenue.reduce((s, r) => s + r.amount, 0);
+  $("#adjCurrTotalVal").textContent = egp(currentTotal);
+  $("#adjNewTotal").value = currentTotal.toFixed(2);
+  $("#adjReason").value = "";
+  $("#adjError").textContent = "";
+  $("#adjustRevenueModal").classList.remove("hidden");
+}
+
+const adjustRevForm = $("#adjustRevenueForm");
+if (adjustRevForm) {
+  adjustRevForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("#adjError").textContent = "";
+    const newTotal = $("#adjNewTotal").value;
+    const reason = $("#adjReason").value.trim();
+    try {
+      await api("/api/revenue/adjust", "POST", { newTotal, note: reason });
+      $("#adjustRevenueModal").classList.add("hidden");
+      loadRevenue();
+    } catch (err) {
+      $("#adjError").textContent = err.message;
+    }
+  });
+}
+
+function openEditRevenueModal(revId) {
+  const rev = allRevenue.find((item) => String(item.id) === String(revId));
+  if (!rev) return;
+  $("#editRevId").value = rev.id;
+  $("#editRevCategory").value = rev.category;
+  $("#editRevDescription").value = rev.description;
+  $("#editRevAmount").value = rev.amount;
+  $("#editRevNote").value = rev.note || "";
+  $("#editRevError").textContent = "";
+  $("#editRevenueModal").classList.remove("hidden");
+}
+
+const editRevForm = $("#editRevenueForm");
+if (editRevForm) {
+  editRevForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("#editRevError").textContent = "";
+    const id = $("#editRevId").value;
+    try {
+      await api(`/api/revenue/${id}`, "PUT", {
+        category: $("#editRevCategory").value,
+        description: $("#editRevDescription").value.trim(),
+        amount: $("#editRevAmount").value,
+        note: $("#editRevNote").value.trim() || null,
+      });
+      $("#editRevenueModal").classList.add("hidden");
+      loadRevenue();
+    } catch (err) {
+      $("#editRevError").textContent = err.message;
+    }
+  });
+}
+
+/* ─── BRAND FUNDS & TREASURY ───────────────────────────────────── */
+let activeFundsFilter = "all";
+
+document.querySelectorAll("[data-funds-filter]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("[data-funds-filter]").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeFundsFilter = btn.dataset.fundsFilter;
+    renderBrandFunds();
+  });
+});
+
+function renderBrandFunds() {
+  const totalRev = allRevenue.reduce((s, r) => s + r.amount, 0);
+  const totalBrandExp = allBrandExpenses.reduce((s, e) => s + e.amount, 0);
+  const totalPersonalExp = allExpenses.reduce((s, e) => s + e.amount, 0);
+  const brandCashOnHand = totalRev - totalBrandExp;
+
+  const heroAmount = $("#fundsHeroAmount");
+  if (heroAmount) heroAmount.textContent = egp(brandCashOnHand);
+  const fundsTotalRev = $("#fundsTotalRevenue");
+  if (fundsTotalRev) fundsTotalRev.textContent = "+ " + egp(totalRev);
+  const fundsTotalBrand = $("#fundsTotalBrandSpent");
+  if (fundsTotalBrand) fundsTotalBrand.textContent = "− " + egp(totalBrandExp);
+  const fundsTotalPersonal = $("#fundsTotalPersonalSpent");
+  if (fundsTotalPersonal) fundsTotalPersonal.textContent = egp(totalPersonalExp);
+
+  // Combine inflows (revenue) and outflows (brand expenses) into a unified ledger
+  const transactions = [];
+  allRevenue.forEach((r) => {
+    transactions.push({
+      id: r.id,
+      type: "inflow",
+      category: r.category,
+      description: r.description,
+      amount: r.amount,
+      by: r.collectedBy,
+      note: r.note,
+      createdAt: r.createdAt,
+    });
+  });
+  allBrandExpenses.forEach((b) => {
+    transactions.push({
+      id: b.id,
+      type: "outflow",
+      category: b.category,
+      description: b.description,
+      amount: b.amount,
+      by: b.loggedBy,
+      note: b.note,
+      createdAt: b.createdAt,
+    });
+  });
+
+  // Sort by date descending
+  transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const filtered = activeFundsFilter === "all"
+    ? transactions
+    : transactions.filter((t) => t.type === activeFundsFilter);
+
+  const body = $("#brandFundsBody");
+  if (!body) return;
+  body.innerHTML = "";
+  const emptyEl = $("#brandFundsEmpty");
+  if (emptyEl) emptyEl.classList.toggle("hidden", filtered.length > 0);
+
+  filtered.forEach((t) => {
+    const tr = document.createElement("tr");
+    const isInflow = t.type === "inflow";
+    const typeBadge = isInflow
+      ? '<span class="flow-badge flow-badge-in">↑ Inflow</span>'
+      : '<span class="flow-badge flow-badge-out">↓ Outflow</span>';
+    const amountClass = isInflow ? "amount-inflow" : "amount-outflow";
+    const prefix = isInflow ? (t.amount >= 0 ? "+" : "−") : "−";
+    const initial = (t.by || "?").charAt(0).toUpperCase();
+
+    tr.innerHTML = `
+      <td data-label="Flow">${typeBadge}</td>
+      <td data-label="Category">${isInflow ? (REV_CAT_CHIPS[t.category] || escapeHtml(t.category)) : (CAT_CHIPS[t.category] || escapeHtml(t.category))}</td>
+      <td data-label="Description" style="font-family:var(--font);font-weight:500;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(t.description)}">${escapeHtml(t.description)}</td>
+      <td data-label="Amount" class="${amountClass}">${prefix}${egp(Math.abs(t.amount))}</td>
+      <td data-label="Logged By">
+        <div class="logged-by-cell">
+          <div class="mini-avatar">${escapeHtml(initial)}</div>
+          <span style="font-family:var(--font);font-size:12.5px">${escapeHtml(t.by || "—")}</span>
+        </div>
+      </td>
+      <td data-label="Note" class="note-cell" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(t.note || "")}">${t.note ? escapeHtml(t.note) : '<span style="opacity:0.35">—</span>'}</td>
+      <td data-label="Date" style="white-space:nowrap">${formatDate12h(t.createdAt)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
 /* ─── SUMMARY CARDS QUICK-FILTER ──────────────────────────────── */
 document.querySelectorAll("[data-cat]").forEach((card) => {
   card.addEventListener("click", () => {
@@ -1906,6 +2402,14 @@ document.querySelectorAll("[data-rev-cat]").forEach((card) => {
   card.addEventListener("click", () => {
     const cat = card.dataset.revCat;
     const targetBtn = document.querySelector(`[data-rev-filter="${cat}"]`);
+    if (targetBtn) targetBtn.click();
+  });
+});
+
+document.querySelectorAll("[data-brand-cat]").forEach((card) => {
+  card.addEventListener("click", () => {
+    const cat = card.dataset.brandCat;
+    const targetBtn = document.querySelector(`[data-brand-filter="${cat}"]`);
     if (targetBtn) targetBtn.click();
   });
 });

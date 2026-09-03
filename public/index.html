@@ -67,13 +67,13 @@
           </svg>
           <span>Scanner</span>
         </button>
-        <button class="nav-item" data-tab="expenses" id="navExpenses">
-          <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v4H4V6zm0 6h3v2H4v-2zm5 0h3v2H9v-2zm5 0h2v2h-2v-2z" clip-rule="evenodd"/></svg>
-          <span>Expenses</span>
+        <button class="nav-item" data-tab="expenses" id="navExpenses" title="Expenses paid out-of-pocket from personal / founder money">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+          <span>Personal Exp.</span>
         </button>
-        <button class="nav-item" data-tab="revenue" id="navRevenue">
-          <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd"/></svg>
-          <span>Revenue</span>
+        <button class="nav-item" data-tab="brand-funds" id="navBrandFunds" title="Company revenue, brand expenses, and net cash balance">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 5a2 2 0 104 0 2 2 0 00-4 0zm7-1a1 1 0 100 2h1a1 1 0 100-2h-1z" clip-rule="evenodd"/></svg>
+          <span>Brand Funds</span>
         </button>
         <button class="nav-item founder-only hidden" data-tab="customers" id="navCustomers">
           <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v1h8v-1zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-1a4.978 4.978 0 00-.86-2.788A3.001 3.001 0 0119 17v1h-3zM4.138 15.212A4.98 4.98 0 004 17v1H1v-1a3 3 0 013.138-2.788z"/></svg>
@@ -437,8 +437,9 @@
         </div>
       </section>
 
-      <!-- ── EXPENSES TAB ── -->
+      <!-- ── PERSONAL EXPENSES TAB ── -->
       <section id="tab-expenses" class="tab-panel">
+        <p class="tagline" style="margin-top:-6px;margin-bottom:18px;">Expenses paid out-of-pocket from personal / founder money</p>
 
         <!-- Summary cards -->
         <div class="summary-grid" id="summaryGrid">
@@ -492,7 +493,7 @@
         <!-- Filter + header row -->
         <div class="panel-header" style="margin-top: 24px;">
           <div class="filter-row">
-            <h2>All Expenses</h2>
+            <h2>Personal Expenses</h2>
             <div class="cat-filters" id="catFilters">
               <button class="cat-filter-btn active" data-filter="all">All</button>
               <button class="cat-filter-btn" data-filter="Ads">Ads</button>
@@ -513,7 +514,7 @@
                 <button class="print-drop-item" data-print="expenses" data-period="week">This week</button>
               </div>
             </div>
-            <button id="openAddExpense" class="primary-btn">+ Log expense</button>
+            <button id="openAddExpense" class="primary-btn">+ Log personal expense</button>
           </div>
         </div>
 
@@ -532,106 +533,314 @@
             </thead>
             <tbody id="expensesBody"></tbody>
           </table>
-          <p id="expensesEmpty" class="empty-state hidden">No expenses logged yet. Hit "Log expense" to add the first one.</p>
+          <p id="expensesEmpty" class="empty-state hidden">No expenses logged yet. Hit "Log personal expense" to add the first one.</p>
         </div>
       </section>
 
-      <!-- ── REVENUE TAB ── -->
-      <section id="tab-revenue" class="tab-panel">
+      <!-- ── UNIFIED BRAND FUNDS TAB (REVENUE, BRAND EXPENSES & CASH BALANCE) ── -->
+      <section id="tab-brand-funds" class="tab-panel">
 
-        <!-- Summary cards -->
-        <div class="summary-grid" id="revSummaryGrid">
-          <div class="summary-card" data-rev-cat="all">
-            <div class="summary-icon summary-icon-rev-all">
-              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v4H4V6zm0 6h3v2H4v-2zm5 0h3v2H9v-2zm5 0h2v2h-2v-2z" clip-rule="evenodd"/></svg>
-            </div>
-            <div class="summary-info">
-              <div class="summary-label">Total Collected</div>
-              <div class="summary-amount" id="totalRevAll">0 EGP</div>
-            </div>
-          </div>
-          <div class="summary-card" data-rev-cat="Stickers">
-            <div class="summary-icon summary-icon-stickers">
-              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
-            </div>
-            <div class="summary-info">
-              <div class="summary-label">Stickers</div>
-              <div class="summary-amount" id="totalStickers">0 EGP</div>
-            </div>
-          </div>
-          <div class="summary-card" data-rev-cat="Posters">
-            <div class="summary-icon summary-icon-posters">
-              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/></svg>
-            </div>
-            <div class="summary-info">
-              <div class="summary-label">Posters</div>
-              <div class="summary-amount" id="totalPosters">0 EGP</div>
-            </div>
-          </div>
-          <div class="summary-card" data-rev-cat="Mail Subscription">
-            <div class="summary-icon summary-icon-mail">
-              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>
-            </div>
-            <div class="summary-info">
-              <div class="summary-label">Mail Sub</div>
-              <div class="summary-amount" id="totalMail">0 EGP</div>
-            </div>
-          </div>
-          <div class="summary-card" data-rev-cat="Other">
-            <div class="summary-icon summary-icon-other">
-              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
-            </div>
-            <div class="summary-info">
-              <div class="summary-label">Other</div>
-              <div class="summary-amount" id="totalOther">0 EGP</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Filter + header row -->
-        <div class="panel-header" style="margin-top: 24px;">
-          <div class="filter-row">
-            <h2>All Revenue</h2>
-            <div class="cat-filters" id="revCatFilters">
-              <button class="cat-filter-btn active" data-rev-filter="all">All</button>
-              <button class="cat-filter-btn" data-rev-filter="Stickers">Stickers</button>
-              <button class="cat-filter-btn" data-rev-filter="Posters">Posters</button>
-              <button class="cat-filter-btn" data-rev-filter="Mail Subscription">Mail Subscription</button>
-              <button class="cat-filter-btn" data-rev-filter="Other">Other</button>
-            </div>
+        <!-- Top subnav bar -->
+        <div class="subnav-container">
+          <div class="subnav-bar" id="brandFundsSubnav">
+            <button type="button" class="subnav-btn active" data-subtab="subtab-funds-balance">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 5a2 2 0 104 0 2 2 0 00-4 0zm7-1a1 1 0 100 2h1a1 1 0 100-2h-1z" clip-rule="evenodd"/></svg>
+              Net Balance & Treasury
+            </button>
+            <button type="button" class="subnav-btn" data-subtab="subtab-funds-revenue">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd"/></svg>
+              Revenue (Inflow)
+            </button>
+            <button type="button" class="subnav-btn" data-subtab="subtab-funds-expenses">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg>
+              Brand Expenses (Outflow)
+            </button>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
-            <div class="print-drop-wrap">
-              <button class="ghost-btn print-drop-trigger" id="revenuePrintTrigger">
-                <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:6px"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
-                Print ▾
-              </button>
-              <div class="print-drop-menu hidden" id="revenuePrintMenu">
-                <button class="print-drop-item" data-print="revenue" data-period="all">All revenue</button>
-                <button class="print-drop-item" data-print="revenue" data-period="month">This month</button>
-                <button class="print-drop-item" data-print="revenue" data-period="week">This week</button>
-              </div>
-            </div>
-            <button id="openAddRevenue" class="primary-btn">+ Log revenue</button>
+            <button type="button" id="fundsQuickLogBrandExp" class="ghost-btn" style="border-color:rgba(197,138,54,0.35);color:#C58A36;font-size:12.5px;">− Spend Brand Money</button>
+            <button type="button" id="fundsQuickAdjustTotal" class="ghost-btn founder-only hidden" style="border-color:rgba(197,138,54,0.35);color:#C58A36;font-size:12.5px;">Adjust Total Revenue</button>
           </div>
         </div>
 
-        <div class="table-wrapper">
-          <table class="data-table" id="revenueTable">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>Description</th>
-                <th>Amount</th>
-                <th>Collected by</th>
-                <th>Note</th>
-                <th>Date</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="revenueBody"></tbody>
-          </table>
-          <p id="revenueEmpty" class="empty-state hidden">No revenue logged yet. Hit "Log revenue" to add the first entry.</p>
+        <!-- ── SUBTAB 1: NET BALANCE & TREASURY ── -->
+        <div id="subtab-funds-balance" class="subtab-view">
+          <!-- Big Hero Balance Card -->
+          <div class="hero-funds-card">
+            <div class="hero-funds-main">
+              <div class="hero-funds-label">Net Brand Cash on Hand (Available to Spend)</div>
+              <div class="hero-funds-amount" id="fundsHeroAmount">0.00 EGP</div>
+              <div class="hero-funds-sub">Total Revenue Collected minus Brand Expenses spent directly from company money</div>
+            </div>
+            <div class="hero-funds-stats">
+              <div class="hero-stat-box">
+                <div class="hero-stat-label">Total Revenue Inflow</div>
+                <div class="hero-stat-val-in" id="fundsTotalRevenue">+ 0 EGP</div>
+              </div>
+              <div class="hero-stat-box">
+                <div class="hero-stat-label">Brand Expenses Outflow</div>
+                <div class="hero-stat-val-out" id="fundsTotalBrandSpent">− 0 EGP</div>
+              </div>
+              <div class="hero-stat-box">
+                <div class="hero-stat-label">Founder Personal Exp.</div>
+                <div class="hero-stat-val-out" style="color:var(--text-muted)" id="fundsTotalPersonalSpent">0 EGP</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ledger Filter + Header -->
+          <div class="panel-header" style="margin-top: 18px;">
+            <div class="filter-row">
+              <h2>Brand Treasury Ledger</h2>
+              <div class="cat-filters" id="fundsActivityFilters">
+                <button type="button" class="cat-filter-btn active" data-funds-filter="all">All Activity</button>
+                <button type="button" class="cat-filter-btn" data-funds-filter="inflow">Inflows (Revenue)</button>
+                <button type="button" class="cat-filter-btn" data-funds-filter="outflow">Outflows (Brand Expenses)</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div class="print-drop-wrap">
+                <button type="button" class="ghost-btn print-drop-trigger" id="fundsPrintTrigger">
+                  <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:6px"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+                  Print Report ▾
+                </button>
+                <div class="print-drop-menu hidden" id="fundsPrintMenu">
+                  <button type="button" class="print-drop-item" data-print="brand-funds" data-period="all">All Treasury Activity</button>
+                  <button type="button" class="print-drop-item" data-print="brand-funds" data-period="month">This month</button>
+                  <button type="button" class="print-drop-item" data-print="brand-funds" data-period="week">This week</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="data-table" id="brandFundsTable">
+              <thead>
+                <tr>
+                  <th>Flow</th>
+                  <th>Category</th>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>Logged by</th>
+                  <th>Note</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="brandFundsBody"></tbody>
+            </table>
+            <p id="brandFundsEmpty" class="empty-state hidden">No inflows or outflows recorded yet.</p>
+          </div>
+        </div>
+
+        <!-- ── SUBTAB 2: REVENUE VIEW ── -->
+        <div id="subtab-funds-revenue" class="subtab-view hidden">
+          <!-- Summary cards -->
+          <div class="summary-grid" id="revSummaryGrid">
+            <div class="summary-card" data-rev-cat="all">
+              <div class="summary-icon summary-icon-rev-all">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v4H4V6zm0 6h3v2H4v-2zm5 0h3v2H9v-2zm5 0h2v2h-2v-2z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">
+                  Total Collected
+                  <button type="button" id="openAdjustRevenue" class="btn-small-adjust founder-only hidden" title="Adjust total revenue for cash deficit or discrepancies">Adjust</button>
+                </div>
+                <div class="summary-amount" id="totalRevAll">0 EGP</div>
+              </div>
+            </div>
+            <div class="summary-card" data-rev-cat="Stickers">
+              <div class="summary-icon summary-icon-stickers">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Stickers</div>
+                <div class="summary-amount" id="totalStickers">0 EGP</div>
+              </div>
+            </div>
+            <div class="summary-card" data-rev-cat="Posters">
+              <div class="summary-icon summary-icon-posters">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Posters</div>
+                <div class="summary-amount" id="totalPosters">0 EGP</div>
+              </div>
+            </div>
+            <div class="summary-card" data-rev-cat="Mail Subscription">
+              <div class="summary-icon summary-icon-mail">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Mail Sub</div>
+                <div class="summary-amount" id="totalMail">0 EGP</div>
+              </div>
+            </div>
+            <div class="summary-card" data-rev-cat="Other">
+              <div class="summary-icon summary-icon-other">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Other</div>
+                <div class="summary-amount" id="totalOther">0 EGP</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter + header row -->
+          <div class="panel-header" style="margin-top: 24px;">
+            <div class="filter-row">
+              <h2>All Revenue</h2>
+              <div class="cat-filters" id="revCatFilters">
+                <button type="button" class="cat-filter-btn active" data-rev-filter="all">All</button>
+                <button type="button" class="cat-filter-btn" data-rev-filter="Stickers">Stickers</button>
+                <button type="button" class="cat-filter-btn" data-rev-filter="Posters">Posters</button>
+                <button type="button" class="cat-filter-btn" data-rev-filter="Mail Subscription">Mail Subscription</button>
+                <button type="button" class="cat-filter-btn" data-rev-filter="Other">Other</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div class="print-drop-wrap">
+                <button type="button" class="ghost-btn print-drop-trigger" id="revenuePrintTrigger">
+                  <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:6px"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+                  Print ▾
+                </button>
+                <div class="print-drop-menu hidden" id="revenuePrintMenu">
+                  <button type="button" class="print-drop-item" data-print="revenue" data-period="all">All revenue</button>
+                  <button type="button" class="print-drop-item" data-print="revenue" data-period="month">This month</button>
+                  <button type="button" class="print-drop-item" data-print="revenue" data-period="week">This week</button>
+                </div>
+              </div>
+              <button type="button" id="openAddRevenue" class="primary-btn">+ Log revenue</button>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="data-table" id="revenueTable">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>Collected by</th>
+                  <th>Note</th>
+                  <th>Date</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="revenueBody"></tbody>
+            </table>
+            <p id="revenueEmpty" class="empty-state hidden">No revenue logged yet. Hit "Log revenue" to add the first entry.</p>
+          </div>
+        </div>
+
+        <!-- ── SUBTAB 3: BRAND EXPENSES VIEW ── -->
+        <div id="subtab-funds-expenses" class="subtab-view hidden">
+          <p class="tagline" style="margin-top:-6px;margin-bottom:18px;">Expenses paid directly from Static brand / company funds</p>
+
+          <!-- Summary cards -->
+          <div class="summary-grid grid-6" id="brandSummaryGrid">
+            <div class="summary-card" data-brand-cat="all">
+              <div class="summary-icon summary-icon-brand-all">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Total Brand Spent</div>
+                <div class="summary-amount" id="totalBrandAll">0 EGP</div>
+              </div>
+            </div>
+            <div class="summary-card" data-brand-cat="Ads">
+              <div class="summary-icon summary-icon-ads">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Ads</div>
+                <div class="summary-amount" id="totalBrandAds">0 EGP</div>
+              </div>
+            </div>
+            <div class="summary-card" data-brand-cat="Printing">
+              <div class="summary-icon summary-icon-print">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Printing</div>
+                <div class="summary-amount" id="totalBrandPrinting">0 EGP</div>
+              </div>
+            </div>
+            <div class="summary-card" data-brand-cat="Packaging">
+              <div class="summary-icon summary-icon-pkg">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Packaging</div>
+                <div class="summary-amount" id="totalBrandPackaging">0 EGP</div>
+              </div>
+            </div>
+            <div class="summary-card" data-brand-cat="Delivery">
+              <div class="summary-icon summary-icon-del">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h.09A2.5 2.5 0 018 14.5h4A2.5 2.5 0 0116.91 16H17a1 1 0 001-1v-5l-3.04-4.56A1 1 0 0014.12 5H3zm7 5V7h4.12l2.02 3H10V9z"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Delivery</div>
+                <div class="summary-amount" id="totalBrandDelivery">0 EGP</div>
+              </div>
+            </div>
+            <div class="summary-card" data-brand-cat="Operations">
+              <div class="summary-icon summary-icon-ops">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Operations</div>
+                <div class="summary-amount" id="totalBrandOperations">0 EGP</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter + header row -->
+          <div class="panel-header" style="margin-top: 24px;">
+            <div class="filter-row">
+              <h2>Brand Expenses</h2>
+              <div class="cat-filters" id="brandCatFilters">
+                <button type="button" class="cat-filter-btn active" data-brand-filter="all">All</button>
+                <button type="button" class="cat-filter-btn" data-brand-filter="Ads">Ads</button>
+                <button type="button" class="cat-filter-btn" data-brand-filter="Printing">Printing</button>
+                <button type="button" class="cat-filter-btn" data-brand-filter="Packaging">Packaging</button>
+                <button type="button" class="cat-filter-btn" data-brand-filter="Delivery">Delivery</button>
+                <button type="button" class="cat-filter-btn" data-brand-filter="Operations">Operations</button>
+                <button type="button" class="cat-filter-btn" data-brand-filter="Other">Other</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div class="print-drop-wrap">
+                <button type="button" class="ghost-btn print-drop-trigger" id="brandExpensesPrintTrigger">
+                  <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:6px"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+                  Print ▾
+                </button>
+                <div class="print-drop-menu hidden" id="brandExpensesPrintMenu">
+                  <button type="button" class="print-drop-item" data-print="brand-expenses" data-period="all">All brand expenses</button>
+                  <button type="button" class="print-drop-item" data-print="brand-expenses" data-period="month">This month</button>
+                  <button type="button" class="print-drop-item" data-print="brand-expenses" data-period="week">This week</button>
+                </div>
+              </div>
+              <button type="button" id="openAddBrandExpense" class="primary-btn">+ Log brand expense</button>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="data-table" id="brandExpensesTable">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>Logged by</th>
+                  <th>Note</th>
+                  <th>Date</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="brandExpensesBody"></tbody>
+            </table>
+            <p id="brandExpensesEmpty" class="empty-state hidden">No brand expenses logged yet. Hit "Log brand expense" to add the first one.</p>
+          </div>
         </div>
       </section>
 
@@ -931,6 +1140,74 @@
         <div class="modal-actions">
           <button type="button" class="ghost-btn" data-close="expenseModal">Cancel</button>
           <button type="submit" class="primary-btn">Save expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADD BRAND EXPENSE MODAL -->
+  <div id="brandExpenseModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Log Brand Expense</h3>
+          <p class="tagline" style="margin-top:2px;font-size:12px;">Paid from company / brand funds</p>
+        </div>
+        <button type="button" class="modal-close-btn" data-close="brandExpenseModal">&#x2715;</button>
+      </div>
+      <form id="brandExpenseForm">
+        <div class="form-field">
+          <label>Category <span class="req">*</span></label>
+          <div class="cat-pill-group" id="brandCatPillGroup">
+            <button type="button" class="cat-pill" data-val="Ads">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+              Ads
+            </button>
+            <button type="button" class="cat-pill" data-val="Printing">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+              Printing
+            </button>
+            <button type="button" class="cat-pill" data-val="Packaging">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+              Packaging
+            </button>
+            <button type="button" class="cat-pill" data-val="Delivery">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h.09A2.5 2.5 0 018 14.5h4A2.5 2.5 0 0116.91 16H17a1 1 0 001-1v-5l-3.04-4.56A1 1 0 0014.12 5H3zm7 5V7h4.12l2.02 3H10V9z"/></svg>
+              Delivery
+            </button>
+            <button type="button" class="cat-pill" data-val="Operations">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+              Operations
+            </button>
+            <button type="button" class="cat-pill" data-val="Other">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+              Other
+            </button>
+          </div>
+          <input type="hidden" id="brandExpCategory" required />
+        </div>
+
+        <div class="form-field" style="margin-top:14px">
+          <label>Description <span class="req">*</span></label>
+          <input type="text" id="brandExpDescription" placeholder="e.g. Summer drop photoshoot / fabric printing" required />
+        </div>
+
+        <div class="form-grid form-grid-2" style="margin-top:14px">
+          <div class="form-field">
+            <label>Amount (EGP) <span class="req">*</span></label>
+            <input type="number" id="brandExpAmount" placeholder="0" min="0.01" step="0.01" required />
+          </div>
+          <div class="form-field">
+            <label>Note <span class="opt">(optional)</span></label>
+            <input type="text" id="brandExpNote" placeholder="any extra detail…" />
+          </div>
+        </div>
+
+        <p id="brandExpError" class="error-text"></p>
+
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" data-close="brandExpenseModal">Cancel</button>
+          <button type="submit" class="primary-btn">Save brand expense</button>
         </div>
       </form>
     </div>
@@ -1309,6 +1586,53 @@
     </div>
   </div>
 
+  <!-- BRAND EXPENSE DETAIL MODAL -->
+  <div id="brandExpenseDetailModal" class="modal hidden">
+    <div class="modal-card" style="max-width: 480px; width: 92vw;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Brand Expense Details</h3>
+          <span style="font-size:11px;font-weight:700;color:var(--accent);background:rgba(197,138,54,0.15);padding:2px 7px;border-radius:4px;border:1px solid rgba(197,138,54,0.3);">Company Money</span>
+        </div>
+        <button type="button" class="modal-close-btn" data-close="brandExpenseDetailModal">&#x2715;</button>
+      </div>
+      <div style="padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--surface-raised); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);">
+          <div id="brandDetailCatChip" style="font-size: 13.5px;"></div>
+          <div id="brandDetailAmount" style="font-size: 20px; font-weight: 800; color: #C58A36;"></div>
+        </div>
+
+        <div style="background: var(--surface-raised); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);">
+          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 3px;">Description</div>
+          <div id="brandDetailDesc" style="font-size: 14px; font-weight: 600; color: var(--text); word-break: break-word; line-height: 1.3;"></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div style="background: var(--surface-raised); padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border);">
+            <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 3px;">Logged By</div>
+            <div id="brandDetailLoggedBy" style="font-size: 13px; font-weight: 600; color: var(--text);"></div>
+          </div>
+          <div style="background: var(--surface-raised); padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border);">
+            <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 3px;">Date & Time</div>
+            <div id="brandDetailDate" style="font-size: 13px; font-weight: 600; color: var(--text);"></div>
+          </div>
+        </div>
+
+        <div style="background: var(--surface-raised); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);">
+          <div style="font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; margin-bottom: 3px;">Note</div>
+          <div id="brandDetailNote" style="font-size: 13px; color: var(--text); font-style: italic; word-break: break-word; line-height: 1.3;"></div>
+        </div>
+
+        <div class="modal-actions" style="margin-top: 4px; display: flex; justify-content: space-between; align-items: center;">
+          <div id="modalBrandExpenseDeleteWrap">
+            <button type="button" id="modalBrandExpenseDeleteBtn" class="primary-btn danger" style="padding: 8px 16px; font-size: 13px;">Delete Expense</button>
+          </div>
+          <button type="button" class="primary-btn" style="padding: 8px 20px; font-size: 13px;" data-close="brandExpenseDetailModal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- REVENUE DETAIL MODAL -->
   <div id="revenueDetailModal" class="modal hidden">
     <div class="modal-card" style="max-width: 480px; width: 92vw;">
@@ -1344,12 +1668,90 @@
         </div>
 
         <div class="modal-actions" style="margin-top: 4px; display: flex; justify-content: space-between; align-items: center;">
-          <div id="modalRevenueDeleteWrap">
-            <button type="button" id="modalRevenueDeleteBtn" class="primary-btn danger" style="padding: 8px 16px; font-size: 13px;">Delete Revenue</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div id="modalRevenueDeleteWrap">
+              <button type="button" id="modalRevenueDeleteBtn" class="primary-btn danger" style="padding: 8px 16px; font-size: 13px;">Delete</button>
+            </div>
+            <div id="modalRevenueEditWrap">
+              <button type="button" id="modalRevenueEditBtn" class="ghost-btn" style="padding: 8px 16px; font-size: 13px;">Edit</button>
+            </div>
           </div>
           <button type="button" class="primary-btn" style="padding: 8px 20px; font-size: 13px;" data-close="revenueDetailModal">Close</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ADJUST REVENUE MODAL (FOUNDER ONLY) -->
+  <div id="adjustRevenueModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Adjust Total Revenue</h3>
+        <button type="button" class="modal-close-btn" data-close="adjustRevenueModal">&#x2715;</button>
+      </div>
+      <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:16px;">
+        Use this if the actual cash on hand differs from calculated orders (e.g. money fell, cash deficit, or discrepancy). The system will add an automatic adjustment entry.
+      </p>
+      <form id="adjustRevenueForm">
+        <div class="form-field">
+          <label>Current Calculated Revenue</label>
+          <div id="adjCurrTotalVal" style="font-size:20px;font-weight:700;font-family:var(--font-mono);color:var(--text);padding:8px 12px;background:var(--surface-raised);border-radius:8px;border:1px solid var(--border);">0.00 EGP</div>
+        </div>
+        <div class="form-field" style="margin-top:14px">
+          <label>New Actual Total in Hand (EGP) <span class="req">*</span></label>
+          <input type="number" id="adjNewTotal" step="0.01" min="0" placeholder="e.g. 950" required />
+        </div>
+        <div class="form-field" style="margin-top:14px">
+          <label>Reason / Explanation <span class="opt">(optional)</span></label>
+          <input type="text" id="adjReason" placeholder="e.g. Cash fell / lost cash discrepancy" />
+        </div>
+        <p id="adjError" class="error-text"></p>
+        <div class="modal-actions" style="margin-top:20px">
+          <button type="button" class="ghost-btn" data-close="adjustRevenueModal">Cancel</button>
+          <button type="submit" class="primary-btn">Save Revenue Adjustment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- EDIT REVENUE ENTRY MODAL -->
+  <div id="editRevenueModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Edit Revenue Entry</h3>
+        <button type="button" class="modal-close-btn" data-close="editRevenueModal">&#x2715;</button>
+      </div>
+      <form id="editRevenueForm">
+        <input type="hidden" id="editRevId" />
+        <div class="form-field">
+          <label>Category <span class="req">*</span></label>
+          <select id="editRevCategory" class="inline-select" style="width:100%;height:38px;padding:0 12px;" required>
+            <option value="Stickers">Stickers</option>
+            <option value="Posters">Posters</option>
+            <option value="Mail Subscription">Mail Subscription</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-field" style="margin-top:14px">
+          <label>Description <span class="req">*</span></label>
+          <input type="text" id="editRevDescription" required />
+        </div>
+        <div class="form-grid form-grid-2" style="margin-top:14px">
+          <div class="form-field">
+            <label>Amount (EGP) <span class="req">*</span></label>
+            <input type="number" id="editRevAmount" step="0.01" required />
+          </div>
+          <div class="form-field">
+            <label>Note <span class="opt">(optional)</span></label>
+            <input type="text" id="editRevNote" />
+          </div>
+        </div>
+        <p id="editRevError" class="error-text"></p>
+        <div class="modal-actions" style="margin-top:20px">
+          <button type="button" class="ghost-btn" data-close="editRevenueModal">Cancel</button>
+          <button type="submit" class="primary-btn">Save Changes</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -1378,8 +1780,6 @@
     </div>
   </div>
 
-  </div> <!-- Close #app -->
-
   <!-- MOBILE BOTTOM NAV -->
   <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Bottom navigation">
     <button type="button" class="mobile-nav-btn active" data-tab="orders">
@@ -1401,12 +1801,12 @@
       <span>Scan</span>
     </button>
     <button type="button" class="mobile-nav-btn" data-tab="expenses">
-      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v4H4V6zm0 6h3v2H4v-2zm5 0h3v2H9v-2zm5 0h2v2h-2v-2z" clip-rule="evenodd"/></svg>
-      <span>Expenses</span>
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+      <span>Personal</span>
     </button>
-    <button type="button" class="mobile-nav-btn" data-tab="revenue">
-      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd"/></svg>
-      <span>Revenue</span>
+    <button type="button" class="mobile-nav-btn" data-tab="brand-funds">
+      <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 5a2 2 0 104 0 2 2 0 00-4 0zm7-1a1 1 0 100 2h1a1 1 0 100-2h-1z" clip-rule="evenodd"/></svg>
+      <span>Brand Funds</span>
     </button>
     <button type="button" class="mobile-nav-btn founder-only hidden" data-tab="team">
       <svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>

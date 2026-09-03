@@ -25,7 +25,8 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "..", "public")));
 
-const CATEGORIES = ["Ads", "Printing", "Packaging", "Delivery"];
+const CATEGORIES = ["Ads", "Printing", "Packaging", "Delivery", "Other"];
+const BRAND_EXPENSE_CATEGORIES = ["Ads", "Printing", "Packaging", "Delivery", "Operations", "Other"];
 const REVENUE_CATEGORIES = ["Stickers", "Posters", "Mail Subscription", "Other"];
 
 // ─── DB SEEDING ───────────────────────────────────────────────────────────────
@@ -319,6 +320,35 @@ app.delete("/api/expenses/:id", requireLogin, requireFounder, withDB, async (req
   res.json({ ok: true });
 });
 
+// ─── BRAND EXPENSES (Company Own Money) ───────────────────────────────────────
+app.get("/api/brand-expenses", requireLogin, withDB, async (req, res) => {
+  res.json(await db.getBrandExpenses());
+});
+
+app.post("/api/brand-expenses", requireLogin, withDB, async (req, res) => {
+  const { category, description, amount, note } = req.body;
+  if (!category || !BRAND_EXPENSE_CATEGORIES.includes(category))
+    return res.status(400).json({ error: "pick a valid category" });
+  if (!description || !description.trim())
+    return res.status(400).json({ error: "description is required" });
+  if (!amount || isNaN(Number(amount)) || Number(amount) <= 0)
+    return res.status(400).json({ error: "enter a valid amount" });
+  const expense = await db.insertBrandExpense({
+    id: "bexp_" + Date.now(),
+    category,
+    description: description.trim(),
+    amount: Number(amount),
+    note: note?.trim() || null,
+    loggedBy: req.user.username,
+  });
+  res.json(expense);
+});
+
+app.delete("/api/brand-expenses/:id", requireLogin, requireFounder, withDB, async (req, res) => {
+  await db.deleteBrandExpense(req.params.id);
+  res.json({ ok: true });
+});
+
 // ─── REVENUE ──────────────────────────────────────────────────────────────────
 app.get("/api/revenue", requireLogin, withDB, async (req, res) => {
   res.json(await db.getRevenue());
@@ -346,6 +376,48 @@ app.post("/api/revenue", requireLogin, withDB, async (req, res) => {
 app.delete("/api/revenue/:id", requireLogin, requireFounder, withDB, async (req, res) => {
   await db.deleteRevenue(req.params.id);
   res.json({ ok: true });
+});
+
+// Founder quick revenue total adjustment (e.g. for lost cash, discrepancies)
+app.post("/api/revenue/adjust", requireLogin, requireFounder, withDB, async (req, res) => {
+  const { newTotal, note } = req.body;
+  if (newTotal === undefined || isNaN(Number(newTotal))) {
+    return res.status(400).json({ error: "Please enter a valid total amount" });
+  }
+  const revList = await db.getRevenue();
+  const currentTotal = revList.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const target = Number(newTotal);
+  const diff = Math.round((target - currentTotal) * 100) / 100;
+  if (Math.abs(diff) < 0.01) {
+    return res.json({ ok: true, message: "Total is already matching", newTotal: target });
+  }
+
+  const desc = (note && note.trim())
+    ? `Cash Adjustment: ${note.trim()}`
+    : (diff < 0 ? "Cash Adjustment (Lost Cash / Deficit)" : "Cash Adjustment (Surplus / Correction)");
+
+  const adj = await db.insertRevenue({
+    id: "rev_adj_" + Date.now(),
+    category: "Other",
+    description: desc,
+    amount: diff,
+    note: `Adjusted total revenue from ${currentTotal.toFixed(2)} EGP to ${target.toFixed(2)} EGP`,
+    collectedBy: req.user.username,
+  });
+
+  res.json({ ok: true, adjustment: adj, previousTotal: currentTotal, newTotal: target });
+});
+
+app.put("/api/revenue/:id", requireLogin, requireFounder, withDB, async (req, res) => {
+  const { category, description, amount, note } = req.body;
+  const updated = await db.updateRevenue(req.params.id, {
+    category,
+    description: description ? description.trim() : undefined,
+    amount: amount !== undefined ? Number(amount) : undefined,
+    note: note !== undefined ? (note ? note.trim() : null) : undefined,
+  });
+  if (!updated) return res.status(404).json({ error: "Revenue record not found" });
+  res.json(updated);
 });
 
 // ─── STOCK ────────────────────────────────────────────────────────────────────
