@@ -82,8 +82,18 @@ function cookieOptions() {
   };
 }
 
-// ─── HEALTH CHECK ─────────────────────────────────────────────────────────────
+// ─── HEALTH CHECK & BOOTSTRAP ────────────────────────────────────────────────
 app.get("/api/ping", (req, res) => res.json({ ok: true }));
+
+app.get("/api/bootstrap", requireLogin, withDB, async (req, res) => {
+  try {
+    const data = await db.getBootstrapData();
+    res.json(data);
+  } catch (err) {
+    console.error("Bootstrap error:", err);
+    res.status(500).json({ error: "Failed to load data" });
+  }
+});
 
 // ─── PUBLIC STOCK (website shop catalog) ──────────────────────────────────────
 app.get("/api/stock/public", withDB, async (req, res) => {

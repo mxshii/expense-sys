@@ -297,13 +297,46 @@ function enterApp() {
     });
   }
 
-  loadOrders();
-  loadStock();
-  loadExpenses();
-  loadBrandExpenses();
-  loadRevenue();
+  loadBootstrap();
   if (me.role === "founder") loadUsers();
   initBarcodeScanner();
+}
+
+/* ─── FAST BOOTSTRAP LOADER ────────────────────────────────────── */
+async function loadBootstrap() {
+  try {
+    const data = await api("/api/bootstrap");
+    if (data.orders) {
+      allOrders = data.orders;
+      renderOrders();
+      renderOrdersSummary();
+    }
+    if (data.stock) {
+      allStock = data.stock;
+      renderStock();
+      renderStockSummary();
+      populateOrderStockSelects();
+    }
+    if (data.expenses) {
+      allExpenses = data.expenses;
+      renderExpenses();
+      renderSummary();
+    }
+    if (data.brandExpenses) {
+      allBrandExpenses = data.brandExpenses;
+      renderBrandExpenses();
+      renderBrandSummary();
+    }
+    if (data.revenue) {
+      allRevenue = data.revenue;
+      renderRevenue();
+      renderRevenueSummary();
+    }
+    renderBrandFunds();
+  } catch (err) {
+    console.error("Bootstrap fetch error, falling back to individual calls:", err);
+    await Promise.all([loadOrders(), loadStock(), loadExpenses(), loadBrandExpenses(), loadRevenue()]);
+  }
 }
 
 /* ─── NAV TABS ─────────────────────────────────────────────────── */
@@ -378,10 +411,13 @@ document.querySelectorAll(".mobile-nav-btn").forEach((btn) => {
 async function syncAll() {
   if (!me) return;
   if (document.visibilityState === "hidden") return;
-  await Promise.all([loadOrders(), loadStock(), loadExpenses(), loadBrandExpenses(), loadRevenue()]);
-  loadCustomers(); // load customers in background (founder only)
-  if (me.role === "founder") await loadUsers();
-  $("#syncTime").textContent = new Date().toLocaleTimeString();
+  await loadBootstrap();
+  if (me.role === "founder") {
+    loadCustomers();
+    await loadUsers();
+  }
+  const syncTimeEl = $("#syncTime");
+  if (syncTimeEl) syncTimeEl.textContent = new Date().toLocaleTimeString();
 }
 // Smart sync: only poll every 3 mins when user was recently active (saves Neon compute)
 let lastUserActivity = Date.now();
