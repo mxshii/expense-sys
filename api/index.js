@@ -11,53 +11,32 @@ const JWT_SECRET = process.env.JWT_SECRET || "yeetSecretDoNotDeployToTheMoonWith
 const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || (JWT_SECRET + "_customer");
 
 // ─── VERCEL REWRITE URL NORMALIZER ───────────────────────────────────────────
-// When Vercel rewrites requests to /api/index.js via vercel.json, req.url becomes
-// "/api/index.js" instead of the actual requested route (e.g. /api/login).
-// This causes Express route matching to fail with 404 "Cannot POST /api/index.js".
-// We restore req.url from Vercel's x-matched-path (or proxy headers).
+// When Vercel rewrites requests to /api/index.js via vercel.json, req.url is set
+// to "/api/index.js" instead of the actual requested route (e.g. /api/login).
+// We forward the matched path as ?__path=:match* and restore req.url here.
 app.use((req, res, next) => {
-  const matched =
-    req.headers["x-matched-path"] ||
-    req.headers["x-vercel-matched-path"] ||
-    req.headers["x-original-url"] ||
-    req.headers["x-forwarded-url"] ||
-    req.headers["x-forwarded-uri"];
+  let pathVal = req.query.__path;
+  const qIdx = req.url.indexOf("?");
+  let rawParams = null;
 
-  if (
-    matched &&
-    matched !== "/api/index.js" &&
-    (req.url === "/api/index.js" || req.url === "/api/index" || req.url === "/api" || req.url === "/api/")
-  ) {
-    req.url = matched;
-    req.originalUrl = matched;
-    const qIndex = matched.indexOf("?");
-    if (qIndex !== -1) {
-      req.query = Object.fromEntries(new URLSearchParams(matched.slice(qIndex + 1)).entries());
-    }
-  } else if (
-    req.headers["x-now-route-matches"] &&
-    (req.url === "/api/index.js" || req.url === "/api/index" || req.url === "/api" || req.url === "/api/")
-  ) {
+  if (qIdx !== -1) {
     try {
-      const params = new URLSearchParams(req.headers["x-now-route-matches"]);
-      const firstVal = params.get("1") || params.get("0") || params.get("path");
-      if (firstVal) {
-        req.url = decodeURIComponent(firstVal);
-        req.originalUrl = req.url;
+      rawParams = new URLSearchParams(req.url.slice(qIdx + 1));
+      if (!pathVal && rawParams.has("__path")) {
+        pathVal = rawParams.get("__path");
       }
     } catch {}
   }
-  next();
-});
 
-// ─── VERCEL DIAGNOSTIC (temporary inspector) ─────────────────────────────────
-app.all("/api/index.js", (req, res) => {
-  res.json({
-    url: req.url,
-    originalUrl: req.originalUrl,
-    headers: req.headers,
-    query: req.query,
-  });
+  if (typeof pathVal === "string") {
+    delete req.query.__path;
+    if (rawParams) rawParams.delete("__path");
+    const remainingQuery = rawParams ? rawParams.toString() : "";
+    const cleanPath = "/" + pathVal.replace(/^\/+/, "");
+    req.url = cleanPath + (remainingQuery ? "?" + remainingQuery : "");
+    req.originalUrl = req.url;
+  }
+  next();
 });
 
 // ─── CORS: allow all origins for public storefront & APIs ─────────────────────
