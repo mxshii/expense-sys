@@ -50,6 +50,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// ─── VERCEL DIAGNOSTIC (temporary inspector) ─────────────────────────────────
+app.all("/api/index.js", (req, res) => {
+  res.json({
+    url: req.url,
+    originalUrl: req.originalUrl,
+    headers: req.headers,
+    query: req.query,
+  });
+});
+
 // ─── CORS: allow all origins for public storefront & APIs ─────────────────────
 app.use((req, res, next) => {
   const origin = req.headers.origin || "*";
