@@ -139,8 +139,11 @@ app.post("/api/notify-test", requireLogin, async (req, res) => {
   // Fire SSE to all connected dashboard tabs
   broadcastNewOrder(testOrder);
   // Fire ntfy push
-  await notifyNewOrder(testOrder).catch((e) => console.error("[notify-test] ntfy error:", e.message));
-  res.json({ ok: true, testOrderId: testOrder.id, ntfyTopic: process.env.NTFY_TOPIC || "(not set)" });
+  const ntfy = await notifyNewOrder(testOrder).catch((e) => {
+    console.error("[notify-test] ntfy error:", e.message);
+    return { ok: false, error: e.message };
+  });
+  res.json({ ok: true, testOrderId: testOrder.id, ntfy });
 });
 
 
@@ -610,7 +613,7 @@ app.post("/api/orders/storefront", withDB, async (req, res) => {
     createdBy: "storefront",
   });
   broadcastNewOrder(order);
-  notifyNewOrder(order).catch(() => {});
+  await notifyNewOrder(order).catch((e) => console.error("[storefront] ntfy err:", e.message));
   res.json({ ok: true, id: order.id });
 });
 
@@ -683,7 +686,7 @@ app.post("/api/orders", requireLogin, withDB, async (req, res) => {
     createdBy: req.user.username,
   });
   broadcastNewOrder(order);
-  notifyNewOrder(order).catch(() => {});
+  await notifyNewOrder(order).catch((e) => console.error("[orders] ntfy err:", e.message));
   res.json(order);
 });
 

@@ -994,6 +994,15 @@ function initOrderNotifications() {
       try {
         const r = await api("/api/notify-test", "POST");
         console.log("[Test] Server-side notify-test response:", r);
+        if (r && r.ntfy && r.ntfy.topics) {
+          const sentTopics = r.ntfy.topics.join(", ");
+          showOrderToast({
+            id: "PHONE",
+            customerName: "Mobile Alert Dispatched",
+            shippingPrice: 0,
+            items: [{ itemName: "Sent to: " + sentTopics, price: 0, quantity: 1 }],
+          });
+        }
       } catch (e) {
         console.warn("[Test] notify-test endpoint error:", e.message);
       }
