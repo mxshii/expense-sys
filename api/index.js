@@ -4,7 +4,6 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const path = require("path");
 const db = require("../lib/db");
-const { notifyNewOrder } = require("../lib/notifications");
 
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || "yeetSecretDoNotDeployToTheMoonWithThis";
@@ -95,25 +94,6 @@ app.get("/api/bootstrap", requireLogin, withDB, async (req, res) => {
     res.status(500).json({ error: "Failed to load data" });
   }
 });
-
-// ─── NOTIFICATION SELF-TEST (admin only) ─────────────────────────────────────
-// Call from browser: fetch('/api/notify-test', {method:'POST'})
-app.post("/api/notify-test", requireLogin, async (req, res) => {
-  const testOrder = {
-    id: "TEST-" + Date.now(),
-    customerName: `${req.user.username} (Self-Test)`,
-    phone: "01000000000",
-    address: "Admin notification test",
-    shippingPrice: 30,
-    items: [{ itemName: "Test Item", name: "Test Item", quantity: 1, qty: 1, price: 100 }],
-  };
-  // Fire SSE to all connected dashboard tabs
-  broadcastNewOrder(testOrder);
-  // Fire ntfy push
-  await notifyNewOrder(testOrder).catch((e) => console.error("[notify-test] ntfy error:", e.message));
-  res.json({ ok: true, testOrderId: testOrder.id, ntfyTopic: process.env.NTFY_TOPIC || "(not set)" });
-});
-
 
 // ─── PUBLIC STOCK (website shop catalog) ──────────────────────────────────────
 app.get("/api/stock/public", withDB, async (req, res) => {
@@ -537,21 +517,6 @@ app.delete("/api/stock/:id", requireLogin, requireFounder, withDB, async (req, r
 
 // ─── ORDERS ───────────────────────────────────────────────────────────────────
 
-// ─── REALTIME ORDER BROADCASTER (SSE for instant PC/Laptop alerts) ───────────
-const orderClients = new Set();
-
-function broadcastNewOrder(order) {
-  if (!order || orderClients.size === 0) return;
-  const payload = `data: ${JSON.stringify(order)}\n\n`;
-  for (const client of orderClients) {
-    try {
-      client.res.write(payload);
-    } catch {
-      orderClients.delete(client);
-    }
-  }
-}
-
 // PUBLIC: Storefront order submission (no login required)
 app.post("/api/orders/storefront", withDB, async (req, res) => {
   const { customerName, phone, email, items, address, shippingPrice, note, paymentMethod } = req.body;
@@ -580,35 +545,7 @@ app.post("/api/orders/storefront", withDB, async (req, res) => {
     deliveryStatus: "processing",
     createdBy: "storefront",
   });
-  broadcastNewOrder(order);
-  notifyNewOrder(order).catch(() => {});
   res.json({ ok: true, id: order.id });
-});
-
-app.get("/api/orders/stream", requireLogin, (req, res) => {
-  res.writeHead(200, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache, no-transform",
-    "Connection": "keep-alive",
-  });
-  res.write(": connected\n\n");
-
-  const client = { res, id: Date.now() };
-  orderClients.add(client);
-
-  const heartbeat = setInterval(() => {
-    try {
-      res.write(": keepalive\n\n");
-    } catch {
-      clearInterval(heartbeat);
-      orderClients.delete(client);
-    }
-  }, 20000);
-
-  req.on("close", () => {
-    clearInterval(heartbeat);
-    orderClients.delete(client);
-  });
 });
 
 app.get("/api/orders", requireLogin, withDB, async (req, res) => {
@@ -653,8 +590,6 @@ app.post("/api/orders", requireLogin, withDB, async (req, res) => {
     deliveryStatus: deliveryStatus || "processing",
     createdBy: req.user.username,
   });
-  broadcastNewOrder(order);
-  notifyNewOrder(order).catch(() => {});
   res.json(order);
 });
 

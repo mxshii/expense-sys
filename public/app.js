@@ -300,7 +300,6 @@ function enterApp() {
   loadBootstrap();
   if (me.role === "founder") loadUsers();
   initBarcodeScanner();
-  initOrderNotifications();
 }
 
 /* ─── FAST BOOTSTRAP LOADER ────────────────────────────────────── */
@@ -309,12 +308,14 @@ async function loadBootstrap() {
     const data = await api("/api/bootstrap");
     if (data.orders) {
       allOrders = data.orders;
-      allOrders.forEach((o) => knownOrderIds.add(String(o.id)));
-      hasInitialOrdersLoaded = true;
       renderOrders();
+      renderOrdersSummary();
     }
     if (data.stock) {
       allStock = data.stock;
+      renderStock();
+      renderStockSummary();
+      populateOrderStockSelects();
     }
     if (data.expenses) {
       allExpenses = data.expenses;
@@ -332,7 +333,6 @@ async function loadBootstrap() {
       renderRevenueSummary();
     }
     renderBrandFunds();
-    loadStock();
   } catch (err) {
     console.error("Bootstrap fetch error, falling back to individual calls:", err);
     await Promise.all([loadOrders(), loadStock(), loadExpenses(), loadBrandExpenses(), loadRevenue()]);
@@ -368,10 +368,6 @@ function switchTab(tab) {
     switchTab("brand-funds");
     switchFundsSubTab("subtab-funds-expenses");
     return;
-  }
-
-  if (tab === "orders") {
-    clearOrdersUnreadBadge();
   }
 
   document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
@@ -528,515 +524,18 @@ function openOrderDetail(orderId) {
   $("#orderDetailModal").classList.remove("hidden");
 }
 
-/* ─── ORDER NOTIFICATIONS & AUTO-SYNC (PC & LAPTOP) ───────────── */
-let orderNotifSoundEnabled = true;
-let orderPollInterval = null;
-let orderEventSource = null;
-let knownOrderIds = new Set();
-let hasInitialOrdersLoaded = false;
-let lastOrderPollTimestamp = null;   // ISO string of newest known order
-let newOrderHighlightIds = new Set();
-let unreadOrdersCount = 0;
-let originalTabTitle = document.title || "Static — Admin Panel";
-let tabFlashInterval = null;
-
-// Global audio unlock for browser autoplay policy
-function unlockAudioContext() {
-  const AudioCtx = window.AudioContext || window.webkitAudioContext;
-  if (!AudioCtx) return;
-  if (!audioCtxInstance) audioCtxInstance = new AudioCtx();
-  if (audioCtxInstance.state === "suspended") {
-    audioCtxInstance.resume().catch(() => {});
-  }
-}
-window.addEventListener("click", unlockAudioContext, { passive: true });
-window.addEventListener("keydown", unlockAudioContext, { passive: true });
-window.addEventListener("touchstart", unlockAudioContext, { passive: true });
-
-function playOrderChime() {
-  if (!orderNotifSoundEnabled) return;
-  try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    if (!audioCtxInstance) audioCtxInstance = new AudioCtx();
-    if (audioCtxInstance.state === "suspended") {
-      audioCtxInstance.resume().catch(() => {});
-    }
-
-    const t = audioCtxInstance.currentTime;
-    // Harmonious 4-tone boutique chime (C5 -> E5 -> G5 -> C6)
-    const notes = [
-      { freq: 523.25, time: 0,    dur: 0.30, gain: 0.22 },
-      { freq: 659.25, time: 0.08, dur: 0.32, gain: 0.24 },
-      { freq: 783.99, time: 0.16, dur: 0.40, gain: 0.26 },
-      { freq: 1046.50, time: 0.24, dur: 0.60, gain: 0.28 },
-    ];
-
-    notes.forEach((n) => {
-      const osc = audioCtxInstance.createOscillator();
-      const gain = audioCtxInstance.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(n.freq, t + n.time);
-      gain.gain.setValueAtTime(n.gain, t + n.time);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + n.time + n.dur);
-      osc.connect(gain);
-      gain.connect(audioCtxInstance.destination);
-      osc.start(t + n.time);
-      osc.stop(t + n.time + n.dur);
-    });
-  } catch (err) {
-    console.warn("Audio chime playback error:", err);
-  }
-}
-
-function ringBellIcon() {
-  const bell = $("#notifBellBtn .bell-icon:not(.hidden)");
-  if (bell) {
-    bell.classList.remove("bell-ring-anim");
-    void bell.offsetWidth;
-    bell.classList.add("bell-ring-anim");
-    setTimeout(() => bell.classList.remove("bell-ring-anim"), 1000);
-  }
-}
-
-function showDesktopNotification(order) {
-  if (!("Notification" in window) || Notification.permission !== "granted") return;
-
-  const total = (order.items || []).reduce(
-    (sum, it) => sum + Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0),
-    0
-  ) + Number(order.shippingPrice || 0);
-
-  const itemsText = (order.items || [])
-    .map((it) => `${it.name || it.itemName} ×${it.qty ?? it.quantity ?? 1}`)
-    .join(", ") || "Order items";
-
-  try {
-    const notif = new Notification(`New Order #${formatOrderId(order.id)}`, {
-      body: `${order.customerName || "Customer"} • ${total.toFixed(2)} EGP\n${itemsText}`,
-      tag: `order-${order.id}`,
-    });
-
-    notif.onclick = () => {
-      window.focus();
-      switchTab("orders");
-      openOrderDetail(order.id);
-    };
-  } catch (err) {
-    console.error("Desktop notification dispatch error:", err);
-  }
-}
-
-function showOrderToast(order) {
-  const container = $("#notifToastContainer");
-  if (!container) return;
-
-  const total = (order.items || []).reduce(
-    (sum, it) => sum + Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0),
-    0
-  ) + Number(order.shippingPrice || 0);
-
-  const itemsText = (order.items || [])
-    .map((it) => `${it.name || it.itemName} ×${it.qty ?? it.quantity ?? 1}`)
-    .join(", ") || "No items";
-
-  const toast = document.createElement("div");
-  toast.className = "notif-toast";
-  toast.innerHTML = `
-    <div class="notif-toast-icon">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
-        <path d="M3 6h18" />
-        <path d="M16 10a4 4 0 0 1-8 0" />
-      </svg>
-    </div>
-    <div class="notif-toast-content">
-      <div class="notif-toast-title">New Order #${escapeHtml(formatOrderId(order.id))}</div>
-      <div class="notif-toast-body">${escapeHtml(order.customerName || "Customer")} • ${money(total)} EGP • ${escapeHtml(itemsText)}</div>
-    </div>
-    <button type="button" class="notif-toast-close" title="Dismiss" aria-label="Dismiss">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>
-    </button>
-  `;
-
-  toast.addEventListener("click", (e) => {
-    if (e.target.closest(".notif-toast-close")) return;
-    switchTab("orders");
-    openOrderDetail(order.id);
-    dismissToast(toast);
-  });
-
-  const closeBtn = toast.querySelector(".notif-toast-close");
-  if (closeBtn) {
-    closeBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      dismissToast(toast);
-    });
-  }
-
-  container.prepend(toast);
-  setTimeout(() => dismissToast(toast), 8000);
-}
-
-function dismissToast(toast) {
-  if (!toast || toast.classList.contains("fade-out")) return;
-  toast.classList.add("fade-out");
-  setTimeout(() => toast.remove(), 320);
-}
-
-function flashTabTitle(text) {
-  if (document.hasFocus()) return;
-  if (tabFlashInterval) clearInterval(tabFlashInterval);
-
-  let showAlt = true;
-  tabFlashInterval = setInterval(() => {
-    document.title = showAlt ? text : originalTabTitle;
-    showAlt = !showAlt;
-  }, 1200);
-}
-
-function stopFlashTabTitle() {
-  if (tabFlashInterval) {
-    clearInterval(tabFlashInterval);
-    tabFlashInterval = null;
-  }
-  document.title = originalTabTitle;
-}
-
-window.addEventListener("focus", () => {
-  stopFlashTabTitle();
-});
-
-function incrementOrdersUnreadBadge() {
-  unreadOrdersCount++;
-  const badge = $("#ordersUnreadBadge");
-  if (badge) {
-    badge.textContent = unreadOrdersCount;
-    badge.classList.remove("hidden");
-  }
-}
-
-function clearOrdersUnreadBadge() {
-  unreadOrdersCount = 0;
-  const badge = $("#ordersUnreadBadge");
-  if (badge) {
-    badge.classList.add("hidden");
-    badge.textContent = "0";
-  }
-  stopFlashTabTitle();
-}
-
-// Handles an incoming real-time or polled new order
-function handleIncomingRealtimeOrder(order) {
-  if (!order || !order.id) return;
-  const idStr = String(order.id);
-  if (knownOrderIds.has(idStr)) return;
-  knownOrderIds.add(idStr);
-
-  // Prepend to in-memory order list
-  const existingIdx = allOrders.findIndex((o) => String(o.id) === idStr);
-  if (existingIdx === -1) {
-    allOrders.unshift(order);
-  }
-  newOrderHighlightIds.add(idStr);
-  renderOrders();
-
-  // Trigger sound, visual bell ring, desktop OS notification, floating toast, and flashing title
-  playOrderChime();
-  ringBellIcon();
-  showDesktopNotification(order);
-  showOrderToast(order);
-  flashTabTitle(`(1) New Order! — Static`);
-
-  const activeTab = document.querySelector(".tab-panel.active")?.id?.replace("tab-", "");
-  if (activeTab !== "orders") {
-    incrementOrdersUnreadBadge();
-  }
-
-  setTimeout(() => {
-    newOrderHighlightIds.delete(idStr);
-    const row = document.querySelector(`tr[data-order-row="${idStr}"]`);
-    if (row) row.classList.remove("new-order-flash");
-  }, 5000);
-}
-
-// Instant Real-time SSE Stream (works on local Node server, not on Vercel serverless)
-function initOrderSSE() {
-  if (!me || orderEventSource) return;
-  try {
-    orderEventSource = new EventSource("/api/orders/stream");
-    orderEventSource.onmessage = (e) => {
-      if (!e.data) return;
-      try {
-        const order = JSON.parse(e.data);
-        if (order && order.id) {
-          console.log("[SSE] New order received via stream:", order.id);
-          handleIncomingRealtimeOrder(order);
-        }
-      } catch (err) {
-        console.warn("[SSE] Parse error:", err.message, "Data:", e.data);
-      }
-    };
-    orderEventSource.addEventListener("message", (e) => {
-      // Handled by onmessage above
-    });
-    orderEventSource.onerror = (err) => {
-      console.warn("[SSE] Stream error or disconnected (will auto-reconnect)");
-      // EventSource natively retries — polling fallback covers any gap
-    };
-    console.log("[Notifications] SSE stream connected to /api/orders/stream");
-  } catch (err) {
-    console.warn("[SSE] Could not init stream:", err.message);
-  }
-}
-
-async function checkNewOrders() {
-  if (!me) return;
-  try {
-    const latestOrders = await api("/api/orders");
-    if (!Array.isArray(latestOrders)) return;
-
-    if (!hasInitialOrdersLoaded) {
-      // First poll — just mark everything as known, no alerts
-      allOrders = latestOrders;
-      latestOrders.forEach((o) => knownOrderIds.add(String(o.id)));
-      if (latestOrders.length > 0) {
-        // Track the newest order's timestamp for future comparison
-        lastOrderPollTimestamp = latestOrders[0].createdAt || null;
-      }
-      hasInitialOrdersLoaded = true;
-      renderOrders();
-      console.log("[Notifications] Initial orders loaded:", latestOrders.length, "orders. Watching for new ones...");
-      return;
-    }
-
-    // On subsequent polls — detect new order IDs
-    let foundNew = false;
-    latestOrders.forEach((o) => {
-      const idStr = String(o.id);
-      if (!knownOrderIds.has(idStr)) {
-        console.log("[Notifications] New order detected via poll:", idStr);
-        foundNew = true;
-        handleIncomingRealtimeOrder(o);
-      }
-    });
-
-    if (!foundNew && latestOrders.length !== allOrders.length) {
-      // An order was deleted — resync silently
-      allOrders = latestOrders;
-      renderOrders();
-    }
-  } catch (err) {
-    console.warn("[Notifications] Poll failed, will retry:", err.message);
-  }
-}
-
-function requestNotificationPermission() {
-  if (!("Notification" in window)) {
-    alert("Desktop notifications are not supported by your browser.");
-    return;
-  }
-  unlockAudioContext();
-  Notification.requestPermission().then((permission) => {
-    updateNotifUI();
-    playOrderChime();
-    if (permission === "granted") {
-      new Notification("Desktop Alerts Active", {
-        body: "You will receive desktop alerts when new orders arrive.",
-      });
-    }
-  });
-}
-
-function updateNotifUI() {
-  const activeIcon = $("#bellIconActive");
-  const mutedIcon = $("#bellIconMuted");
-  const dot = $("#notifStatusDot");
-  const statusBadge = $("#notifStatusText");
-  const permStatus = $("#notifPermStatus");
-  const permBtn = $("#notifPermBtn");
-
-  const isMuted = !orderNotifSoundEnabled;
-  if (activeIcon) activeIcon.classList.toggle("hidden", isMuted);
-  if (mutedIcon) mutedIcon.classList.toggle("hidden", !isMuted);
-
-  if (dot) dot.classList.toggle("muted", isMuted);
-  if (statusBadge) {
-    statusBadge.textContent = isMuted ? "Muted" : "Active";
-    statusBadge.classList.toggle("muted", isMuted);
-  }
-
-  if (!("Notification" in window)) {
-    if (permStatus) permStatus.textContent = "Not supported in browser";
-    if (permBtn) permBtn.classList.add("hidden");
-  } else if (Notification.permission === "granted") {
-    if (permStatus) permStatus.textContent = "Desktop alerts enabled";
-    if (permBtn) {
-      permBtn.textContent = "Allowed";
-      permBtn.disabled = true;
-      permBtn.style.opacity = "0.7";
-      permBtn.style.cursor = "default";
-    }
-  } else if (Notification.permission === "denied") {
-    if (permStatus) permStatus.textContent = "Blocked in browser settings";
-    if (permBtn) {
-      permBtn.textContent = "Blocked";
-      permBtn.disabled = true;
-      permBtn.style.opacity = "0.7";
-    }
-  } else {
-    if (permStatus) permStatus.textContent = "Click Enable to allow alerts";
-    if (permBtn) {
-      permBtn.textContent = "Enable";
-      permBtn.disabled = false;
-      permBtn.style.opacity = "1";
-      permBtn.style.cursor = "pointer";
-    }
-  }
-}
-
-function initOrderNotifications() {
-  const savedSound = localStorage.getItem("orderNotifSound");
-  if (savedSound !== null) {
-    orderNotifSoundEnabled = savedSound === "true";
-  }
-  const soundCb = $("#notifSoundCheckbox");
-  if (soundCb) soundCb.checked = orderNotifSoundEnabled;
-
-  updateNotifUI();
-
-  // Banner prompt for permission
-  const banner = $("#notifBannerPrompt");
-  const dismissed = localStorage.getItem("notifBannerDismissed");
-  if (banner && "Notification" in window && Notification.permission === "default" && !dismissed) {
-    banner.classList.remove("hidden");
-  }
-
-  const bannerEnableBtn = $("#notifBannerEnableBtn");
-  if (bannerEnableBtn) {
-    bannerEnableBtn.addEventListener("click", () => {
-      unlockAudioContext();
-      Notification.requestPermission().then((perm) => {
-        banner?.classList.add("hidden");
-        updateNotifUI();
-        playOrderChime();
-        if (perm === "granted") {
-          new Notification("Desktop Alerts Active", {
-            body: "You will receive desktop alerts when new orders arrive.",
-          });
-        }
-      });
-    });
-  }
-
-  const bannerDismissBtn = $("#notifBannerDismissBtn");
-  if (bannerDismissBtn) {
-    bannerDismissBtn.addEventListener("click", () => {
-      banner?.classList.add("hidden");
-      localStorage.setItem("notifBannerDismissed", "true");
-    });
-  }
-
-  const bellBtn = $("#notifBellBtn");
-  const menu = $("#notifMenu");
-  if (bellBtn && menu) {
-    bellBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      menu.classList.toggle("hidden");
-    });
-
-    document.addEventListener("click", (e) => {
-      if (!menu.contains(e.target) && e.target !== bellBtn && !bellBtn.contains(e.target)) {
-        menu.classList.add("hidden");
-      }
-    });
-  }
-
-  if (soundCb) {
-    soundCb.addEventListener("change", () => {
-      orderNotifSoundEnabled = soundCb.checked;
-      localStorage.setItem("orderNotifSound", orderNotifSoundEnabled);
-      updateNotifUI();
-    });
-  }
-
-  const permBtn = $("#notifPermBtn");
-  if (permBtn) {
-    permBtn.addEventListener("click", () => {
-      requestNotificationPermission();
-    });
-  }
-
-  const testBtn = $("#notifTestSoundBtn");
-  if (testBtn) {
-    testBtn.addEventListener("click", async () => {
-      unlockAudioContext();
-      const prev = orderNotifSoundEnabled;
-      orderNotifSoundEnabled = true;
-      playOrderChime();
-      orderNotifSoundEnabled = prev;
-      ringBellIcon();
-      showOrderToast({
-        id: "TEST",
-        customerName: "Test Order",
-        shippingPrice: 30,
-        items: [{ itemName: "Sample Item", price: 120, quantity: 1 }],
-      });
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("Test Notification Active", {
-          body: "Test Order • 150.00 EGP\nSample Item ×1",
-        });
-      }
-      // Also fire server-side test: SSE broadcast + ntfy push
-      try {
-        const r = await api("/api/notify-test", "POST");
-        console.log("[Test] Server-side notify-test response:", r);
-      } catch (e) {
-        console.warn("[Test] notify-test endpoint error:", e.message);
-      }
-    });
-  }
-
-  // Connect SSE for instant (0ms lag) order alerts (works on local Node server)
-  initOrderSSE();
-
-  // Polling fallback — primary detection method on Vercel/serverless (SSE doesn't survive there)
-  // Fires first check at 3 s so we don't wait a full interval after login
-  if (!orderPollInterval) {
-    setTimeout(() => {
-      if (me && !orderPollInterval) {
-        checkNewOrders();
-        orderPollInterval = setInterval(checkNewOrders, 10000);
-        console.log("[Notifications] Polling active — checking every 10 s");
-      }
-    }, 3000);
-  }
-}
-
 /* ─── ORDERS ───────────────────────────────────────────────────── */
-function renderOrders() {
+async function loadOrders() {
+  allOrders = await api("/api/orders");
   const body = $("#ordersBody");
-  if (!body) return;
   body.innerHTML = "";
-  $("#ordersEmpty")?.classList.toggle("hidden", allOrders.length > 0);
+  $("#ordersEmpty").classList.toggle("hidden", allOrders.length > 0);
 
   allOrders.forEach((o) => {
-    const total = (o.items || []).reduce(
-      (sum, it) => sum + Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0),
-      0
-    ) + Number(o.shippingPrice || 0);
-
-    const itemsText = (o.items || [])
-      .map((it) => `${it.name || it.itemName} ×${it.qty ?? it.quantity ?? 1}`)
-      .join(", ") || "—";
-
-    const isFlashing = newOrderHighlightIds.has(String(o.id));
+    const total = (o.items || []).reduce((sum, it) => sum + it.qty * it.price, 0) + Number(o.shippingPrice || 0);
+    const itemsText = (o.items || []).map((it) => `${it.name} ×${it.qty}`).join(", ") || "—";
     const tr = document.createElement("tr");
-    tr.className = "clickable-row" + (isFlashing ? " new-order-flash" : "");
-    tr.setAttribute("data-order-row", String(o.id));
+    tr.className = "clickable-row";
     tr.innerHTML = `
       <td data-label="Customer">
         <div style="font-size:10.5px;font-family:var(--font-mono);color:var(--accent);font-weight:700;letter-spacing:0.5px;margin-bottom:2px">#${escapeHtml(formatOrderId(o.id))}</div>
@@ -1071,19 +570,13 @@ function renderOrders() {
           <button class="icon-btn receipt-btn" data-receipt-order="${o.id}" title="Print receipt" style="color:var(--text-muted);font-size:15px">
             <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;vertical-align:middle"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
           </button>
-          ${me?.role === "founder" ? `<button class="icon-btn" data-del-order="${o.id}" title="Delete order">✕</button>` : ""}
+          ${me.role === "founder" ? `<button class="icon-btn" data-del-order="${o.id}" title="Delete order">✕</button>` : ""}
         </div>
       </td>
     `;
 
     tr.addEventListener("click", (evt) => {
-      if (
-        evt.target.closest("select") ||
-        evt.target.closest("[data-del-order]") ||
-        evt.target.closest(".receipt-btn") ||
-        evt.target.closest(".edit-order-btn")
-      )
-        return;
+      if (evt.target.closest("select") || evt.target.closest("[data-del-order]") || evt.target.closest(".receipt-btn") || evt.target.closest(".edit-order-btn")) return;
       openOrderDetail(o.id);
     });
 
@@ -1124,13 +617,6 @@ function renderOrders() {
       printOrderReceipt(btn.dataset.receiptOrder);
     });
   });
-}
-
-async function loadOrders() {
-  allOrders = await api("/api/orders");
-  allOrders.forEach((o) => knownOrderIds.add(String(o.id)));
-  hasInitialOrdersLoaded = true;
-  renderOrders();
 }
 
 /* ─── NEW ORDER MODAL ──────────────────────────────────────────── */
@@ -1224,7 +710,7 @@ $("#orderForm").addEventListener("submit", async (e) => {
   const items = collectOrderItems();
   if (items.length === 0) { alert("Pick at least one item from stock."); return; }
   try {
-    const created = await api("/api/orders", "POST", {
+    await api("/api/orders", "POST", {
       id: $("#ordId").value.trim() || undefined,
       customerName: $("#ordCustomer").value.trim(),
       phone: $("#ordPhone").value.trim(),
@@ -1235,7 +721,6 @@ $("#orderForm").addEventListener("submit", async (e) => {
       paymentStatus: $("#ordPayment").value,
       deliveryStatus: $("#ordDelivery").value,
     });
-    if (created?.id) knownOrderIds.add(String(created.id));
     e.target.reset();
     $("#orderItemsList").innerHTML = "";
     $("#orderModal").classList.add("hidden");

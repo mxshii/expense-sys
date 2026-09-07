@@ -52,7 +52,6 @@
         <button class="nav-item active" data-tab="orders" id="navOrders">
           <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/></svg>
           <span>Orders</span>
-          <span class="nav-badge hidden" id="ordersUnreadBadge">0</span>
         </button>
         <button class="nav-item" data-tab="stock" id="navStock">
           <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
@@ -131,59 +130,6 @@
         </div>
         <div class="topbar-right">
           <div class="topbar-date" id="topbarDate"></div>
-          <div class="topbar-notif-wrap">
-            <button id="notifBellBtn" class="topbar-icon-btn" type="button" title="Order Alerts (PC & Laptop)" aria-label="Order Alerts">
-              <svg class="bell-icon" id="bellIconActive" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-              </svg>
-              <svg class="bell-icon hidden" id="bellIconMuted" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5" />
-                <path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7" />
-                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-                <line x1="2" y1="2" x2="22" y2="22" />
-              </svg>
-              <span class="notif-dot" id="notifStatusDot"></span>
-            </button>
-            <div class="notif-menu hidden" id="notifMenu">
-              <div class="notif-menu-header">
-                <span class="notif-menu-title">Order Alerts</span>
-                <span class="notif-menu-status-badge" id="notifStatusText">Active</span>
-              </div>
-              <div class="notif-menu-item">
-                <div class="notif-item-info">
-                  <span class="notif-item-label">Sound Chime</span>
-                  <span class="notif-item-sub">Audio alert on incoming orders</span>
-                </div>
-                <label class="switch-toggle">
-                  <input type="checkbox" id="notifSoundCheckbox" checked />
-                  <span class="slider"></span>
-                </label>
-              </div>
-              <div class="notif-menu-item">
-                <div class="notif-item-info">
-                  <span class="notif-item-label">Desktop Popups</span>
-                  <span class="notif-item-sub" id="notifPermStatus">Windows/Mac alert</span>
-                </div>
-                <button type="button" class="btn-xs ghost-btn" id="notifPermBtn">Enable</button>
-              </div>
-              <div class="notif-menu-item notif-ntfy-row">
-                <div class="notif-item-info">
-                  <span class="notif-item-label">Mobile Push (ntfy.sh)</span>
-                  <a href="https://ntfy.sh/static_orders_omar" target="_blank" rel="noopener" class="notif-ntfy-link">ntfy.sh/static_orders_omar ↗</a>
-                </div>
-              </div>
-              <div class="notif-menu-footer">
-                <button type="button" class="notif-test-btn" id="notifTestSoundBtn">
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                  </svg>
-                  <span>Test Sound</span>
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       </header>
 
@@ -206,25 +152,6 @@
             <button id="openAddOrder" class="primary-btn">+ New order</button>
           </div>
         </div>
-
-        <!-- Order Alerts Activation Banner -->
-        <div id="notifBannerPrompt" class="notif-banner-prompt hidden">
-          <div class="notif-banner-left">
-            <svg class="notif-banner-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-            </svg>
-            <div class="notif-banner-text">
-              <div class="notif-banner-title">Live Order Notifications</div>
-              <div class="notif-banner-desc">Enable desktop popups and audio chimes so you are alerted the second an order is placed.</div>
-            </div>
-          </div>
-          <div class="notif-banner-actions">
-            <button type="button" id="notifBannerEnableBtn" class="primary-btn" style="padding:7px 14px;font-size:12.5px;">Enable Alerts</button>
-            <button type="button" id="notifBannerDismissBtn" class="ghost-btn" style="padding:7px 10px;font-size:12.5px;">Dismiss</button>
-          </div>
-        </div>
-
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
@@ -1889,9 +1816,6 @@
 
   <!-- PRINT SECTION — hidden on screen, shown only when printing -->
   <div id="printSection"></div>
-
-  <!-- FLOATING ORDER NOTIFICATION TOASTS -->
-  <div id="notifToastContainer" class="notif-toast-container"></div>
 
   <script src="app.js"></script>
 </body>
