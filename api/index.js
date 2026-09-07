@@ -10,6 +10,46 @@ const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || "yeetSecretDoNotDeployToTheMoonWithThis";
 const CUSTOMER_JWT_SECRET = process.env.CUSTOMER_JWT_SECRET || (JWT_SECRET + "_customer");
 
+// ─── VERCEL REWRITE URL NORMALIZER ───────────────────────────────────────────
+// When Vercel rewrites requests to /api/index.js via vercel.json, req.url becomes
+// "/api/index.js" instead of the actual requested route (e.g. /api/login).
+// This causes Express route matching to fail with 404 "Cannot POST /api/index.js".
+// We restore req.url from Vercel's x-matched-path (or proxy headers).
+app.use((req, res, next) => {
+  const matched =
+    req.headers["x-matched-path"] ||
+    req.headers["x-vercel-matched-path"] ||
+    req.headers["x-original-url"] ||
+    req.headers["x-forwarded-url"] ||
+    req.headers["x-forwarded-uri"];
+
+  if (
+    matched &&
+    matched !== "/api/index.js" &&
+    (req.url === "/api/index.js" || req.url === "/api/index" || req.url === "/api" || req.url === "/api/")
+  ) {
+    req.url = matched;
+    req.originalUrl = matched;
+    const qIndex = matched.indexOf("?");
+    if (qIndex !== -1) {
+      req.query = Object.fromEntries(new URLSearchParams(matched.slice(qIndex + 1)).entries());
+    }
+  } else if (
+    req.headers["x-now-route-matches"] &&
+    (req.url === "/api/index.js" || req.url === "/api/index" || req.url === "/api" || req.url === "/api/")
+  ) {
+    try {
+      const params = new URLSearchParams(req.headers["x-now-route-matches"]);
+      const firstVal = params.get("1") || params.get("0") || params.get("path");
+      if (firstVal) {
+        req.url = decodeURIComponent(firstVal);
+        req.originalUrl = req.url;
+      }
+    } catch {}
+  }
+  next();
+});
+
 // ─── CORS: allow all origins for public storefront & APIs ─────────────────────
 app.use((req, res, next) => {
   const origin = req.headers.origin || "*";
