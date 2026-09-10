@@ -1487,47 +1487,346 @@ $("#stockDetailForm").addEventListener("submit", async (e) => {
   }
 });
 
-async function loadStock() {
-  allStock = await api("/api/stock");
-  const body = $("#stockBody");
-  body.innerHTML = "";
-  $("#stockEmpty").classList.toggle("hidden", allStock.length > 0);
+/* ─── STOCK STATE & HELPERS ────────────────────────────────────── */
+let stockActiveFilter = "all";
+let stockSearchQuery = "";
+let stockActiveSort = "name_asc";
+let stockActiveView = localStorage.getItem("static_stock_view") || "table";
+const stockDebounceTimers = new Map();
+let isStockEventsBound = false;
 
-  allStock.forEach((s) => {
+function getStockStatus(qty) {
+  const q = Number(qty || 0);
+  if (q <= 0) {
+    return {
+      status: "out_stock",
+      label: "Out of stock",
+      badgeClass: "stock-status-badge out-stock",
+      dotClass: "stock-dot-danger",
+      percent: 0,
+    };
+  }
+  if (q <= 5) {
+    return {
+      status: "low_stock",
+      label: `Low: ${q} left`,
+      badgeClass: "stock-status-badge low-stock",
+      dotClass: "stock-dot-warning",
+      percent: Math.min(100, Math.round((q / 20) * 100)),
+    };
+  }
+  return {
+    status: "in_stock",
+    label: `${q} in stock`,
+    badgeClass: "stock-status-badge in-stock",
+    dotClass: "stock-dot-success",
+    percent: Math.min(100, Math.round((q / 20) * 100)),
+  };
+}
+
+function getStockCategoryPill(item) {
+  const sku = formatStockSku(item).toLowerCase();
+  const name = String(item.itemName || "").toLowerCase();
+  if (sku.startsWith("stk") || sku.startsWith("ssh") || name.includes("sticker")) {
+    return `<span class="stock-cat-pill cat-stickers">Stickers</span>`;
+  }
+  if (sku.startsWith("ptr") || name.includes("poster")) {
+    return `<span class="stock-cat-pill cat-posters">Posters</span>`;
+  }
+  if (sku.startsWith("mls") || name.includes("mail")) {
+    return `<span class="stock-cat-pill cat-mail">Mail Sub</span>`;
+  }
+  return `<span class="stock-cat-pill cat-general">Product</span>`;
+}
+
+function renderStockKPIs() {
+  const totalProducts = allStock.length;
+  const totalUnits = allStock.reduce((sum, s) => sum + Number(s.quantity || 0), 0);
+  const totalValuation = allStock.reduce((sum, s) => sum + (Number(s.quantity || 0) * Number(s.price || 0)), 0);
+
+  const inStockCount = allStock.filter((s) => Number(s.quantity || 0) > 5).length;
+  const lowStockCount = allStock.filter((s) => Number(s.quantity || 0) > 0 && Number(s.quantity || 0) <= 5).length;
+  const outStockCount = allStock.filter((s) => Number(s.quantity || 0) <= 0).length;
+  const alertCount = lowStockCount + outStockCount;
+
+  const kpiProducts = $("#stockKpiTotalProducts");
+  if (kpiProducts) kpiProducts.textContent = `${totalProducts} item${totalProducts === 1 ? "" : "s"}`;
+
+  const kpiUnits = $("#stockKpiTotalUnits");
+  if (kpiUnits) kpiUnits.textContent = `${totalUnits.toLocaleString()} units`;
+
+  const kpiVal = $("#stockKpiTotalValue");
+  if (kpiVal) kpiVal.textContent = money(totalValuation) + " EGP";
+
+  const kpiAlert = $("#stockKpiAlertCount");
+  if (kpiAlert) kpiAlert.textContent = alertCount === 1 ? "1 item" : `${alertCount} items`;
+
+  const alertCard = $("#stockKpiAlertCard");
+  if (alertCard) alertCard.classList.toggle("has-alerts", alertCount > 0);
+
+  const cAll = $("#countStockAll");
+  if (cAll) cAll.textContent = totalProducts;
+  const cIn = $("#countStockIn");
+  if (cIn) cIn.textContent = inStockCount;
+  const cLow = $("#countStockLow");
+  if (cLow) cLow.textContent = lowStockCount;
+  const cOut = $("#countStockOut");
+  if (cOut) cOut.textContent = outStockCount;
+}
+
+function saveStockQuantityDebounced(stockId, newQty) {
+  if (stockDebounceTimers.has(stockId)) {
+    clearTimeout(stockDebounceTimers.get(stockId));
+  }
+  const timer = setTimeout(async () => {
+    try {
+      await api(`/api/stock/${stockId}`, "PUT", { quantity: Number(newQty) });
+      stockDebounceTimers.delete(stockId);
+      stockCache = allStock;
+    } catch (err) {
+      console.error("Failed to save stock quantity:", err);
+      loadStock();
+    }
+  }, 320);
+  stockDebounceTimers.set(stockId, timer);
+}
+
+function changeStockQty(stockId, delta) {
+  const item = allStock.find((s) => String(s.id) === String(stockId));
+  if (!item) return;
+
+  const newQty = Math.max(0, (Number(item.quantity) || 0) + delta);
+  item.quantity = newQty;
+
+  document.querySelectorAll(`input[data-qty-id="${stockId}"]`).forEach((input) => {
+    input.value = newQty;
+  });
+
+  const status = getStockStatus(newQty);
+
+  const row = document.querySelector(`tr[data-stock-row-id="${stockId}"]`);
+  if (row) {
+    const statusWrap = row.querySelector(".stock-status-badge-wrap") || row.querySelector(".stock-status-cell");
+    if (statusWrap) {
+      statusWrap.innerHTML = `<span class="stock-status-badge ${status.badgeClass}"><span class="stock-dot ${status.dotClass}"></span><span class="stock-status-text">${status.label}</span></span>`;
+    }
+    const valCell = row.querySelector(".stock-val-cell");
+    if (valCell) {
+      valCell.textContent = `Val: ${money(newQty * Number(item.price || 0))} EGP`;
+    }
+  }
+
+  const card = document.querySelector(`div[data-stock-card-id="${stockId}"]`);
+  if (card) {
+    const cardStatus = card.querySelector(".stock-card-status");
+    if (cardStatus) {
+      cardStatus.className = `stock-card-status ${status.badgeClass}`;
+      cardStatus.innerHTML = `<span class="stock-dot ${status.dotClass}"></span>${status.label}`;
+    }
+    const cardVal = card.querySelector(".stock-card-valuation-val");
+    if (cardVal) {
+      cardVal.textContent = money(newQty * Number(item.price || 0)) + " EGP";
+    }
+  }
+
+  renderStockKPIs();
+  saveStockQuantityDebounced(stockId, newQty);
+}
+
+function renderStockTableView(items) {
+  const body = $("#stockBody");
+  if (!body) return;
+  body.innerHTML = "";
+
+  items.forEach((s) => {
     const sku = formatStockSku(s);
+    const status = getStockStatus(s.quantity);
+    const catPill = getStockCategoryPill(s);
+    const initial = (s.itemName || "P").trim().charAt(0).toUpperCase();
+    const valuation = Number(s.quantity || 0) * Number(s.price || 0);
+
     const tr = document.createElement("tr");
-    tr.className = "clickable-row";
+    tr.className = "clickable-row stock-item-row";
+    tr.setAttribute("data-stock-row-id", String(s.id));
     tr.innerHTML = `
-      <td data-label="Item" style="font-family:var(--font);font-weight:600">${escapeHtml(s.itemName)}</td>
-      <td data-label="SKU"><span class="stock-sku-badge">${escapeHtml(sku)}</span></td>
-      <td data-label="Qty"><input type="number" min="0" value="${s.quantity}" data-qty-id="${s.id}" style="width:80px;font-size:13px;padding:5px 8px" /></td>
-      <td data-label="Price" style="font-weight:600">${money(s.price)} EGP</td>
-      <td>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <button type="button" class="barcode-action-btn" data-barcode-stock="${s.id}" title="Print Barcodes (e.g. 60x)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="vertical-align:middle"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8v8"/><path d="M10 8v8"/><path d="M14 8v8"/><path d="M17 8v8"/></svg>
-            Barcodes
+      <td class="stock-col-product" data-label="Product & Status">
+        <div class="stock-item-info">
+          <div class="stock-item-avatar">${escapeHtml(initial)}</div>
+          <div class="stock-item-names">
+            <div class="stock-item-name" title="${escapeHtml(s.itemName)}">${escapeHtml(s.itemName)}</div>
+            <div class="stock-item-sub">
+              ${catPill}
+              <span class="stock-sku-badge" title="SKU: ${escapeHtml(sku)}">${escapeHtml(sku)}</span>
+              <span class="stock-status-badge-wrap">
+                <span class="stock-status-badge ${status.badgeClass}">
+                  <span class="stock-dot ${status.dotClass}"></span>
+                  <span class="stock-status-text">${status.label}</span>
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </td>
+      <td class="stock-col-qty" data-label="Stock Level">
+        <div class="stock-stepper">
+          <button type="button" class="stock-step-btn minus" data-step-minus="${s.id}" title="Decrease quantity">−</button>
+          <input type="number" min="0" value="${s.quantity}" data-qty-id="${s.id}" class="stock-step-input" />
+          <button type="button" class="stock-step-btn plus" data-step-plus="${s.id}" title="Increase quantity">+</button>
+        </div>
+      </td>
+      <td class="stock-col-price" data-label="Price & Valuation">
+        <div class="stock-price-block">
+          <div class="stock-unit-price">${money(s.price)} <small>EGP</small></div>
+          <div class="stock-val-sub stock-val-cell" title="Total inventory valuation: ${money(valuation)} EGP">Val: ${money(valuation)} EGP</div>
+        </div>
+      </td>
+      <td class="stock-col-actions" data-label="Actions">
+        <div class="stock-row-actions">
+          <button type="button" class="barcode-action-btn sm" data-barcode-stock="${s.id}" title="Print Barcode Labels">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8v8"/><path d="M10 8v8"/><path d="M14 8v8"/><path d="M17 8v8"/></svg>
+            <span class="stock-action-btn-text">Labels</span>
           </button>
-          ${me.role === "founder" ? `<button class="icon-btn" data-del-stock="${s.id}" title="Remove">✕</button>` : ""}
+          <button type="button" class="icon-btn edit-stock-row-btn" data-edit-stock="${s.id}" title="Edit Product Details">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+          </button>
+          ${me.role === "founder" ? `<button type="button" class="icon-btn danger-hover" data-del-stock="${s.id}" title="Delete item">✕</button>` : ""}
         </div>
       </td>
     `;
 
     tr.addEventListener("click", (evt) => {
-      if (evt.target.closest("input") || evt.target.closest("[data-del-stock]") || evt.target.closest("[data-barcode-stock]")) return;
+      if (
+        evt.target.closest("input") ||
+        evt.target.closest("button") ||
+        evt.target.closest(".stock-stepper") ||
+        evt.target.closest(".stock-row-actions")
+      ) return;
       openStockDetail(s.id);
     });
 
     body.appendChild(tr);
   });
 
-  body.querySelectorAll("[data-qty-id]").forEach((input) => {
-    input.addEventListener("change", async (evt) => {
+  attachStockInteractiveListeners(body);
+}
+
+function renderStockGridView(items) {
+  const container = $("#stockCardsGrid");
+  if (!container) return;
+  container.innerHTML = "";
+
+  items.forEach((s) => {
+    const sku = formatStockSku(s);
+    const status = getStockStatus(s.quantity);
+    const catPill = getStockCategoryPill(s);
+    const initial = (s.itemName || "P").trim().charAt(0).toUpperCase();
+    const valuation = Number(s.quantity || 0) * Number(s.price || 0);
+
+    const card = document.createElement("div");
+    card.className = "stock-grid-card";
+    card.setAttribute("data-stock-card-id", String(s.id));
+    card.innerHTML = `
+      <div class="stock-grid-card-top">
+        <div class="stock-card-info">
+          <div class="stock-item-avatar lg">${escapeHtml(initial)}</div>
+          <div class="stock-card-title-box">
+            <div class="stock-card-name" title="${escapeHtml(s.itemName)}">${escapeHtml(s.itemName)}</div>
+            <div class="stock-card-meta">
+              <span class="stock-sku-badge">${escapeHtml(sku)}</span>
+              ${catPill}
+            </div>
+          </div>
+        </div>
+        <span class="stock-card-status ${status.badgeClass}">
+          <span class="stock-dot ${status.dotClass}"></span>${status.label}
+        </span>
+      </div>
+
+      <div class="stock-grid-card-metrics">
+        <div class="stock-card-metric">
+          <span class="stock-metric-label">Unit Price</span>
+          <span class="stock-metric-val">${money(s.price)} <small>EGP</small></span>
+        </div>
+        <div class="stock-card-metric">
+          <span class="stock-metric-label">Valuation</span>
+          <span class="stock-metric-val stock-card-valuation-val" style="color:var(--accent);font-weight:700;">${money(valuation)} <small>EGP</small></span>
+        </div>
+      </div>
+
+      <div class="stock-grid-card-qty-row">
+        <span class="stock-metric-label" style="font-weight:600;color:var(--text);">Inventory:</span>
+        <div class="stock-stepper">
+          <button type="button" class="stock-step-btn minus" data-step-minus="${s.id}" title="Decrease quantity">−</button>
+          <input type="number" min="0" value="${s.quantity}" data-qty-id="${s.id}" class="stock-step-input" />
+          <button type="button" class="stock-step-btn plus" data-step-plus="${s.id}" title="Increase quantity">+</button>
+        </div>
+      </div>
+
+      <div class="stock-grid-card-footer">
+        <button type="button" class="barcode-action-btn" data-barcode-stock="${s.id}" title="Print Barcode Labels">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8v8"/><path d="M10 8v8"/><path d="M14 8v8"/><path d="M17 8v8"/></svg>
+          <span>Print Labels</span>
+        </button>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button type="button" class="ghost-btn stock-edit-btn" data-edit-stock="${s.id}">Edit</button>
+          ${me.role === "founder" ? `<button type="button" class="icon-btn danger-hover" data-del-stock="${s.id}" title="Delete item">✕</button>` : ""}
+        </div>
+      </div>
+    `;
+
+    card.addEventListener("click", (evt) => {
+      if (
+        evt.target.closest("input") ||
+        evt.target.closest("button") ||
+        evt.target.closest(".stock-stepper") ||
+        evt.target.closest(".stock-grid-card-footer")
+      ) return;
+      openStockDetail(s.id);
+    });
+
+    container.appendChild(card);
+  });
+
+  attachStockInteractiveListeners(container);
+}
+
+function attachStockInteractiveListeners(parent) {
+  parent.querySelectorAll("[data-step-plus]").forEach((btn) => {
+    btn.addEventListener("click", (evt) => {
       evt.stopPropagation();
-      await api(`/api/stock/${input.dataset.qtyId}`, "PUT", { quantity: Number(input.value) });
+      changeStockQty(btn.dataset.stepPlus, 1);
     });
   });
-  body.querySelectorAll("[data-del-stock]").forEach((btn) => {
+
+  parent.querySelectorAll("[data-step-minus]").forEach((btn) => {
+    btn.addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      changeStockQty(btn.dataset.stepMinus, -1);
+    });
+  });
+
+  parent.querySelectorAll("input[data-qty-id]").forEach((input) => {
+    input.addEventListener("change", (evt) => {
+      evt.stopPropagation();
+      const val = Math.max(0, parseInt(input.value, 10) || 0);
+      const s = allStock.find((item) => String(item.id) === String(input.dataset.qtyId));
+      if (s) {
+        s.quantity = val;
+        renderStockKPIs();
+        saveStockQuantityDebounced(s.id, val);
+      }
+    });
+    input.addEventListener("click", (evt) => evt.stopPropagation());
+  });
+
+  parent.querySelectorAll("[data-edit-stock]").forEach((btn) => {
+    btn.addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      openStockDetail(btn.dataset.editStock);
+    });
+  });
+
+  parent.querySelectorAll("[data-del-stock]").forEach((btn) => {
     btn.addEventListener("click", async (evt) => {
       evt.stopPropagation();
       if (confirm("Remove this item from stock?")) {
@@ -1536,12 +1835,206 @@ async function loadStock() {
       }
     });
   });
-  body.querySelectorAll("[data-barcode-stock]").forEach((btn) => {
+
+  parent.querySelectorAll("[data-barcode-stock]").forEach((btn) => {
     btn.addEventListener("click", (evt) => {
       evt.stopPropagation();
       openStockBarcodeModal(btn.dataset.barcodeStock);
     });
   });
+}
+
+function bindStockToolbarEvents() {
+  if (isStockEventsBound) return;
+  isStockEventsBound = true;
+
+  const searchInput = $("#stockSearchInput");
+  const searchClear = $("#stockSearchClear");
+
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      stockSearchQuery = searchInput.value;
+      if (searchClear) searchClear.classList.toggle("hidden", !stockSearchQuery);
+      renderStock();
+    });
+  }
+
+  if (searchClear && searchInput) {
+    searchClear.addEventListener("click", () => {
+      searchInput.value = "";
+      stockSearchQuery = "";
+      searchClear.classList.add("hidden");
+      searchInput.focus();
+      renderStock();
+    });
+  }
+
+  document.querySelectorAll("#stockFilterChips .stock-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll("#stockFilterChips .stock-chip").forEach((c) => c.classList.remove("active"));
+      chip.classList.add("active");
+      stockActiveFilter = chip.dataset.stockFilter || "all";
+      renderStock();
+    });
+  });
+
+  document.querySelectorAll("#stockSummaryGrid .stock-kpi-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      const kpiType = card.dataset.stockKpi;
+      let targetFilter = "all";
+      if (kpiType === "in_stock") targetFilter = "in_stock";
+      else if (kpiType === "alert") targetFilter = "low_stock";
+      else targetFilter = "all";
+
+      const targetChip = document.querySelector(`#stockFilterChips [data-stock-filter="${targetFilter}"]`);
+      if (targetChip) {
+        targetChip.click();
+      } else {
+        stockActiveFilter = targetFilter;
+        renderStock();
+      }
+    });
+  });
+
+  const sortSelect = $("#stockSortSelect");
+  if (sortSelect) {
+    sortSelect.addEventListener("change", () => {
+      stockActiveSort = sortSelect.value || "name_asc";
+      renderStock();
+    });
+  }
+
+  const viewTableBtn = $("#stockViewTableBtn");
+  const viewGridBtn = $("#stockViewGridBtn");
+
+  if (viewTableBtn && viewGridBtn) {
+    viewTableBtn.addEventListener("click", () => {
+      stockActiveView = "table";
+      localStorage.setItem("static_stock_view", "table");
+      viewTableBtn.classList.add("active");
+      viewGridBtn.classList.remove("active");
+      renderStock();
+    });
+
+    viewGridBtn.addEventListener("click", () => {
+      stockActiveView = "grid";
+      localStorage.setItem("static_stock_view", "grid");
+      viewGridBtn.classList.add("active");
+      viewTableBtn.classList.remove("active");
+      renderStock();
+    });
+
+    if (stockActiveView === "grid") {
+      viewGridBtn.classList.add("active");
+      viewTableBtn.classList.remove("active");
+    } else {
+      viewTableBtn.classList.add("active");
+      viewGridBtn.classList.remove("active");
+    }
+  }
+
+  const resetBtn = $("#stockResetFiltersBtn");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      if (searchInput) searchInput.value = "";
+      stockSearchQuery = "";
+      if (searchClear) searchClear.classList.add("hidden");
+      const allChip = document.querySelector('#stockFilterChips [data-stock-filter="all"]');
+      if (allChip) allChip.click();
+      else {
+        stockActiveFilter = "all";
+        renderStock();
+      }
+    });
+  }
+}
+
+function renderStock() {
+  renderStockKPIs();
+
+  const emptyEl = $("#stockEmpty");
+  const noResultsEl = $("#stockNoResults");
+  const tableWrap = $("#stockTableWrap");
+  const gridWrap = $("#stockGridWrap");
+
+  if (!allStock || allStock.length === 0) {
+    if (emptyEl) emptyEl.classList.remove("hidden");
+    if (noResultsEl) noResultsEl.classList.add("hidden");
+    if (tableWrap) tableWrap.classList.add("hidden");
+    if (gridWrap) gridWrap.classList.add("hidden");
+    return;
+  }
+  if (emptyEl) emptyEl.classList.add("hidden");
+
+  const q = (stockSearchQuery || "").toLowerCase().trim();
+  let filtered = allStock.filter((s) => {
+    const qty = Number(s.quantity || 0);
+
+    if (stockActiveFilter === "in_stock" && qty <= 5) return false;
+    if (stockActiveFilter === "low_stock" && (qty <= 0 || qty > 5)) return false;
+    if (stockActiveFilter === "out_stock" && qty > 0) return false;
+    if (stockActiveFilter === "alert" && qty > 5) return false;
+
+    if (q) {
+      const sku = formatStockSku(s).toLowerCase();
+      const name = String(s.itemName || "").toLowerCase();
+      const rawId = String(s.id || "").toLowerCase();
+      if (!name.includes(q) && !sku.includes(q) && !rawId.includes(q)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    if (noResultsEl) noResultsEl.classList.remove("hidden");
+    if (tableWrap) tableWrap.classList.add("hidden");
+    if (gridWrap) gridWrap.classList.add("hidden");
+    return;
+  }
+  if (noResultsEl) noResultsEl.classList.add("hidden");
+
+  filtered.sort((a, b) => {
+    const nameA = String(a.itemName || "");
+    const nameB = String(b.itemName || "");
+    const qtyA = Number(a.quantity || 0);
+    const qtyB = Number(b.quantity || 0);
+    const priceA = Number(a.price || 0);
+    const priceB = Number(b.price || 0);
+
+    switch (stockActiveSort) {
+      case "name_desc":
+        return nameB.localeCompare(nameA);
+      case "qty_asc":
+        return qtyA - qtyB;
+      case "qty_desc":
+        return qtyB - qtyA;
+      case "price_desc":
+        return priceB - priceA;
+      case "price_asc":
+        return priceA - priceB;
+      case "name_asc":
+      default:
+        return nameA.localeCompare(nameB);
+    }
+  });
+
+  if (stockActiveView === "grid") {
+    if (tableWrap) tableWrap.classList.add("hidden");
+    if (gridWrap) gridWrap.classList.remove("hidden");
+    renderStockGridView(filtered);
+  } else {
+    if (tableWrap) tableWrap.classList.remove("hidden");
+    if (gridWrap) gridWrap.classList.add("hidden");
+    renderStockTableView(filtered);
+  }
+}
+
+async function loadStock() {
+  allStock = await api("/api/stock");
+  stockCache = allStock;
+  bindStockToolbarEvents();
+  renderStock();
 }
 
 $("#openAddStock").addEventListener("click", () => {
