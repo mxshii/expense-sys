@@ -253,138 +253,229 @@
 
       <!-- ── STOCK TAB ── -->
       <section id="tab-stock" class="tab-panel">
-        <div class="panel-header stock-panel-header">
-          <div>
-            <h2>Inventory & Stock</h2>
-            <p class="tagline" style="margin-top:2px;">Track product quantities, barcode labels, and retail valuation</p>
+
+        <!-- Stock Subnav Bar: Warehouse (Website) vs Physical Shops -->
+        <div class="subnav-container" style="margin-bottom: 20px;">
+          <div class="subnav-bar" id="stockSubnav">
+            <button type="button" class="subnav-btn active" data-stock-subtab="subtab-stock-warehouse">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+              <span class="subnav-label-full">Warehouse / Online Stock</span>
+              <span class="subnav-label-short">Warehouse</span>
+            </button>
+            <button type="button" class="subnav-btn" data-stock-subtab="subtab-stock-stores">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+              <span class="subnav-label-full">Physical Stores Stock</span>
+              <span class="subnav-label-short">Physical Stores</span>
+            </button>
           </div>
-          <div class="stock-header-actions">
-            <button type="button" id="openStockScannerBtn" class="ghost-btn" style="display:flex;align-items:center;gap:6px;font-size:13px;">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8v8"/><path d="M10 8v8"/><path d="M14 8v8"/><path d="M17 8v8"/></svg>
-              <span>Scan Barcode</span>
-            </button>
-            <button id="openAddStock" class="primary-btn" style="display:flex;align-items:center;gap:6px;">
-              <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
-              <span>New product</span>
-            </button>
+          <div class="subnav-actions">
+            <span class="store-stock-tagline">Offline Stock · Independent from website</span>
           </div>
         </div>
 
-        <!-- Stock KPI Summary Cards -->
-        <div class="summary-grid stock-summary-grid" id="stockSummaryGrid">
-          <div class="summary-card stock-kpi-card" data-stock-kpi="all">
-            <div class="summary-icon summary-icon-stock-total">
-              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/></svg>
+        <!-- ── SUBTAB 1: WAREHOUSE / ONLINE STOCK ── -->
+        <div id="subtab-stock-warehouse" class="stock-subtab-view">
+          <div class="panel-header stock-panel-header">
+            <div>
+              <h2>Inventory & Stock (Website Catalog)</h2>
+              <p class="tagline" style="margin-top:2px;">Central warehouse inventory that syncs with website storefront and online orders</p>
             </div>
-            <div class="summary-info">
-              <div class="summary-label">Total Products</div>
-              <div class="summary-amount" id="stockKpiTotalProducts">0</div>
-            </div>
-          </div>
-
-          <div class="summary-card stock-kpi-card" data-stock-kpi="in_stock">
-            <div class="summary-icon summary-icon-stock-units">
-              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/></svg>
-            </div>
-            <div class="summary-info">
-              <div class="summary-label">Units in Stock</div>
-              <div class="summary-amount" id="stockKpiTotalUnits">0 units</div>
+            <div class="stock-header-actions">
+              <button type="button" id="openStockScannerBtn" class="ghost-btn" style="display:flex;align-items:center;gap:6px;font-size:13px;">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8v8"/><path d="M10 8v8"/><path d="M14 8v8"/><path d="M17 8v8"/></svg>
+                <span>Scan Barcode</span>
+              </button>
+              <button id="openAddStock" class="primary-btn" style="display:flex;align-items:center;gap:6px;">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+                <span>New product</span>
+              </button>
             </div>
           </div>
 
-          <div class="summary-card stock-kpi-card" data-stock-kpi="value">
-            <div class="summary-icon summary-icon-stock-val">
-              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 5a1 1 0 012 0v1.074A4.002 4.002 0 0113 10a1 1 0 11-2 0 2 2 0 00-2-2H8a2 2 0 000 4h2a4 4 0 010 8v1a1 1 0 11-2 0v-1.074A4.002 4.002 0 015 14a1 1 0 112 0 2 2 0 002 2h1a2 2 0 000-4H8a4 4 0 010-8V5z" clip-rule="evenodd"/></svg>
-            </div>
-            <div class="summary-info">
-              <div class="summary-label">Total Valuation</div>
-              <div class="summary-amount" id="stockKpiTotalValue">0.00 EGP</div>
-            </div>
-          </div>
-
-          <div class="summary-card stock-kpi-card stock-kpi-alert" id="stockKpiAlertCard" data-stock-kpi="alert" title="Click to show items needing restock">
-            <div class="summary-icon summary-icon-stock-alert">
-              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-            </div>
-            <div class="summary-info">
-              <div class="summary-label">Restock Alerts</div>
-              <div class="summary-amount" id="stockKpiAlertCount">0 items</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Stock Toolbar: Search, Filter Chips, Sort & View Toggles -->
-        <div class="stock-toolbar-wrap">
-          <div class="stock-toolbar-search-row">
-            <div class="stock-search-box">
-              <svg class="stock-search-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
-              </svg>
-              <input type="text" id="stockSearchInput" placeholder="Search products, SKU, barcode..." autocomplete="off" />
-              <button type="button" id="stockSearchClear" class="stock-search-clear hidden" title="Clear search">✕</button>
-            </div>
-          </div>
-
-          <div class="stock-toolbar-controls-row">
-            <div class="stock-filter-chips" id="stockFilterChips">
-              <button type="button" class="stock-chip active" data-stock-filter="all">All (<span id="countStockAll">0</span>)</button>
-              <button type="button" class="stock-chip" data-stock-filter="in_stock">In Stock (<span id="countStockIn">0</span>)</button>
-              <button type="button" class="stock-chip chip-warning" data-stock-filter="low_stock">Low Stock (<span id="countStockLow">0</span>)</button>
-              <button type="button" class="stock-chip chip-danger" data-stock-filter="out_stock">Out of Stock (<span id="countStockOut">0</span>)</button>
-            </div>
-
-            <div class="stock-toolbar-right">
-              <div class="stock-sort-wrap">
-                <label for="stockSortSelect" class="stock-control-label">Sort:</label>
-                <select id="stockSortSelect" class="inline-select stock-sort-select">
-                  <option value="name_asc">Name (A → Z)</option>
-                  <option value="name_desc">Name (Z → A)</option>
-                  <option value="qty_asc">Qty (Lowest first - Restock)</option>
-                  <option value="qty_desc">Qty (Highest first)</option>
-                  <option value="price_desc">Price (High to Low)</option>
-                  <option value="price_asc">Price (Low to High)</option>
-                </select>
+          <!-- Stock KPI Summary Cards -->
+          <div class="summary-grid stock-summary-grid" id="stockSummaryGrid">
+            <div class="summary-card stock-kpi-card" data-stock-kpi="all">
+              <div class="summary-icon summary-icon-stock-total">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/></svg>
               </div>
+              <div class="summary-info">
+                <div class="summary-label">Total Products</div>
+                <div class="summary-amount" id="stockKpiTotalProducts">0</div>
+              </div>
+            </div>
 
-              <div class="stock-view-toggle">
-                <button type="button" id="stockViewTableBtn" class="stock-view-btn active" title="Table list view">
-                  <svg viewBox="0 0 20 20" fill="currentColor" width="15" height="15"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
-                </button>
-                <button type="button" id="stockViewGridBtn" class="stock-view-btn" title="Product cards view">
-                  <svg viewBox="0 0 20 20" fill="currentColor" width="15" height="15"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                </button>
+            <div class="summary-card stock-kpi-card" data-stock-kpi="in_stock">
+              <div class="summary-icon summary-icon-stock-units">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Units in Stock</div>
+                <div class="summary-amount" id="stockKpiTotalUnits">0 units</div>
+              </div>
+            </div>
+
+            <div class="summary-card stock-kpi-card" data-stock-kpi="value">
+              <div class="summary-icon summary-icon-stock-val">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 5a1 1 0 012 0v1.074A4.002 4.002 0 0113 10a1 1 0 11-2 0 2 2 0 00-2-2H8a2 2 0 000 4h2a4 4 0 010 8v1a1 1 0 11-2 0v-1.074A4.002 4.002 0 015 14a1 1 0 112 0 2 2 0 002 2h1a2 2 0 000-4H8a4 4 0 010-8V5z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Total Valuation</div>
+                <div class="summary-amount" id="stockKpiTotalValue">0.00 EGP</div>
+              </div>
+            </div>
+
+            <div class="summary-card stock-kpi-card stock-kpi-alert" id="stockKpiAlertCard" data-stock-kpi="alert" title="Click to show items needing restock">
+              <div class="summary-icon summary-icon-stock-alert">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Restock Alerts</div>
+                <div class="summary-amount" id="stockKpiAlertCount">0 items</div>
               </div>
             </div>
           </div>
+
+          <!-- Stock Toolbar: Search, Filter Chips, Sort & View Toggles -->
+          <div class="stock-toolbar-wrap">
+            <div class="stock-toolbar-search-row">
+              <div class="stock-search-box">
+                <svg class="stock-search-icon" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                </svg>
+                <input type="text" id="stockSearchInput" placeholder="Search products, SKU, barcode..." autocomplete="off" />
+                <button type="button" id="stockSearchClear" class="stock-search-clear hidden" title="Clear search">✕</button>
+              </div>
+            </div>
+
+            <div class="stock-toolbar-controls-row">
+              <div class="stock-filter-chips" id="stockFilterChips">
+                <button type="button" class="stock-chip active" data-stock-filter="all">All (<span id="countStockAll">0</span>)</button>
+                <button type="button" class="stock-chip" data-stock-filter="in_stock">In Stock (<span id="countStockIn">0</span>)</button>
+                <button type="button" class="stock-chip chip-warning" data-stock-filter="low_stock">Low Stock (<span id="countStockLow">0</span>)</button>
+                <button type="button" class="stock-chip chip-danger" data-stock-filter="out_stock">Out of Stock (<span id="countStockOut">0</span>)</button>
+              </div>
+
+              <div class="stock-toolbar-right">
+                <div class="stock-sort-wrap">
+                  <label for="stockSortSelect" class="stock-control-label">Sort:</label>
+                  <select id="stockSortSelect" class="inline-select stock-sort-select">
+                    <option value="name_asc">Name (A → Z)</option>
+                    <option value="name_desc">Name (Z → A)</option>
+                    <option value="qty_asc">Qty (Lowest first - Restock)</option>
+                    <option value="qty_desc">Qty (Highest first)</option>
+                    <option value="price_desc">Price (High to Low)</option>
+                    <option value="price_asc">Price (Low to High)</option>
+                  </select>
+                </div>
+
+                <div class="stock-view-toggle">
+                  <button type="button" id="stockViewTableBtn" class="stock-view-btn active" title="Table list view">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="15" height="15"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+                  </button>
+                  <button type="button" id="stockViewGridBtn" class="stock-view-btn" title="Product cards view">
+                    <svg viewBox="0 0 20 20" fill="currentColor" width="15" height="15"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Table View -->
+          <div class="table-wrapper stock-table-wrap" id="stockTableWrap">
+            <table class="data-table stock-data-table">
+              <thead>
+                <tr>
+                  <th class="th-stock-product">Product &amp; Status</th>
+                  <th class="th-stock-qty" style="text-align:center;">Stock Level</th>
+                  <th class="th-stock-price" style="text-align:right;">Price &amp; Valuation</th>
+                  <th class="th-stock-actions" style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="stockBody"></tbody>
+            </table>
+          </div>
+
+          <!-- Grid Cards View -->
+          <div class="stock-grid-wrap hidden" id="stockGridWrap">
+            <div class="stock-grid" id="stockCardsGrid"></div>
+          </div>
+
+          <!-- Empty & No-Match States -->
+          <p id="stockEmpty" class="empty-state hidden">No stock items yet. Hit "New product" to add your first item.</p>
+          <div id="stockNoResults" class="stock-no-results hidden">
+            <div class="no-results-icon">🔍</div>
+            <h4>No products found</h4>
+            <p>No inventory items match your current search or filter criteria.</p>
+            <button type="button" id="stockResetFiltersBtn" class="ghost-btn" style="margin-top:10px;padding:6px 14px;font-size:12.5px;">Reset all filters</button>
+          </div>
         </div>
 
-        <!-- Table View -->
-        <div class="table-wrapper stock-table-wrap" id="stockTableWrap">
-          <table class="data-table stock-data-table">
-            <thead>
-              <tr>
-                <th class="th-stock-product">Product &amp; Status</th>
-                <th class="th-stock-qty" style="text-align:center;">Stock Level</th>
-                <th class="th-stock-price" style="text-align:right;">Price &amp; Valuation</th>
-                <th class="th-stock-actions" style="text-align:right;">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="stockBody"></tbody>
-          </table>
-        </div>
+        <!-- ── SUBTAB 2: PHYSICAL STORES STOCK ── -->
+        <div id="subtab-stock-stores" class="stock-subtab-view hidden">
+          <div class="panel-header stock-panel-header">
+            <div>
+              <h2>Physical Stores &amp; Consigned Stock</h2>
+              <p class="tagline" style="margin-top:2px;">Track inventory placed inside external retail partner shops (offline stock, separate from website)</p>
+            </div>
+            <div class="stock-header-actions">
+              <button type="button" id="openAddStoreBtn" class="primary-btn" style="display:flex;align-items:center;gap:6px;">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+                <span>+ Add New Shop</span>
+              </button>
+            </div>
+          </div>
 
-        <!-- Grid Cards View -->
-        <div class="stock-grid-wrap hidden" id="stockGridWrap">
-          <div class="stock-grid" id="stockCardsGrid"></div>
-        </div>
+          <!-- Store KPI Summary Cards -->
+          <div class="summary-grid stock-summary-grid" id="storeSummaryGrid">
+            <div class="summary-card">
+              <div class="summary-icon summary-icon-stock-total">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Total Partner Shops</div>
+                <div class="summary-amount" id="storeKpiTotalShops">0 shops</div>
+              </div>
+            </div>
 
-        <!-- Empty & No-Match States -->
-        <p id="stockEmpty" class="empty-state hidden">No stock items yet. Hit "New product" to add your first item.</p>
-        <div id="stockNoResults" class="stock-no-results hidden">
-          <div class="no-results-icon">🔍</div>
-          <h4>No products found</h4>
-          <p>No inventory items match your current search or filter criteria.</p>
-          <button type="button" id="stockResetFiltersBtn" class="ghost-btn" style="margin-top:10px;padding:6px 14px;font-size:12.5px;">Reset all filters</button>
+            <div class="summary-card">
+              <div class="summary-icon summary-icon-stock-units">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Total Units in Shops</div>
+                <div class="summary-amount" id="storeKpiTotalUnits">0 units</div>
+              </div>
+            </div>
+
+            <div class="summary-card">
+              <div class="summary-icon summary-icon-stock-val">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 5a1 1 0 012 0v1.074A4.002 4.002 0 0113 10a1 1 0 11-2 0 2 2 0 00-2-2H8a2 2 0 000 4h2a4 4 0 010 8v1a1 1 0 11-2 0v-1.074A4.002 4.002 0 015 14a1 1 0 112 0 2 2 0 002 2h1a2 2 0 000-4H8a4 4 0 010-8V5z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Total Stores Valuation</div>
+                <div class="summary-amount" id="storeKpiTotalValue">0.00 EGP</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stores Search Toolbar -->
+          <div class="stock-toolbar-wrap" style="margin-top:16px;">
+            <div class="stock-toolbar-search-row">
+              <div class="stock-search-box">
+                <svg class="stock-search-icon" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                </svg>
+                <input type="text" id="storeSearchInput" placeholder="Search shops by name, location, contact..." autocomplete="off" />
+                <button type="button" id="storeSearchClear" class="stock-search-clear hidden" title="Clear search">✕</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stores Cards Grid -->
+          <div class="stores-grid-wrap" style="margin-top:16px;">
+            <div class="stores-grid" id="storesGrid"></div>
+            <p id="storesEmpty" class="empty-state hidden">No physical shops added yet. Click "+ Add New Shop" to register your first partner store.</p>
+          </div>
         </div>
       </section>
 
@@ -1063,7 +1154,7 @@
         <div class="panel-header">
           <h2>Website Customers</h2>
           <div style="display:flex;align-items:center;gap:12px;">
-            <input type="text" id="customerSearch" placeholder="Search by name or email..." class="search-input" style="width:260px;" />
+            <input type="text" id="customerSearch" placeholder="Search by name or email..." class="search-input" />
             <span id="customerCount" style="font-size:13px;color:var(--text-muted);white-space:nowrap"></span>
           </div>
         </div>
@@ -1270,6 +1361,145 @@
           <button type="submit" class="primary-btn">Save item</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ADD / EDIT STORE MODAL -->
+  <div id="storeModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="storeModalTitle">Add Partner Shop</h3>
+        <button type="button" class="modal-close-btn" data-close="storeModal">&#x2715;</button>
+      </div>
+      <form id="storeForm">
+        <input type="hidden" id="storeEditId" />
+        <div class="form-field">
+          <label>Shop / Store Name <span class="req">*</span></label>
+          <input type="text" id="storeName" placeholder="e.g. Virgin Megastores (Mall of Arabia)" required />
+        </div>
+        <div class="form-field mt-4">
+          <label>Location / Mall / City <span class="opt">(optional)</span></label>
+          <input type="text" id="storeLocation" placeholder="e.g. 6th of October / Ground Floor" />
+        </div>
+        <div class="form-field mt-4">
+          <label>Contact Person / Phone <span class="opt">(optional)</span></label>
+          <input type="text" id="storeContact" placeholder="e.g. Ahmed - 01000000000" />
+        </div>
+        <div class="form-field mt-4">
+          <label>Notes / Consignment Terms <span class="opt">(optional)</span></label>
+          <input type="text" id="storeNotes" placeholder="e.g. 20% commission, monthly settlement" />
+        </div>
+        <div class="modal-actions" style="margin-top:16px;">
+          <button type="button" class="ghost-btn" data-close="storeModal">Cancel</button>
+          <button type="submit" class="primary-btn" id="storeSubmitBtn">Save Shop</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- STORE DETAIL / STOCK MANAGER MODAL -->
+  <div id="storeDetailModal" class="modal hidden">
+    <div class="modal-card wide-modal" style="max-width: 860px; width: 95vw;">
+      <div class="modal-header">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <h3 id="storeDetailName" style="margin:0;font-size:17px;">Shop Name</h3>
+            <span class="offline-badge" title="This stock is offline and not connected to website catalog">Offline Shop Stock</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:3px;flex-wrap:wrap;">
+            <span id="storeDetailLocation" style="font-size:12px;color:var(--text-muted);">Location</span>
+            <span style="color:var(--border);">•</span>
+            <span id="storeDetailContact" style="font-size:12px;color:var(--text-muted);">Contact</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button type="button" id="printStoreSlipBtn" class="ghost-btn" style="padding:6px 12px;font-size:12.5px;display:flex;align-items:center;gap:5px;">
+            <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+            <span class="btn-text-full">Print Delivery Slip</span>
+            <span class="btn-text-mobile">Print Slip</span>
+          </button>
+          <button type="button" class="modal-close-btn" data-close="storeDetailModal">&#x2715;</button>
+        </div>
+      </div>
+
+      <div class="store-modal-body" style="padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 14px;">
+        <!-- Store KPI Summary Bar -->
+        <div class="store-detail-kpi-bar">
+          <div class="store-kpi-stat">
+            <span class="store-kpi-stat-label">Product Types</span>
+            <span class="store-kpi-stat-val" id="storeDetailItemsCount">0</span>
+          </div>
+          <div class="store-kpi-stat">
+            <span class="store-kpi-stat-label">Total Units in Shop</span>
+            <span class="store-kpi-stat-val" id="storeDetailUnitsCount">0 units</span>
+          </div>
+          <div class="store-kpi-stat">
+            <span class="store-kpi-stat-label">Total Shop Stock Value</span>
+            <span class="store-kpi-stat-val" id="storeDetailTotalVal" style="color:var(--accent);">0.00 EGP</span>
+          </div>
+        </div>
+
+        <!-- Add Stock to Shop Form Card -->
+        <div class="store-add-item-card">
+          <div style="font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+            <span>+ Place Stock in this Shop</span>
+          </div>
+          <form id="storeAddItemForm" class="store-item-form-grid">
+            <div class="form-field store-item-picker-field">
+              <label>Select from Warehouse Product or Type Custom <span class="req">*</span></label>
+              <div class="store-product-picker-row">
+                <select id="storeProductSelect" class="inline-select" style="flex:1;">
+                  <option value="">-- Choose from warehouse stock --</option>
+                </select>
+                <input type="text" id="storeCustomItemName" placeholder="Or type product name" style="flex:1;" required />
+              </div>
+            </div>
+            <div class="store-item-inputs-row">
+              <div class="form-field store-sku-field" style="width:110px;">
+                <label>SKU / Code</label>
+                <input type="text" id="storeCustomSku" placeholder="STK-..." style="font-family:var(--font-mono);font-size:12px;" />
+              </div>
+              <div class="form-field store-qty-field" style="width:85px;">
+                <label>Quantity <span class="req">*</span></label>
+                <input type="number" id="storeAddQty" value="10" min="1" required />
+              </div>
+              <div class="form-field store-price-field" style="width:95px;">
+                <label>Price (EGP)</label>
+                <input type="number" id="storeAddPrice" value="0" min="0" step="0.01" />
+              </div>
+            </div>
+            <div class="form-field store-item-note-field" style="flex:1;min-width:110px;">
+              <label>Note <span class="opt">(optional)</span></label>
+              <input type="text" id="storeAddNote" placeholder="e.g. consigned" />
+            </div>
+            <button type="submit" class="primary-btn store-add-submit-btn" style="height:38px;align-self:flex-end;white-space:nowrap;padding:0 16px;">+ Add Item</button>
+          </form>
+        </div>
+
+        <!-- Shop Inventory Table -->
+        <div class="table-wrapper store-items-table-wrapper" style="max-height: 380px; overflow-y: auto;">
+          <table class="data-table store-items-table">
+            <thead>
+              <tr>
+                <th>Product &amp; SKU</th>
+                <th style="text-align:right;">Unit Price</th>
+                <th style="text-align:center;">Quantity in Shop</th>
+                <th style="text-align:right;">Total Value</th>
+                <th class="store-table-note-col">Note</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="storeItemsBody"></tbody>
+          </table>
+          <p id="storeItemsEmpty" class="empty-state hidden" style="padding:28px;">No stock assigned to this shop yet. Use the form above to add items.</p>
+        </div>
+
+        <div class="modal-actions" style="margin-top:4px;display:flex;justify-content:space-between;align-items:center;">
+          <button type="button" id="storeDeleteShopBtn" class="primary-btn danger" style="padding:8px 16px;font-size:12.5px;">Delete This Shop</button>
+          <button type="button" class="primary-btn" style="padding:8px 22px;font-size:13px;" data-close="storeDetailModal">Done</button>
+        </div>
+      </div>
     </div>
   </div>
 

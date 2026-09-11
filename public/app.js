@@ -3,6 +3,7 @@ let allExpenses = [];
 let allBrandExpenses = [];
 let allOrders   = [];
 let allCustomers = [];
+let allStores   = [];
 let activeFilter = "all";
 let activeBrandFilter = "all";
 
@@ -331,11 +332,15 @@ async function loadBootstrap() {
       renderRevenue();
       renderRevenueSummary();
     }
+    if (data.stores) {
+      allStores = data.stores;
+      renderStores();
+    }
     renderBrandFunds();
     loadStock();
   } catch (err) {
     console.error("Bootstrap fetch error, falling back to individual calls:", err);
-    await Promise.all([loadOrders(), loadStock(), loadExpenses(), loadBrandExpenses(), loadRevenue()]);
+    await Promise.all([loadOrders(), loadStock(), loadExpenses(), loadBrandExpenses(), loadRevenue(), loadStores()]);
   }
 }
 
@@ -2314,6 +2319,522 @@ function printStockBarcodesSheet(item, qty, layout, options = {}) {
   window.addEventListener("afterprint", cleanup, { once: true });
   setTimeout(cleanup, 4000);
 }
+
+/* ─── PHYSICAL STORES & CONSIGNED STOCK MODULE ───────────────────── */
+let activeStore = null;
+
+// Initialize Stock Subnav switcher
+function initStockSubnav() {
+  document.querySelectorAll("#stockSubnav .subnav-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#stockSubnav .subnav-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const target = btn.dataset.stockSubtab;
+      document.querySelectorAll("#tab-stock .stock-subtab-view").forEach((view) => {
+        view.classList.toggle("hidden", view.id !== target);
+      });
+      if (target === "subtab-stock-stores") {
+        loadStores();
+      }
+    });
+  });
+}
+
+async function loadStores() {
+  try {
+    const data = await api("/api/stores");
+    allStores = data || [];
+    renderStores();
+  } catch (err) {
+    console.error("loadStores error:", err.message);
+  }
+}
+
+function renderStores(filterText = "") {
+  const grid = $("#storesGrid");
+  const empty = $("#storesEmpty");
+  if (!grid) return;
+
+  const q = (filterText || $("#storeSearchInput")?.value || "").toLowerCase().trim();
+  const filtered = q
+    ? allStores.filter((s) =>
+        (s.name || "").toLowerCase().includes(q) ||
+        (s.location || "").toLowerCase().includes(q) ||
+        (s.contact || "").toLowerCase().includes(q) ||
+        (s.notes || "").toLowerCase().includes(q)
+      )
+    : allStores;
+
+  // Update Store KPIs
+  const totalShops = allStores.length;
+  const totalUnits = allStores.reduce((sum, s) => sum + (Number(s.totalUnits) || 0), 0);
+  const totalVal = allStores.reduce((sum, s) => sum + (Number(s.totalValuation) || 0), 0);
+
+  if ($("#storeKpiTotalShops")) $("#storeKpiTotalShops").textContent = `${totalShops} shop${totalShops === 1 ? "" : "s"}`;
+  if ($("#storeKpiTotalUnits")) $("#storeKpiTotalUnits").textContent = `${totalUnits.toLocaleString("en-EG")} units`;
+  if ($("#storeKpiTotalValue")) $("#storeKpiTotalValue").textContent = `${money(totalVal)} EGP`;
+
+  if (!filtered.length) {
+    grid.innerHTML = "";
+    if (empty) {
+      empty.classList.remove("hidden");
+      empty.textContent = q ? "No partner shops match your search." : 'No physical shops added yet. Click "+ Add New Shop" to register your first partner store.';
+    }
+    return;
+  }
+
+  if (empty) empty.classList.add("hidden");
+
+  grid.innerHTML = filtered.map((s) => `
+    <div class="store-card" data-store-id="${s.id}">
+      <div>
+        <div class="store-card-header">
+          <div>
+            <div class="store-card-title">${escapeHtml(s.name)}</div>
+            <div class="store-card-meta">
+              ${s.location ? `<div class="store-card-meta-item">📍 ${escapeHtml(s.location)}</div>` : ""}
+              ${s.contact ? `<div class="store-card-meta-item">📞 ${escapeHtml(s.contact)}</div>` : ""}
+              ${s.notes ? `<div class="store-card-meta-item" style="font-style:italic;">📝 ${escapeHtml(s.notes)}</div>` : ""}
+            </div>
+          </div>
+          <span class="offline-badge">Offline Stock</span>
+        </div>
+
+        <div class="store-card-stats" style="margin-top:14px;">
+          <div>
+            <div class="store-card-stat-label">Items</div>
+            <div class="store-card-stat-val">${s.itemTypesCount || 0}</div>
+          </div>
+          <div>
+            <div class="store-card-stat-label">Units</div>
+            <div class="store-card-stat-val">${(s.totalUnits || 0).toLocaleString("en-EG")}</div>
+          </div>
+          <div>
+            <div class="store-card-stat-label">Valuation</div>
+            <div class="store-card-stat-val" style="color:var(--accent);">${money(s.totalValuation || 0)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="store-card-actions">
+        <button type="button" class="primary-btn" data-manage-store="${s.id}" style="padding:6px 14px;font-size:12.5px;font-weight:700;">
+          Manage Stock
+        </button>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button type="button" class="ghost-btn" data-edit-store="${s.id}" title="Edit Shop Info" style="padding:6px 10px;font-size:12px;">
+            Edit
+          </button>
+          <button type="button" class="ghost-btn" data-print-store="${s.id}" title="Print Consignment Slip" style="padding:6px 10px;font-size:12px;">
+            Print Slip
+          </button>
+        </div>
+      </div>
+    </div>
+  `).join("");
+
+  // Attach card event listeners
+  grid.querySelectorAll("[data-manage-store]").forEach((btn) => {
+    btn.addEventListener("click", () => openStoreDetail(btn.dataset.manageStore));
+  });
+  grid.querySelectorAll("[data-edit-store]").forEach((btn) => {
+    btn.addEventListener("click", () => openEditStoreModal(btn.dataset.editStore));
+  });
+  grid.querySelectorAll("[data-print-store]").forEach((btn) => {
+    btn.addEventListener("click", () => printStoreSlip(btn.dataset.printStore));
+  });
+}
+
+function openAddStoreModal() {
+  $("#storeModalTitle").textContent = "Add Partner Shop";
+  $("#storeEditId").value = "";
+  $("#storeName").value = "";
+  $("#storeLocation").value = "";
+  $("#storeContact").value = "";
+  $("#storeNotes").value = "";
+  $("#storeSubmitBtn").textContent = "Save Shop";
+  $("#storeModal").classList.remove("hidden");
+  $("#storeName").focus();
+}
+
+function openEditStoreModal(storeId) {
+  const store = allStores.find((s) => s.id === storeId);
+  if (!store) return;
+  $("#storeModalTitle").textContent = "Edit Partner Shop";
+  $("#storeEditId").value = store.id;
+  $("#storeName").value = store.name || "";
+  $("#storeLocation").value = store.location || "";
+  $("#storeContact").value = store.contact || "";
+  $("#storeNotes").value = store.notes || "";
+  $("#storeSubmitBtn").textContent = "Save Changes";
+  $("#storeModal").classList.remove("hidden");
+  $("#storeName").focus();
+}
+
+async function openStoreDetail(storeId) {
+  try {
+    const store = await api(`/api/stores/${storeId}`);
+    if (!store) return;
+    activeStore = store;
+
+    $("#storeDetailName").textContent = store.name;
+    $("#storeDetailLocation").textContent = store.location ? `📍 ${store.location}` : "No location specified";
+    $("#storeDetailContact").textContent = store.contact ? `📞 ${store.contact}` : "No contact";
+
+    // Populate the dropdown selector from warehouse stock
+    const select = $("#storeProductSelect");
+    if (select) {
+      select.innerHTML = '<option value="">-- Choose from warehouse stock --</option>' +
+        (allStock || []).map((stk) => `
+          <option value="${escapeHtml(stk.id)}" data-name="${escapeHtml(stk.itemName)}" data-sku="${escapeHtml(stk.sku || '')}" data-price="${stk.price || 0}">
+            ${escapeHtml(stk.itemName)} (${stk.quantity} in warehouse · ${money(stk.price)} EGP)
+          </option>
+        `).join("");
+    }
+
+    // Reset item form
+    $("#storeCustomItemName").value = "";
+    $("#storeCustomSku").value = "";
+    $("#storeAddQty").value = "10";
+    $("#storeAddPrice").value = "0";
+    $("#storeAddNote").value = "";
+
+    renderStoreItems(store.items || []);
+    $("#storeDetailModal").classList.remove("hidden");
+  } catch (err) {
+    alert("Could not load store details: " + err.message);
+  }
+}
+
+function renderStoreItems(items = []) {
+  const tbody = $("#storeItemsBody");
+  const empty = $("#storeItemsEmpty");
+  if (!tbody) return;
+
+  const totalUnits = items.reduce((s, it) => s + (Number(it.quantity) || 0), 0);
+  const totalVal = items.reduce((s, it) => s + (Number(it.totalValue) || (Number(it.quantity || 0) * Number(it.price || 0))), 0);
+
+  if ($("#storeDetailItemsCount")) $("#storeDetailItemsCount").textContent = items.length;
+  if ($("#storeDetailUnitsCount")) $("#storeDetailUnitsCount").textContent = `${totalUnits.toLocaleString("en-EG")} units`;
+  if ($("#storeDetailTotalVal")) $("#storeDetailTotalVal").textContent = `${money(totalVal)} EGP`;
+
+  if (!items.length) {
+    tbody.innerHTML = "";
+    if (empty) empty.classList.remove("hidden");
+    return;
+  }
+
+  if (empty) empty.classList.add("hidden");
+
+  tbody.innerHTML = items.map((it) => {
+    const unitPrice = Number(it.price) || 0;
+    const qty = Number(it.quantity) || 0;
+    const lineVal = qty * unitPrice;
+
+    return `
+      <tr data-store-item-id="${it.id}">
+        <td>
+          <strong style="color:var(--text);font-size:13.5px;">${escapeHtml(it.itemName)}</strong>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:1px;">
+            ${it.sku ? `<span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent);">${escapeHtml(it.sku)}</span>` : ""}
+            <span class="store-item-unit-price-mobile" style="font-size:11.5px;color:var(--text-muted);">· ${money(unitPrice)} EGP ea</span>
+          </div>
+          ${it.notes ? `<div class="store-item-note-sub" style="font-size:11px;color:var(--text-muted);margin-top:2px;">📝 ${escapeHtml(it.notes)}</div>` : ""}
+        </td>
+        <td class="store-table-unitprice-col" style="text-align:right;font-weight:600;font-size:13px;white-space:nowrap;">
+          ${money(unitPrice)} EGP
+        </td>
+        <td style="text-align:center;">
+          <div class="store-qty-ctrl">
+            <button type="button" class="store-qty-btn" data-step-store-item="${it.id}" data-delta="-1" title="Deduct 1">−</button>
+            <span class="store-qty-val">${qty}</span>
+            <button type="button" class="store-qty-btn" data-step-store-item="${it.id}" data-delta="1" title="Add 1">+</button>
+          </div>
+        </td>
+        <td style="text-align:right;font-weight:700;color:var(--text);white-space:nowrap;">
+          ${money(lineVal)} EGP
+        </td>
+        <td class="store-table-note-col" style="color:var(--text-muted);font-size:12px;">
+          ${escapeHtml(it.notes || "—")}
+        </td>
+        <td style="text-align:right;white-space:nowrap;">
+          <button type="button" class="icon-btn" data-del-store-item="${it.id}" title="Remove this item from shop" style="color:var(--danger,#e53935);">✕</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  // Attach quantity stepper events
+  tbody.querySelectorAll("[data-step-store-item]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const itemId = btn.dataset.stepStoreItem;
+      const delta = parseInt(btn.dataset.delta, 10);
+      const item = items.find((it) => it.id === itemId);
+      if (!item || !activeStore) return;
+
+      const newQty = Math.max(0, (Number(item.quantity) || 0) + delta);
+      try {
+        const updated = await api(`/api/stores/${activeStore.id}/items/${itemId}`, "PUT", { quantity: newQty });
+        item.quantity = updated.quantity;
+        item.totalValue = Number(updated.quantity) * Number(updated.price);
+        renderStoreItems(items);
+        loadStores(); // update background cards
+      } catch (err) {
+        alert("Failed to update quantity: " + err.message);
+      }
+    });
+  });
+
+  // Attach item delete events
+  tbody.querySelectorAll("[data-del-store-item]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const itemId = btn.dataset.delStoreItem;
+      const item = items.find((it) => it.id === itemId);
+      if (!item || !activeStore) return;
+      if (!confirm(`Remove "${item.itemName}" from ${activeStore.name}?`)) return;
+
+      try {
+        await api(`/api/stores/${activeStore.id}/items/${itemId}`, "DELETE");
+        const idx = items.findIndex((it) => it.id === itemId);
+        if (idx !== -1) items.splice(idx, 1);
+        renderStoreItems(items);
+        loadStores();
+      } catch (err) {
+        alert("Failed to remove item: " + err.message);
+      }
+    });
+  });
+}
+
+function printStoreSlip(storeId) {
+  const store = allStores.find((s) => s.id === storeId) || activeStore;
+  if (!store) return;
+
+  const section = $("#printSection");
+  if (!section) return;
+
+  const items = (activeStore && activeStore.id === store.id ? activeStore.items : []) || [];
+  const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const totalUnits = items.reduce((s, it) => s + (Number(it.quantity) || 0), 0);
+  const totalVal = items.reduce((s, it) => s + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
+
+  section.innerHTML = `
+    <div class="print-page print-report-page">
+      <div class="print-header">
+        <div class="print-logo-row">
+          <img src="img/1111-removebg-preview.png" class="print-brand-logo" alt="Static" />
+          <div class="print-brand-text">
+            <div class="print-brand-name">STATIC</div>
+            <div class="print-brand-tagline">Consignment Delivery Slip · Physical Partner Store</div>
+          </div>
+        </div>
+        <div class="print-doc-info">
+          <div class="print-doc-title">CONSIGNMENT SLIP</div>
+          <div class="print-doc-meta">Date: ${dateStr}</div>
+          <div class="print-doc-meta">Delivery Point: ${escapeHtml(store.name)}</div>
+        </div>
+      </div>
+
+      <div style="background:#f9f6f0;padding:12px 14px;border:1px solid #ddd;border-radius:6px;margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+        <div><strong>Shop Name:</strong> ${escapeHtml(store.name)}</div>
+        <div><strong>Location:</strong> ${escapeHtml(store.location || "N/A")}</div>
+        <div><strong>Contact:</strong> ${escapeHtml(store.contact || "N/A")}</div>
+        <div><strong>Notes:</strong> ${escapeHtml(store.notes || "Consigned inventory")}</div>
+      </div>
+
+      <table class="print-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Item Description</th>
+            <th>SKU / Code</th>
+            <th style="text-align:right;">Unit Price (EGP)</th>
+            <th style="text-align:center;">Quantity</th>
+            <th style="text-align:right;">Total Value (EGP)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.length ? items.map((it, idx) => `
+            <tr>
+              <td>${idx + 1}</td>
+              <td><strong>${escapeHtml(it.itemName)}</strong>${it.notes ? `<div style="font-size:10.5px;color:#666;">${escapeHtml(it.notes)}</div>` : ""}</td>
+              <td style="font-family:monospace;font-size:11px;">${escapeHtml(it.sku || "—")}</td>
+              <td style="text-align:right;">${money(it.price)}</td>
+              <td style="text-align:center;font-weight:700;">${it.quantity}</td>
+              <td style="text-align:right;font-weight:700;">${money((Number(it.quantity) || 0) * (Number(it.price) || 0))}</td>
+            </tr>
+          `).join("") : '<tr><td colspan="6" style="text-align:center;padding:18px;">No items listed for this store.</td></tr>'}
+        </tbody>
+        <tfoot>
+          <tr style="font-weight:700;background:#f5f0e6;">
+            <td colspan="4" style="text-align:right;">TOTAL CONSIGNED:</td>
+            <td style="text-align:center;">${totalUnits} units</td>
+            <td style="text-align:right;">${money(totalVal)} EGP</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;font-size:12px;">
+        <div style="border-top:1px solid #999;padding-top:8px;">
+          <div><strong>Delivered By (Static Team):</strong></div>
+          <div style="margin-top:20px;">Signature: __________________________</div>
+        </div>
+        <div style="border-top:1px solid #999;padding-top:8px;">
+          <div><strong>Received By (Store Manager):</strong></div>
+          <div style="margin-top:20px;">Signature: __________________________</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  window.print();
+  const cleanup = () => {
+    section.innerHTML = "";
+    window.removeEventListener("afterprint", cleanup);
+  };
+  window.addEventListener("afterprint", cleanup, { once: true });
+  setTimeout(cleanup, 4000);
+}
+
+// Wire up store forms and controls
+(function initStoreEventListeners() {
+  initStockSubnav();
+
+  // Add shop button
+  const openAddBtn = $("#openAddStoreBtn");
+  if (openAddBtn) {
+    openAddBtn.addEventListener("click", openAddStoreModal);
+  }
+
+  // Store form submission (Add / Edit)
+  const storeForm = $("#storeForm");
+  if (storeForm) {
+    storeForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const editId = $("#storeEditId").value;
+      const payload = {
+        name: $("#storeName").value.trim(),
+        location: $("#storeLocation").value.trim(),
+        contact: $("#storeContact").value.trim(),
+        notes: $("#storeNotes").value.trim(),
+      };
+
+      try {
+        if (editId) {
+          await api(`/api/stores/${editId}`, "PUT", payload);
+        } else {
+          await api("/api/stores", "POST", payload);
+        }
+        $("#storeModal").classList.add("hidden");
+        await loadStores();
+      } catch (err) {
+        alert("Failed to save store: " + err.message);
+      }
+    });
+  }
+
+  // Search filter
+  const searchInput = $("#storeSearchInput");
+  const clearBtn = $("#storeSearchClear");
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      const val = searchInput.value;
+      if (clearBtn) clearBtn.classList.toggle("hidden", !val);
+      renderStores(val);
+    });
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      if (searchInput) searchInput.value = "";
+      clearBtn.classList.add("hidden");
+      renderStores("");
+    });
+  }
+
+  // Product select in store detail modal
+  const prodSelect = $("#storeProductSelect");
+  if (prodSelect) {
+    prodSelect.addEventListener("change", () => {
+      const opt = prodSelect.options[prodSelect.selectedIndex];
+      if (opt && opt.value) {
+        $("#storeCustomItemName").value = opt.dataset.name || "";
+        $("#storeCustomSku").value = opt.dataset.sku || "";
+        $("#storeAddPrice").value = opt.dataset.price || "0";
+      }
+    });
+  }
+
+  // Add item to store form
+  const addItemForm = $("#storeAddItemForm");
+  if (addItemForm) {
+    addItemForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!activeStore) return;
+
+      const itemName = $("#storeCustomItemName").value.trim();
+      const sku = $("#storeCustomSku").value.trim();
+      const quantity = Number($("#storeAddQty").value) || 0;
+      const price = Number($("#storeAddPrice").value) || 0;
+      const notes = $("#storeAddNote").value.trim();
+
+      if (!itemName) {
+        alert("Please enter or select a product name.");
+        return;
+      }
+
+      try {
+        const newItem = await api(`/api/stores/${activeStore.id}/items`, "POST", {
+          itemName,
+          sku,
+          quantity,
+          price,
+          notes,
+        });
+
+        if (!activeStore.items) activeStore.items = [];
+        activeStore.items.push(newItem);
+        renderStoreItems(activeStore.items);
+
+        // Reset inputs
+        $("#storeProductSelect").value = "";
+        $("#storeCustomItemName").value = "";
+        $("#storeCustomSku").value = "";
+        $("#storeAddQty").value = "10";
+        $("#storeAddPrice").value = "0";
+        $("#storeAddNote").value = "";
+
+        loadStores(); // update background cards
+      } catch (err) {
+        alert("Failed to add item to store: " + err.message);
+      }
+    });
+  }
+
+  // Delete store button inside detail modal
+  const delStoreBtn = $("#storeDeleteShopBtn");
+  if (delStoreBtn) {
+    delStoreBtn.addEventListener("click", async () => {
+      if (!activeStore) return;
+      if (!confirm(`Are you sure you want to delete "${activeStore.name}" and all its recorded inventory?\n\nThis cannot be undone.`)) return;
+
+      try {
+        await api(`/api/stores/${activeStore.id}`, "DELETE");
+        $("#storeDetailModal").classList.add("hidden");
+        activeStore = null;
+        await loadStores();
+      } catch (err) {
+        alert("Failed to delete store: " + err.message);
+      }
+    });
+  }
+
+  // Print slip button in detail modal
+  const printSlipBtn = $("#printStoreSlipBtn");
+  if (printSlipBtn) {
+    printSlipBtn.addEventListener("click", () => {
+      if (activeStore) printStoreSlip(activeStore.id);
+    });
+  }
+})();
 
 /* ─── EXPENSES ─────────────────────────────────────────────────── */
 const CAT_ICON = {

@@ -567,6 +567,127 @@ app.delete("/api/stock/:id", requireLogin, requireFounder, withDB, async (req, r
   res.json({ ok: true });
 });
 
+// ─── PHYSICAL STORES & CONSIGNED STOCK ────────────────────────────────────────
+app.get("/api/stores", requireLogin, withDB, async (req, res) => {
+  try {
+    const stores = await db.getStores();
+    res.json(stores);
+  } catch (err) {
+    console.error("get stores error:", err.message);
+    res.status(500).json({ error: "could not load stores" });
+  }
+});
+
+app.get("/api/stores/:id", requireLogin, withDB, async (req, res) => {
+  try {
+    const store = await db.getStoreById(req.params.id);
+    if (!store) return res.status(404).json({ error: "store not found" });
+    res.json(store);
+  } catch (err) {
+    console.error("get store by id error:", err.message);
+    res.status(500).json({ error: "could not load store details" });
+  }
+});
+
+app.post("/api/stores", requireLogin, withDB, async (req, res) => {
+  try {
+    const { name, location, contact, notes } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "store name is required" });
+    }
+    const store = await db.insertStore({ name, location, contact, notes });
+    res.json(store);
+  } catch (err) {
+    console.error("create store error:", err.message);
+    res.status(500).json({ error: "could not create store" });
+  }
+});
+
+app.put("/api/stores/:id", requireLogin, withDB, async (req, res) => {
+  try {
+    const { name, location, contact, notes } = req.body;
+    const updated = await db.updateStore(req.params.id, { name, location, contact, notes });
+    if (!updated) return res.status(404).json({ error: "store not found" });
+    res.json(updated);
+  } catch (err) {
+    console.error("update store error:", err.message);
+    res.status(500).json({ error: "could not update store" });
+  }
+});
+
+app.delete("/api/stores/:id", requireLogin, requireFounder, withDB, async (req, res) => {
+  try {
+    await db.deleteStore(req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("delete store error:", err.message);
+    res.status(500).json({ error: "could not delete store" });
+  }
+});
+
+// Store stock items
+app.get("/api/stores/:id/items", requireLogin, withDB, async (req, res) => {
+  try {
+    const items = await db.getStoreStock(req.params.id);
+    res.json(items);
+  } catch (err) {
+    console.error("get store items error:", err.message);
+    res.status(500).json({ error: "could not load store items" });
+  }
+});
+
+app.post("/api/stores/:id/items", requireLogin, withDB, async (req, res) => {
+  try {
+    const { itemName, sku, quantity, price, notes } = req.body;
+    if (!itemName || !itemName.trim()) {
+      return res.status(400).json({ error: "product name is required" });
+    }
+    const store = await db.getStoreById(req.params.id);
+    if (!store) return res.status(404).json({ error: "store not found" });
+
+    const item = await db.insertStoreStockItem({
+      storeId: req.params.id,
+      itemName,
+      sku,
+      quantity: Number(quantity) || 0,
+      price: Number(price) || 0,
+      notes,
+    });
+    res.json(item);
+  } catch (err) {
+    console.error("add store item error:", err.message);
+    res.status(500).json({ error: "could not add item to store" });
+  }
+});
+
+app.put("/api/stores/:storeId/items/:itemId", requireLogin, withDB, async (req, res) => {
+  try {
+    const { itemName, sku, quantity, price, notes } = req.body;
+    const item = await db.updateStoreStockItem(req.params.itemId, {
+      itemName,
+      sku,
+      quantity: quantity !== undefined ? Number(quantity) : undefined,
+      price: price !== undefined ? Number(price) : undefined,
+      notes,
+    });
+    if (!item) return res.status(404).json({ error: "store item not found" });
+    res.json(item);
+  } catch (err) {
+    console.error("update store item error:", err.message);
+    res.status(500).json({ error: "could not update store item" });
+  }
+});
+
+app.delete("/api/stores/:storeId/items/:itemId", requireLogin, withDB, async (req, res) => {
+  try {
+    await db.deleteStoreStockItem(req.params.itemId);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("delete store item error:", err.message);
+    res.status(500).json({ error: "could not delete store item" });
+  }
+});
+
 // ─── ORDERS ───────────────────────────────────────────────────────────────────
 
 // ─── REALTIME ORDER BROADCASTER (SSE for instant PC/Laptop alerts) ───────────
