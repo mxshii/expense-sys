@@ -2538,6 +2538,164 @@ body.dark .cat-chip-other      { background: rgba(160,165,175,0.18);color: #A0A5
     flex-shrink: 0 !important;
     margin-bottom: auto !important;
   }
+
+  /* ══════════════════════════════════════════════
+     CONSIGNMENT DELIVERY SLIP (Partner Stores Print)
+     ══════════════════════════════════════════════ */
+  .print-report-page {
+    width: 100% !important;
+    max-width: 210mm !important;
+    margin: 0 auto !important;
+    padding: 8mm 10mm !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif !important;
+    color: #111827 !important;
+    background: #ffffff !important;
+    box-sizing: border-box !important;
+  }
+
+  .print-report-page .print-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    padding-bottom: 12px !important;
+    border-bottom: 2px solid #111827 !important;
+    margin-bottom: 14px !important;
+  }
+
+  .print-report-page .print-logo-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+
+  .print-report-page .print-brand-logo {
+    width: 48px !important;
+    height: 48px !important;
+    object-fit: contain !important;
+  }
+
+  .print-report-page .print-brand-name {
+    font-size: 20pt !important;
+    font-weight: 800 !important;
+    letter-spacing: 3px !important;
+    color: #111827 !important;
+    line-height: 1.1 !important;
+  }
+
+  .print-report-page .print-brand-tagline {
+    font-size: 9pt !important;
+    color: #4b5563 !important;
+    letter-spacing: 0.3px !important;
+    margin-top: 2px !important;
+  }
+
+  .print-report-page .print-doc-info {
+    text-align: right !important;
+  }
+
+  .print-report-page .print-doc-title {
+    font-size: 14pt !important;
+    font-weight: 800 !important;
+    letter-spacing: 1.5px !important;
+    color: #111827 !important;
+    line-height: 1.1 !important;
+  }
+
+  .print-report-page .print-doc-meta {
+    font-size: 8.5pt !important;
+    color: #4b5563 !important;
+    margin-top: 3px !important;
+  }
+
+  .print-report-page .print-store-meta-box {
+    background: #f9fafb !important;
+    padding: 10px 14px !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 4px !important;
+    margin-bottom: 14px !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    font-size: 9pt !important;
+    color: #1f2937 !important;
+  }
+
+  .print-report-page .print-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 9pt !important;
+    margin-top: 8px !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif !important;
+  }
+
+  .print-report-page .print-table th {
+    background: #f3f4f6 !important;
+    color: #111827 !important;
+    padding: 8px 10px !important;
+    font-weight: 700 !important;
+    font-size: 8.5pt !important;
+    border: 1px solid #d1d5db !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.4px !important;
+  }
+
+  .print-report-page .print-table td {
+    padding: 7px 10px !important;
+    border: 1px solid #e5e7eb !important;
+    color: #111827 !important;
+    vertical-align: middle !important;
+  }
+
+  .print-report-page .print-table tbody tr:nth-child(even) td {
+    background: #f9fafb !important;
+  }
+
+  .print-report-page .print-table tfoot td {
+    border-top: 2px solid #111827 !important;
+    background: #f3f4f6 !important;
+    font-size: 9.5pt !important;
+    font-weight: 700 !important;
+  }
+
+  .print-report-page .print-signatures {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 40px !important;
+    margin-top: 36px !important;
+    font-size: 8.5pt !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .print-report-page .print-sign-box {
+    border-top: 1px solid #4b5563 !important;
+    padding-top: 8px !important;
+  }
+
+  .print-report-page .print-sign-line {
+    margin-top: 20px !important;
+    color: #6b7280 !important;
+  }
+
+  /* ══════════════════════════════════════════════
+     CUSTOMER POS RECEIPT (Thermal & Paper Print)
+     ══════════════════════════════════════════════ */
+  .print-receipt {
+    padding: 0 !important;
+    margin: 0 auto !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .print-receipt .receipt-paper {
+    max-width: 78mm !important;
+    padding: 4mm 2mm 8mm !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    border: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
 }
 
 /* ══════════════════════════════════════════════
@@ -2550,6 +2708,8 @@ body.dark .cat-chip-other      { background: rgba(160,165,175,0.18);color: #A0A5
   width: 100% !important;
   padding: 8px 0 !important;
   background: transparent !important;
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
 }
 
 .receipt-paper {
@@ -2565,6 +2725,8 @@ body.dark .cat-chip-other      { background: rgba(160,165,175,0.18);color: #A0A5
   letter-spacing: 0.2px;
   box-sizing: border-box;
   border-radius: 0;
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
 }
 
 .receipt-stars {
@@ -5219,12 +5381,33 @@ body.dark .store-card:hover {
   -webkit-tap-highlight-color: transparent;
 }
 
+.store-qty-btn svg {
+  display: block;
+  pointer-events: none;
+}
+
 .store-qty-btn:hover {
   background: var(--surface-raised);
   border-color: var(--accent);
 }
 .store-qty-btn:active {
   transform: scale(0.92);
+}
+
+.store-items-table .icon-btn[data-del-store-item] {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.store-items-table .icon-btn[data-del-store-item]:hover {
+  background: rgba(229, 57, 53, 0.12);
+  border-color: rgba(229, 57, 53, 0.25);
 }
 
 .store-qty-val {

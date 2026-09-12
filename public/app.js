@@ -2321,6 +2321,20 @@ function printStockBarcodesSheet(item, qty, layout, options = {}) {
 }
 
 /* ─── PHYSICAL STORES & CONSIGNED STOCK MODULE ───────────────────── */
+const LUCIDE = {
+  mapPin: '<svg class="lucide lucide-map-pin" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+  phone: '<svg class="lucide lucide-phone" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+  fileText: '<svg class="lucide lucide-file-text" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+  store: '<svg class="lucide lucide-store" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/></svg>',
+  boxes: '<svg class="lucide lucide-boxes" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>',
+  pencil: '<svg class="lucide lucide-pencil" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>',
+  printer: '<svg class="lucide lucide-printer" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>',
+  plus: '<svg class="lucide lucide-plus" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  minus: '<svg class="lucide lucide-minus" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  trash2: '<svg class="lucide lucide-trash-2" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+  x: '<svg class="lucide lucide-x" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+};
+
 let activeStore = null;
 
 // Initialize Stock Subnav switcher
@@ -2392,9 +2406,9 @@ function renderStores(filterText = "") {
           <div>
             <div class="store-card-title">${escapeHtml(s.name)}</div>
             <div class="store-card-meta">
-              ${s.location ? `<div class="store-card-meta-item">📍 ${escapeHtml(s.location)}</div>` : ""}
-              ${s.contact ? `<div class="store-card-meta-item">📞 ${escapeHtml(s.contact)}</div>` : ""}
-              ${s.notes ? `<div class="store-card-meta-item" style="font-style:italic;">📝 ${escapeHtml(s.notes)}</div>` : ""}
+              ${s.location ? `<div class="store-card-meta-item">${LUCIDE.mapPin} <span>${escapeHtml(s.location)}</span></div>` : ""}
+              ${s.contact ? `<div class="store-card-meta-item">${LUCIDE.phone} <span>${escapeHtml(s.contact)}</span></div>` : ""}
+              ${s.notes ? `<div class="store-card-meta-item" style="font-style:italic;">${LUCIDE.fileText} <span>${escapeHtml(s.notes)}</span></div>` : ""}
             </div>
           </div>
           <span class="offline-badge">Offline Stock</span>
@@ -2417,15 +2431,18 @@ function renderStores(filterText = "") {
       </div>
 
       <div class="store-card-actions">
-        <button type="button" class="primary-btn" data-manage-store="${s.id}" style="padding:6px 14px;font-size:12.5px;font-weight:700;">
-          Manage Stock
+        <button type="button" class="primary-btn" data-manage-store="${s.id}" style="padding:6px 14px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
+          ${LUCIDE.boxes}
+          <span>Manage Stock</span>
         </button>
         <div style="display:flex;gap:6px;align-items:center;">
-          <button type="button" class="ghost-btn" data-edit-store="${s.id}" title="Edit Shop Info" style="padding:6px 10px;font-size:12px;">
-            Edit
+          <button type="button" class="ghost-btn" data-edit-store="${s.id}" title="Edit Shop Info" style="padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
+            ${LUCIDE.pencil}
+            <span>Edit</span>
           </button>
-          <button type="button" class="ghost-btn" data-print-store="${s.id}" title="Print Consignment Slip" style="padding:6px 10px;font-size:12px;">
-            Print Slip
+          <button type="button" class="ghost-btn" data-print-store="${s.id}" title="Print Consignment Slip" style="padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
+            ${LUCIDE.printer}
+            <span>Slip</span>
           </button>
         </div>
       </div>
@@ -2477,8 +2494,18 @@ async function openStoreDetail(storeId) {
     activeStore = store;
 
     $("#storeDetailName").textContent = store.name;
-    $("#storeDetailLocation").textContent = store.location ? `📍 ${store.location}` : "No location specified";
-    $("#storeDetailContact").textContent = store.contact ? `📞 ${store.contact}` : "No contact";
+    const locEl = $("#storeDetailLocation");
+    if (locEl) {
+      locEl.innerHTML = store.location
+        ? `<span style="display:inline-flex;align-items:center;gap:4px;">${LUCIDE.mapPin} <span>${escapeHtml(store.location)}</span></span>`
+        : `<span style="display:inline-flex;align-items:center;gap:4px;">${LUCIDE.mapPin} <span>No location specified</span></span>`;
+    }
+    const conEl = $("#storeDetailContact");
+    if (conEl) {
+      conEl.innerHTML = store.contact
+        ? `<span style="display:inline-flex;align-items:center;gap:4px;">${LUCIDE.phone} <span>${escapeHtml(store.contact)}</span></span>`
+        : `<span style="display:inline-flex;align-items:center;gap:4px;">${LUCIDE.phone} <span>No contact</span></span>`;
+    }
 
     // Populate the dropdown selector from warehouse stock
     const select = $("#storeProductSelect");
@@ -2538,16 +2565,16 @@ function renderStoreItems(items = []) {
             ${it.sku ? `<span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent);">${escapeHtml(it.sku)}</span>` : ""}
             <span class="store-item-unit-price-mobile" style="font-size:11.5px;color:var(--text-muted);">· ${money(unitPrice)} EGP ea</span>
           </div>
-          ${it.notes ? `<div class="store-item-note-sub" style="font-size:11px;color:var(--text-muted);margin-top:2px;">📝 ${escapeHtml(it.notes)}</div>` : ""}
+          ${it.notes ? `<div class="store-item-note-sub" style="font-size:11px;color:var(--text-muted);margin-top:2px;display:inline-flex;align-items:center;gap:4px;">${LUCIDE.fileText} <span>${escapeHtml(it.notes)}</span></div>` : ""}
         </td>
         <td class="store-table-unitprice-col" style="text-align:right;font-weight:600;font-size:13px;white-space:nowrap;">
           ${money(unitPrice)} EGP
         </td>
         <td style="text-align:center;">
           <div class="store-qty-ctrl">
-            <button type="button" class="store-qty-btn" data-step-store-item="${it.id}" data-delta="-1" title="Deduct 1">−</button>
+            <button type="button" class="store-qty-btn" data-step-store-item="${it.id}" data-delta="-1" title="Deduct 1">${LUCIDE.minus}</button>
             <span class="store-qty-val">${qty}</span>
-            <button type="button" class="store-qty-btn" data-step-store-item="${it.id}" data-delta="1" title="Add 1">+</button>
+            <button type="button" class="store-qty-btn" data-step-store-item="${it.id}" data-delta="1" title="Add 1">${LUCIDE.plus}</button>
           </div>
         </td>
         <td style="text-align:right;font-weight:700;color:var(--text);white-space:nowrap;">
@@ -2557,7 +2584,7 @@ function renderStoreItems(items = []) {
           ${escapeHtml(it.notes || "—")}
         </td>
         <td style="text-align:right;white-space:nowrap;">
-          <button type="button" class="icon-btn" data-del-store-item="${it.id}" title="Remove this item from shop" style="color:var(--danger,#e53935);">✕</button>
+          <button type="button" class="icon-btn" data-del-store-item="${it.id}" title="Remove this item from shop" style="color:var(--danger,#e53935);display:inline-flex;align-items:center;justify-content:center;padding:4px;">${LUCIDE.trash2}</button>
         </td>
       </tr>
     `;
@@ -2605,17 +2632,42 @@ function renderStoreItems(items = []) {
   });
 }
 
-function printStoreSlip(storeId) {
-  const store = allStores.find((s) => s.id === storeId) || activeStore;
+async function printStoreSlip(storeId) {
+  let store = allStores.find((s) => s.id === storeId) || activeStore;
+  if (!store && storeId) {
+    try {
+      store = await api(`/api/stores/${storeId}`);
+    } catch (e) {
+      console.warn("Could not find store:", e);
+    }
+  }
   if (!store) return;
+
+  // Ensure full store items are loaded even if opened directly from card
+  if (!store.items || (activeStore && activeStore.id === store.id && activeStore.items)) {
+    if (activeStore && activeStore.id === store.id && activeStore.items) {
+      store = activeStore;
+    } else {
+      try {
+        const full = await api(`/api/stores/${store.id}`);
+        if (full) store = full;
+      } catch (e) {
+        console.warn("Could not fetch full store details:", e);
+      }
+    }
+  }
 
   const section = $("#printSection");
   if (!section) return;
 
-  const items = (activeStore && activeStore.id === store.id ? activeStore.items : []) || [];
+  // Clear any modal scroll locks
+  document.body.style.overflow = "";
+  document.documentElement.style.overflow = "";
+
+  const items = store.items || [];
   const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   const totalUnits = items.reduce((s, it) => s + (Number(it.quantity) || 0), 0);
-  const totalVal = items.reduce((s, it) => s + (Number(it.quantity || 0) * Number(it.price || 0)), 0);
+  const totalVal = items.reduce((s, it) => s + ((Number(it.quantity) || 0) * (Number(it.price) || 0)), 0);
 
   section.innerHTML = `
     <div class="print-page print-report-page">
@@ -2629,43 +2681,44 @@ function printStoreSlip(storeId) {
         </div>
         <div class="print-doc-info">
           <div class="print-doc-title">CONSIGNMENT SLIP</div>
-          <div class="print-doc-meta">Date: ${dateStr}</div>
-          <div class="print-doc-meta">Delivery Point: ${escapeHtml(store.name)}</div>
+          <div class="print-doc-meta"><strong>Date:</strong> ${dateStr}</div>
+          <div class="print-doc-meta"><strong>Partner:</strong> ${escapeHtml(store.name)}</div>
         </div>
       </div>
 
-      <div style="background:#f9f6f0;padding:12px 14px;border:1px solid #ddd;border-radius:6px;margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+      <div class="print-store-meta-box">
         <div><strong>Shop Name:</strong> ${escapeHtml(store.name)}</div>
         <div><strong>Location:</strong> ${escapeHtml(store.location || "N/A")}</div>
         <div><strong>Contact:</strong> ${escapeHtml(store.contact || "N/A")}</div>
-        <div><strong>Notes:</strong> ${escapeHtml(store.notes || "Consigned inventory")}</div>
+        <div><strong>Inventory Type:</strong> Consigned Partner Stock (Offline)</div>
+        ${store.notes ? `<div style="grid-column:1 / -1;"><strong>Notes:</strong> ${escapeHtml(store.notes)}</div>` : ""}
       </div>
 
       <table class="print-table">
         <thead>
           <tr>
-            <th>#</th>
+            <th style="width:40px;text-align:center;">#</th>
             <th>Item Description</th>
-            <th>SKU / Code</th>
-            <th style="text-align:right;">Unit Price (EGP)</th>
-            <th style="text-align:center;">Quantity</th>
-            <th style="text-align:right;">Total Value (EGP)</th>
+            <th style="width:130px;">SKU / Code</th>
+            <th style="text-align:right;width:120px;">Unit Price</th>
+            <th style="text-align:center;width:90px;">Quantity</th>
+            <th style="text-align:right;width:130px;">Total Value</th>
           </tr>
         </thead>
         <tbody>
           ${items.length ? items.map((it, idx) => `
             <tr>
-              <td>${idx + 1}</td>
-              <td><strong>${escapeHtml(it.itemName)}</strong>${it.notes ? `<div style="font-size:10.5px;color:#666;">${escapeHtml(it.notes)}</div>` : ""}</td>
-              <td style="font-family:monospace;font-size:11px;">${escapeHtml(it.sku || "—")}</td>
-              <td style="text-align:right;">${money(it.price)}</td>
+              <td style="text-align:center;color:#6b7280;">${idx + 1}</td>
+              <td><strong>${escapeHtml(it.itemName)}</strong>${it.notes ? `<div style="font-size:10.5px;color:#6b7280;margin-top:2px;">${escapeHtml(it.notes)}</div>` : ""}</td>
+              <td style="font-family:monospace;font-size:11px;color:#4b5563;">${escapeHtml(it.sku || "—")}</td>
+              <td style="text-align:right;">${money(it.price)} EGP</td>
               <td style="text-align:center;font-weight:700;">${it.quantity}</td>
-              <td style="text-align:right;font-weight:700;">${money((Number(it.quantity) || 0) * (Number(it.price) || 0))}</td>
+              <td style="text-align:right;font-weight:700;">${money((Number(it.quantity) || 0) * (Number(it.price) || 0))} EGP</td>
             </tr>
-          `).join("") : '<tr><td colspan="6" style="text-align:center;padding:18px;">No items listed for this store.</td></tr>'}
+          `).join("") : '<tr><td colspan="6" style="text-align:center;padding:24px;color:#6b7280;">No stock items recorded for this partner shop.</td></tr>'}
         </tbody>
         <tfoot>
-          <tr style="font-weight:700;background:#f5f0e6;">
+          <tr>
             <td colspan="4" style="text-align:right;">TOTAL CONSIGNED:</td>
             <td style="text-align:center;">${totalUnits} units</td>
             <td style="text-align:right;">${money(totalVal)} EGP</td>
@@ -2673,20 +2726,23 @@ function printStoreSlip(storeId) {
         </tfoot>
       </table>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px;font-size:12px;">
-        <div style="border-top:1px solid #999;padding-top:8px;">
+      <div class="print-signatures">
+        <div class="print-sign-box">
           <div><strong>Delivered By (Static Team):</strong></div>
-          <div style="margin-top:20px;">Signature: __________________________</div>
+          <div class="print-sign-line">Signature: ___________________________________</div>
         </div>
-        <div style="border-top:1px solid #999;padding-top:8px;">
+        <div class="print-sign-box">
           <div><strong>Received By (Store Manager):</strong></div>
-          <div style="margin-top:20px;">Signature: __________________________</div>
+          <div class="print-sign-line">Signature: ___________________________________</div>
         </div>
       </div>
     </div>
   `;
 
-  window.print();
+  setTimeout(() => {
+    window.print();
+  }, 120);
+
   const cleanup = () => {
     section.innerHTML = "";
     window.removeEventListener("afterprint", cleanup);
@@ -3456,7 +3512,11 @@ function printOrderReceipt(orderId) {
   document.body.style.overflow = "";
   document.documentElement.style.overflow = "";
 
-  const itemsSubtotal = (o.items || []).reduce((sum, it) => sum + it.qty * it.price, 0);
+  const itemsSubtotal = (o.items || []).reduce((sum, it) => {
+    const q = Number(it.qty ?? it.quantity ?? 1) || 0;
+    const p = Number(it.price ?? it.unitPrice ?? 0) || 0;
+    return sum + (q * p);
+  }, 0);
   const shipping      = Number(o.shippingPrice || 0);
   const grandTotal    = itemsSubtotal + shipping;
 
@@ -3471,13 +3531,20 @@ function printOrderReceipt(orderId) {
   const orderCode = formatOrderId(o.id);
 
   const itemsRows = (o.items && o.items.length > 0)
-    ? o.items.map((it) => `
+    ? o.items.map((it) => {
+        const q = Number(it.qty ?? it.quantity ?? 1) || 1;
+        const p = Number(it.price ?? it.unitPrice ?? 0);
+        const name = escapeHtml(it.name || it.itemName || "Item");
+        return `
         <div class="receipt-item-line">
-          <span class="receipt-item-name">${it.qty} x ${escapeHtml(it.name)}</span>
-          <span class="receipt-item-price">${money(it.qty * it.price)} EGP</span>
+          <span class="receipt-item-name">${q} x ${name}</span>
+          <span class="receipt-item-price">${money(q * p)} EGP</span>
         </div>
-      `).join("")
+      `;
+    }).join("")
     : `<div class="receipt-item-line"><span>1 x Custom Order</span><span>${money(grandTotal)} EGP</span></div>`;
+
+  const paymentStatus = (o.paymentStatus || "unpaid").toUpperCase();
 
   const section = $("#printSection");
   section.innerHTML = `
@@ -3506,6 +3573,10 @@ function printOrderReceipt(orderId) {
           <span>Address:</span>
           <span style="text-align:right;max-width:65%;word-break:break-word;">${escapeHtml(o.address)}</span>
         </div>` : ""}
+        <div class="receipt-meta-row">
+          <span>Payment:</span>
+          <span style="font-weight:700;">${paymentStatus}</span>
+        </div>
 
         <div class="receipt-divider-dash">----------------------------------------</div>
 
