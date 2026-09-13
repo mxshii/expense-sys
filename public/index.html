@@ -9,8 +9,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
 </head>
 <body>
 
@@ -58,15 +56,15 @@
           <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
           <span>Stock</span>
         </button>
-        <button class="nav-item" data-tab="scanner" id="navScanner">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="16" rx="2"/>
-            <path d="M7 8v8"/>
-            <path d="M10 8v8"/>
-            <path d="M14 8v8"/>
-            <path d="M17 8v8"/>
+        <button class="nav-item" data-tab="stock-ops" id="navStockOps" title="Batch restock production runs, rack audits, and barcode operations">
+          <svg class="nav-icon lucide lucide-package-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m16 16 2 2 4-4"/>
+            <path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/>
+            <path d="m7.5 4.27 9 5.15"/>
+            <polyline points="3.29 7 12 12 20.71 7"/>
+            <line x1="12" y1="22" x2="12" y2="12"/>
           </svg>
-          <span>Scanner</span>
+          <span>Stock Ops</span>
         </button>
         <button class="nav-item" data-tab="expenses" id="navExpenses" title="Expenses paid out-of-pocket from personal / founder money">
           <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
@@ -483,44 +481,14 @@
         </div>
       </section>
 
-      <!-- ── SCANNER TAB ── -->
-      <section id="tab-scanner" class="tab-panel">
-        <div class="panel-header">
+      <!-- ── STOCK OPERATIONS TAB ── -->
+      <section id="tab-stock-ops" class="tab-panel" data-alias-tab="tab-scanner">
+        <div class="panel-header ops-panel-header">
           <div>
-            <h2>Barcode Stock Scanner</h2>
-            <p class="tagline" style="margin-top:2px;">Scan barcodes with mobile camera or upload images to automatically update stock</p>
+            <h2>Stock Operations &amp; Warehouse Intake</h2>
+            <p class="tagline" style="margin-top:2px;">Batch production intake, rapid rack audits, and barcode stock management</p>
           </div>
-          <div class="scanner-header-actions">
-            <!-- Mode Selector -->
-            <div class="scanner-mode-selector" id="scannerModeSelector">
-              <button type="button" class="mode-pill active" data-mode="decrement" title="Deduct 1 from stock upon scan">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                <span>Deduct (-1)</span>
-              </button>
-              <button type="button" class="mode-pill" data-mode="custom_decrement" title="Deduct custom amount from stock upon scan">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                <span>Custom (-N)</span>
-              </button>
-              <button type="button" class="mode-pill" data-mode="increment" title="Add 1 to stock upon scan">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                <span>Restock (+1)</span>
-              </button>
-              <button type="button" class="mode-pill" data-mode="lookup" title="View product details without modifying stock">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <span>Lookup (0)</span>
-              </button>
-            </div>
-
-            <!-- Custom Quantity Stepper (Visible in Custom Mode) -->
-            <div id="scannerCustomQtyWrap" class="scanner-custom-qty-wrap hidden">
-              <span style="font-size:12px;font-weight:600;color:var(--text-muted);">Deduct amount:</span>
-              <div class="custom-qty-stepper">
-                <button type="button" id="scannerQtyMinusBtn" class="stepper-btn" title="Decrease amount">−</button>
-                <input type="number" id="scannerCustomQtyInput" value="5" min="1" max="9999" class="stepper-input" />
-                <button type="button" id="scannerQtyPlusBtn" class="stepper-btn" title="Increase amount">+</button>
-              </div>
-            </div>
-            
+          <div class="ops-header-actions">
             <!-- Sound Audio Toggle -->
             <button type="button" id="scannerSoundToggle" class="ghost-btn active-toggle" title="Toggle scan audio chime" style="padding:6px 12px;font-size:12.5px;display:flex;align-items:center;gap:6px;">
               <svg id="scannerSoundIcon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
@@ -529,187 +497,152 @@
           </div>
         </div>
 
-        <!-- Scan Result Card (Appears immediately after scan) -->
-        <div id="scannerResultCard" class="scanner-result-card hidden">
-          <div class="result-card-inner">
-            <div class="result-status-icon success" id="resultStatusIcon">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
-            <div class="result-details">
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <span id="resultItemName" class="result-item-name">Item Name</span>
-                <span id="resultSkuBadge" class="result-sku-badge">STK-1001</span>
-                <span id="resultPriceBadge" class="result-price-badge" style="font-size:14px;font-weight:800;color:var(--accent);background:rgba(160,120,96,0.12);padding:2px 8px;border-radius:6px;border:1px solid rgba(160,120,96,0.25);">0.00 EGP</span>
-              </div>
-              <div class="result-stock-transition" id="resultStockTransition">
-                Stock updated: <strong id="resultPrevQty">0</strong> ➔ <span class="new-qty-highlight" id="resultNewQty">0 in stock</span>
-              </div>
-            </div>
-            <div class="result-actions">
-              <button type="button" id="scannerUndoBtn" class="ghost-btn" style="padding:6px 12px;font-size:12px;display:flex;align-items:center;gap:4px;">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-                <span>Undo</span>
-              </button>
+        <!-- Mode Selector Bar (4 Business Operations) -->
+        <div class="ops-mode-bar" id="scannerModeSelector">
+          <button type="button" class="ops-mode-btn active" data-mode="batch_intake" title="Bulk intake factory runs (+N)">
+            <svg class="lucide lucide-package-plus" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16h6"/><path d="M19 13v6"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="m7.5 4.27 9 5.15"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>
+            <span>Batch Intake (+N)</span>
+          </button>
+          <button type="button" class="ops-mode-btn" data-mode="decrement" title="Deduct stock for courier dispatch or samples">
+            <svg class="lucide lucide-truck" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-5l-3-4h-5v10"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+            <span>Quick Dispatch (-1)</span>
+          </button>
+          <button type="button" class="ops-mode-btn" data-mode="audit" title="Physical rack count audit & discrepancy reconciliation">
+            <svg class="lucide lucide-clipboard-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+            <span>Rack Audit</span>
+          </button>
+          <button type="button" class="ops-mode-btn" data-mode="lookup" title="View product pricing, SKU & stock without modifying">
+            <svg class="lucide lucide-search" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <span>Price &amp; Info (0)</span>
+          </button>
+        </div>
+
+        <!-- Mode Sub-bar: Preset Batch Size (for Batch Intake mode) -->
+        <div id="opsBatchSubbar" class="ops-subbar">
+          <span class="ops-subbar-label">Intake Batch Size:</span>
+          <div class="ops-chip-group" id="opsBatchChips">
+            <button type="button" class="ops-chip" data-batch-qty="10">+10</button>
+            <button type="button" class="ops-chip active" data-batch-qty="25">+25</button>
+            <button type="button" class="ops-chip" data-batch-qty="50">+50</button>
+            <button type="button" class="ops-chip" data-batch-qty="100">+100</button>
+            <div class="ops-custom-qty-box">
+              <span style="font-size:11.5px;color:var(--text-muted);">Custom:</span>
+              <input type="number" id="opsCustomBatchInput" min="1" max="9999" placeholder="N" style="width:65px;height:30px;font-size:12px;padding:2px 6px;text-align:center;" />
             </div>
           </div>
         </div>
 
-        <!-- Main Scanner Grid (Camera on Left, Upload & Manual on Right) -->
-        <div class="scanner-layout-grid">
-          
-          <!-- Camera Scanner Card -->
-          <div class="scanner-card">
-            <div class="scanner-card-header">
-              <div style="display:flex;align-items:center;gap:8px;">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                <h3 style="margin:0;font-size:15px;">Live Camera Scanner</h3>
-              </div>
-              <span id="scannerStatusBadge" class="scanner-status-badge status-idle">Ready</span>
-            </div>
-
-            <div class="scanner-viewport-wrapper" id="scannerViewport">
-              <!-- HTML5 QR / Barcode element -->
-              <div id="scannerReader" class="scanner-reader-box"></div>
-              
-              <!-- Targeting Viewfinder Overlay -->
-              <div class="scanner-overlay-guide" id="scannerOverlayGuide">
-                <div class="scanner-corner tl"></div>
-                <div class="scanner-corner tr"></div>
-                <div class="scanner-corner bl"></div>
-                <div class="scanner-corner br"></div>
-                <div class="scanner-laser-bar"></div>
-                <div class="scanner-guide-text">Hold barcode 20–30 cm away · Tap to Focus</div>
-              </div>
-
-              <!-- Animated Tap Focus Ring -->
-              <div id="scannerFocusRing" class="scanner-focus-ring hidden"></div>
-
-              <!-- Camera Placeholder / Off state -->
-              <div id="scannerCameraPlaceholder" class="scanner-camera-placeholder">
-                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--text-muted);opacity:0.6;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                <p style="margin:8px 0 2px;font-size:13.5px;font-weight:600;color:var(--text);">Camera is currently idle</p>
-                <p style="margin:0;font-size:12px;color:var(--text-muted);">Click Start Camera to begin scanning</p>
-              </div>
-            </div>
-
-            <!-- Camera Controls Toolbar -->
-            <div class="scanner-camera-controls">
-              <button type="button" id="startCameraBtn" class="primary-btn" style="padding:9px 18px;font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:6px;">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
-                <span>Start Camera</span>
-              </button>
-              <button type="button" id="stopCameraBtn" class="ghost-btn danger hidden" style="padding:9px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12"/></svg>
-                <span>Stop Camera</span>
-              </button>
-
-              <!-- Dedicated Focus / Sharpen Trigger Button -->
-              <button type="button" id="scannerTriggerFocusBtn" class="icon-btn-secondary hidden" title="Force Focus & Sharpen Barcode" style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:7px 12px;">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>
-                <span>Focus / Sharpen</span>
-              </button>
-
-              <!-- Focus Distance Mode Chips (Auto, Macro Close-up, Normal) -->
-              <div id="scannerFocusModes" class="scanner-focus-modes-wrap hidden">
-                <button type="button" class="focus-mode-chip active" data-focus="auto" title="Continuous Auto Focus">Auto</button>
-                <button type="button" class="focus-mode-chip" data-focus="macro" title="Macro close-up mode for small barcodes">Macro</button>
-                <button type="button" class="focus-mode-chip" data-focus="far" title="Normal distance">Normal</button>
-              </div>
-
-              <!-- Zoom Controls -->
-              <div id="scannerZoomControls" class="scanner-zoom-controls hidden">
-                <span class="zoom-label">Zoom:</span>
-                <button type="button" class="zoom-preset-btn" data-zoom="1">1x</button>
-                <button type="button" class="zoom-preset-btn" data-zoom="1.5">1.5x</button>
-                <button type="button" class="zoom-preset-btn active" data-zoom="2">2x</button>
-                <button type="button" class="zoom-preset-btn" data-zoom="2.5">2.5x</button>
-                <button type="button" class="zoom-preset-btn" data-zoom="3">3x</button>
-              </div>
-              
-              <button type="button" id="switchCameraBtn" class="icon-btn-secondary hidden" title="Flip Front/Back Camera">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 16v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8"/><path d="M4 12h16"/><polyline points="16 8 20 12 16 16"/></svg>
-              </button>
-
-              <!-- Native Camera App Trigger -->
-              <input type="file" id="scannerNativeCameraInput" accept="image/*" capture="environment" style="display:none;" />
-              <button type="button" id="snapWithCameraAppBtn" class="primary-btn" style="padding:9px 15px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;background:linear-gradient(135deg, #0284c7, #0369a1);border:none;" title="Open device Camera App with full hardware autofocus & flash">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                <span>Open Camera App</span>
-              </button>
-            </div>
+        <!-- Mode Sub-bar: Audit Session Summary (for Rack Audit mode) -->
+        <div id="opsAuditSubbar" class="ops-subbar hidden">
+          <div class="ops-audit-stats">
+            <span>Audit Session: <strong id="auditItemsCount">0</strong> scanned</span>
+            <span class="badge badge-success" id="auditMatchedBadge">0 Matched</span>
+            <span class="badge badge-warning" id="auditDiscrepancyBadge">0 Discrepancies</span>
           </div>
+          <button type="button" id="resetAuditSessionBtn" class="ghost-btn" style="font-size:11.5px;padding:3px 8px;">Reset Audit</button>
+        </div>
 
-          <!-- File Upload & Manual Search Card -->
-          <div style="display:flex;flex-direction:column;gap:14px;">
-            
-            <!-- Photo Upload Dropzone -->
-            <div class="scanner-card">
-              <div class="scanner-card-header">
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  <h3 style="margin:0;font-size:15px;">Scan from Photo / Camera App</h3>
-                </div>
-              </div>
-              
-              <div class="scanner-dropzone" id="scannerDropzone">
-                <input type="file" id="scannerFileInput" accept="image/*" class="scanner-file-hidden-input" />
-                <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--accent);margin-bottom:8px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                <div style="font-size:13.5px;font-weight:700;color:var(--text);">Take a Photo or Upload Image</div>
-                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Uses your phone's native camera with full hardware auto-focus</div>
-                <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;justify-content:center;">
-                  <button type="button" class="primary-btn" id="scannerSnapPhotoBtn" style="padding:7px 16px;font-size:12.5px;display:flex;align-items:center;gap:6px;">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                    <span>Take Photo with Camera</span>
-                  </button>
-                  <button type="button" class="ghost-btn" id="scannerBrowseBtn" style="padding:7px 16px;font-size:12.5px;">Browse Files</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Manual SKU or Barcode Scanner Gun input -->
-            <div class="scanner-card">
-              <div class="scanner-card-header">
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8v8"/><path d="M10 8v8"/><path d="M14 8v8"/><path d="M17 8v8"/></svg>
-                  <h3 style="margin:0;font-size:15px;">Manual SKU / USB Barcode Gun</h3>
-                </div>
-              </div>
-              
-              <form id="scannerManualForm" style="display:flex;gap:8px;margin-top:4px;">
-                <input type="text" id="scannerManualInput" placeholder="Scan with USB gun or type STK-..." style="font-family:var(--font-mono);font-weight:700;font-size:14px;flex:1;" />
-                <button type="submit" class="primary-btn" style="padding:9px 18px;font-size:13px;font-weight:700;">Submit</button>
-              </form>
-            </div>
-
+        <!-- Mode Sub-bar: Custom Qty Stepper (for Custom Dispatch mode) -->
+        <div id="scannerCustomQtyWrap" class="ops-subbar hidden">
+          <span class="ops-subbar-label">Dispatch Amount:</span>
+          <div class="custom-qty-stepper">
+            <button type="button" id="scannerQtyMinusBtn" class="stepper-btn" title="Decrease amount">−</button>
+            <input type="number" id="scannerCustomQtyInput" value="5" min="1" max="9999" class="stepper-input" />
+            <button type="button" id="scannerQtyPlusBtn" class="stepper-btn" title="Increase amount">+</button>
           </div>
         </div>
 
-        <!-- Session Scan Activity History -->
-        <div class="scanner-card" style="margin-top:16px;">
-          <div class="scanner-card-header">
+        <!-- PRIMARY USB BARCODE GUN & SKU SCANNER TERMINAL -->
+        <div class="ops-terminal-card">
+          <div class="ops-terminal-header">
+            <div class="ops-terminal-title">
+              <svg class="lucide lucide-barcode" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/>
+              </svg>
+              <span>Barcode Scanner / SKU Input</span>
+            </div>
+          </div>
+
+          <form id="scannerManualForm" class="ops-terminal-form">
+            <div class="ops-terminal-input-wrap">
+              <svg class="ops-terminal-input-icon lucide lucide-barcode" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/>
+              </svg>
+              <input
+                type="text"
+                id="scannerManualInput"
+                class="ops-terminal-input"
+                placeholder="Scan barcode or enter SKU..."
+                autocomplete="off"
+                autofocus
+              />
+              <button type="button" id="scannerClearInputBtn" class="ops-terminal-clear-btn hidden" title="Clear input">✕</button>
+            </div>
+            <button type="submit" class="primary-btn ops-terminal-submit-btn">
+              <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+              <span>Scan / Enter</span>
+            </button>
+          </form>
+
+          <!-- DOCKED OPERATION FEEDBACK CARD (shows instantly on scan) -->
+          <div id="scannerResultCard" class="ops-result-dock hidden">
+            <div class="result-card-inner">
+              <div class="result-status-icon success" id="resultStatusIcon">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div class="result-details">
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                  <span id="resultItemName" class="result-item-name">Item Name</span>
+                  <span id="resultSkuBadge" class="result-sku-badge">STK-1001</span>
+                  <span id="resultPriceBadge" class="result-price-badge">0.00 EGP</span>
+                </div>
+                <div class="result-stock-transition" id="resultStockTransition">
+                  Stock: <strong id="resultPrevQty">0</strong> ➔ <span class="new-qty-highlight" id="resultNewQty">0 in stock</span>
+                </div>
+                <!-- Dynamic Audit reconciliation variance prompt (shown in audit mode) -->
+                <div id="resultAuditVarianceBox" class="ops-audit-variance-box hidden"></div>
+              </div>
+              <div class="result-actions">
+                <button type="button" id="scannerUndoBtn" class="ghost-btn" style="padding:6px 12px;font-size:12px;display:flex;align-items:center;gap:4px;">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                  <span>Undo</span>
+                </button>
+                <button type="button" id="scannerCloseResultBtn" class="result-close-btn" title="Dismiss">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- COLLAPSIBLE OPERATIONS SESSION LOG -->
+        <div class="ops-history-card">
+          <div class="ops-history-header" id="opsHistoryHeaderToggle">
             <div style="display:flex;align-items:center;gap:8px;">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <h3 style="margin:0;font-size:15px;">Session Scan History</h3>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <h3 style="margin:0;font-size:14px;">Recent Operations Log (<span id="opsHistoryCount">0</span>)</h3>
             </div>
-            <button type="button" id="scannerClearHistoryBtn" class="ghost-btn" style="padding:4px 10px;font-size:11.5px;">Clear Log</button>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button type="button" id="scannerClearHistoryBtn" class="ghost-btn" style="padding:3px 8px;font-size:11px;">Clear</button>
+              <svg id="opsHistoryChevron" class="lucide lucide-chevron-down" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
           </div>
-
-          <div class="table-wrapper" style="margin-top:8px;">
+          <div class="table-wrapper ops-history-body" id="opsHistoryContent">
             <table class="data-table" id="scannerHistoryTable">
               <thead>
                 <tr>
                   <th>Time</th>
                   <th>Item Name</th>
                   <th>SKU / Barcode</th>
-                  <th>Price (EGP)</th>
-                  <th>Action</th>
-                  <th>Stock Change</th>
-                  <th>New Stock</th>
+                  <th>Price</th>
+                  <th>Operation</th>
+                  <th>Adjustment</th>
+                  <th>Current Stock</th>
                 </tr>
               </thead>
               <tbody id="scannerHistoryBody">
                 <tr id="scannerHistoryEmptyRow">
-                  <td colspan="7" style="text-align:center;color:var(--text-muted);padding:18px;">No barcodes scanned yet in this session.</td>
+                  <td colspan="7" style="text-align:center;color:var(--text-muted);padding:14px;">No operations recorded yet in this session.</td>
                 </tr>
               </tbody>
             </table>
@@ -2219,15 +2152,15 @@
       <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
       <span>Stock</span>
     </button>
-    <button type="button" class="mobile-nav-btn" data-tab="scanner">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="4" width="18" height="16" rx="2"/>
-        <path d="M7 8v8"/>
-        <path d="M10 8v8"/>
-        <path d="M14 8v8"/>
-        <path d="M17 8v8"/>
+    <button type="button" class="mobile-nav-btn" data-tab="stock-ops" data-legacy-tab="scanner" id="mobileNavStockOps" title="Stock Operations & Intake">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m16 16 2 2 4-4"/>
+        <path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/>
+        <path d="m7.5 4.27 9 5.15"/>
+        <polyline points="3.29 7 12 12 20.71 7"/>
+        <line x1="12" y1="22" x2="12" y2="12"/>
       </svg>
-      <span>Scan</span>
+      <span>Stock Ops</span>
     </button>
     <button type="button" class="mobile-nav-btn" data-tab="expenses">
       <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
