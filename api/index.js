@@ -85,8 +85,29 @@ async function withDB(req, res, next) {
   }
 }
 
+function getAdminToken(req) {
+  if (req.cookies && req.cookies.token) return req.cookies.token;
+  const auth = req.headers.authorization;
+  if (auth && typeof auth === "string" && auth.toLowerCase().startsWith("bearer ")) {
+    return auth.slice(7).trim();
+  }
+  return null;
+}
+
 function requireLogin(req, res, next) {
-  const token = req.cookies.token;
+  const token = getAdminToken(req);
+  if (!token) return res.status(401).json({ error: "not logged in" });
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    res.status(401).json({ error: "session expired, log in again" });
+  }
+  return;
+}
+
+function _legacy_requireLogin(req, res, next) {
+  const token = typeof getAdminToken === "function" ? getAdminToken(req) : req.cookies.token;
   if (!token) return res.status(401).json({ error: "not logged in" });
   try {
     req.user = jwt.verify(token, JWT_SECRET);
@@ -307,7 +328,7 @@ app.post("/api/login", withDB, async (req, res) => {
   const payload = { id: user.id, username: user.username, role: user.role };
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "12h" });
   res.cookie("token", token, cookieOptions());
-  res.json({ user: payload });
+  res.json({ user: payload, token });
 });
 
 app.post("/api/change-password", requireLogin, withDB, async (req, res) => {
