@@ -742,6 +742,8 @@ app.post("/api/orders/storefront", withDB, async (req, res) => {
   if (paymentMethod) noteParts.push("[Payment: " + paymentMethod + "]");
   if (note) noteParts.push("[Note: " + note + "]");
 
+  await db.deductStockForOrder(items);
+
   const order = await db.insertOrder({
     id: orderId,
     customerName: customerName.trim(),
