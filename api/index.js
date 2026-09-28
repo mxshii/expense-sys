@@ -403,6 +403,32 @@ app.delete("/api/expenses/:id", requireLogin, requireFounder, withDB, async (req
   res.json({ ok: true });
 });
 
+// ─── PERSONAL CAPITAL (Funds Injected) ────────────────────────────────────────
+app.get("/api/capital", requireLogin, withDB, async (req, res) => {
+  res.json(await db.getPersonalCapital());
+});
+
+app.post("/api/capital", requireLogin, withDB, async (req, res) => {
+  const { description, amount, note } = req.body;
+  if (!description || !description.trim())
+    return res.status(400).json({ error: "description or source of capital is required" });
+  if (!amount || isNaN(Number(amount)) || Number(amount) <= 0)
+    return res.status(400).json({ error: "enter a valid amount" });
+  const capital = await db.insertPersonalCapital({
+    id: "cap_" + Date.now(),
+    description: description.trim(),
+    amount: Number(amount),
+    note: note?.trim() || null,
+    loggedBy: req.user.username,
+  });
+  res.json(capital);
+});
+
+app.delete("/api/capital/:id", requireLogin, requireFounder, withDB, async (req, res) => {
+  await db.deletePersonalCapital(req.params.id);
+  res.json({ ok: true });
+});
+
 // ─── BRAND EXPENSES (Company Own Money) ───────────────────────────────────────
 app.get("/api/brand-expenses", requireLogin, withDB, async (req, res) => {
   res.json(await db.getBrandExpenses());

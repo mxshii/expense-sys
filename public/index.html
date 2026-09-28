@@ -652,101 +652,169 @@
 
       <!-- ── PERSONAL EXPENSES TAB ── -->
       <section id="tab-expenses" class="tab-panel">
-        <p class="tagline" style="margin-top:-6px;margin-bottom:18px;">Expenses paid out-of-pocket from personal / founder money</p>
+        <p class="tagline" style="margin-top:-6px;margin-bottom:18px;">Personal & founder money: track injected capital and out-of-pocket expenses</p>
 
-        <!-- Summary cards -->
-        <div class="summary-grid" id="summaryGrid">
-          <div class="summary-card" data-cat="all">
-            <div class="summary-icon summary-icon-all">
+        <!-- Top subnav bar -->
+        <div class="subnav-container">
+          <div class="subnav-bar" id="personalExpenseSubnav">
+            <button type="button" class="subnav-btn active" data-subtab="subtab-personal-expenses">
               <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v4H4V6zm0 6h3v2H4v-2zm5 0h3v2H9v-2zm5 0h2v2h-2v-2z" clip-rule="evenodd"/></svg>
-            </div>
-            <div class="summary-info">
-              <div class="summary-label">Total Spent</div>
-              <div class="summary-amount" id="totalAll">0 EGP</div>
-            </div>
+              Expenses Log
+            </button>
+            <button type="button" class="subnav-btn" data-subtab="subtab-personal-capital">
+              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.59-1.59a1 1 0 011.414 1.414l-1.59 1.59 1.582 3.954A1 1 0 0117 11h-1.323l-1.582 3.954 1.59 1.59a1 1 0 01-1.414 1.414l-1.59-1.59-3.954 1.582A1 1 0 019 18v-1.323l-3.954-1.582-1.59 1.59a1 1 0 01-1.414-1.414l1.59-1.59-1.582-3.954A1 1 0 013 9h1.323l1.582-3.954-1.59-1.59a1 1 0 011.414-1.414l1.59 1.59 3.954-1.582A1 1 0 0110 2zm0 6a3 3 0 100 6 3 3 0 000-6z" clip-rule="evenodd"/></svg>
+              Capital (Injected Funds)
+            </button>
           </div>
-          <div class="summary-card" data-cat="Ads">
-            <div class="summary-icon summary-icon-ads">
-              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
-            </div>
-            <div class="summary-info">
-              <div class="summary-label">Ads</div>
-              <div class="summary-amount" id="totalAds">0 EGP</div>
-            </div>
+          <div class="subnav-actions">
+            <button type="button" id="openAddCapital" class="ghost-btn" style="border-color:rgba(74,222,128,0.35);color:#4ADE80;font-size:12.5px;">+ Add Capital</button>
+            <button type="button" id="openAddExpenseQuick" class="primary-btn" style="font-size:12.5px;padding:7px 14px;">+ Log Personal Expense</button>
           </div>
-          <div class="summary-card" data-cat="Printing">
-            <div class="summary-icon summary-icon-print">
-              <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
-            </div>
-            <div class="summary-info">
-              <div class="summary-label">Printing</div>
-              <div class="summary-amount" id="totalPrinting">0 EGP</div>
-            </div>
+        </div>
+
+        <!-- Hero Capital & Personal Net Card -->
+        <div class="hero-funds-card" style="margin-top: 14px; margin-bottom: 20px;">
+          <div class="hero-funds-main">
+            <div class="hero-funds-label" style="color: #4ADE80;">Remaining Founder Capital</div>
+            <div class="hero-funds-amount" id="personalRemainingCapital">0.00 EGP</div>
+            <div class="hero-funds-sub">Total Capital Injected minus Personal Expenses spent out-of-pocket</div>
           </div>
-          <div class="summary-card" data-cat="Packaging">
-            <div class="summary-icon summary-icon-pkg">
-              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+          <div class="hero-funds-stats">
+            <div class="hero-stat-box">
+              <div class="hero-stat-label">Total Capital Injected</div>
+              <div class="hero-stat-val-in" id="personalTotalCapital">+ 0 EGP</div>
             </div>
-            <div class="summary-info">
-              <div class="summary-label">Packaging</div>
-              <div class="summary-amount" id="totalPackaging">0 EGP</div>
-            </div>
-          </div>
-          <div class="summary-card" data-cat="Delivery">
-            <div class="summary-icon summary-icon-del">
-              <svg viewBox="0 0 20 20" fill="currentColor"><path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h.09A2.5 2.5 0 018 14.5h4A2.5 2.5 0 0116.91 16H17a1 1 0 001-1v-5l-3.04-4.56A1 1 0 0014.12 5H3zm7 5V7h4.12l2.02 3H10V9z"/></svg>
-            </div>
-            <div class="summary-info">
-              <div class="summary-label">Delivery</div>
-              <div class="summary-amount" id="totalDelivery">0 EGP</div>
+            <div class="hero-stat-box">
+              <div class="hero-stat-label">Total Personal Spent</div>
+              <div class="hero-stat-val-out" id="personalTotalSpent">− 0 EGP</div>
             </div>
           </div>
         </div>
 
-        <!-- Filter + header row -->
-        <div class="panel-header" style="margin-top: 24px;">
-          <div class="filter-row">
-            <h2>Personal Expenses</h2>
-            <div class="cat-filters" id="catFilters">
-              <button class="cat-filter-btn active" data-filter="all">All</button>
-              <button class="cat-filter-btn" data-filter="Ads">Ads</button>
-              <button class="cat-filter-btn" data-filter="Printing">Printing</button>
-              <button class="cat-filter-btn" data-filter="Packaging">Packaging</button>
-              <button class="cat-filter-btn" data-filter="Delivery">Delivery</button>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <div class="print-drop-wrap">
-              <button class="ghost-btn print-drop-trigger" id="expensesPrintTrigger">
-                <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:6px"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
-                Print ▾
-              </button>
-              <div class="print-drop-menu hidden" id="expensesPrintMenu">
-                <button class="print-drop-item" data-print="expenses" data-period="all">All expenses</button>
-                <button class="print-drop-item" data-print="expenses" data-period="month">This month</button>
-                <button class="print-drop-item" data-print="expenses" data-period="week">This week</button>
+        <!-- ── SUBTAB 1: EXPENSES LOG ── -->
+        <div id="subtab-personal-expenses" class="subtab-view">
+          <!-- Summary cards -->
+          <div class="summary-grid" id="summaryGrid">
+            <div class="summary-card" data-cat="all">
+              <div class="summary-icon summary-icon-all">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v4H4V6zm0 6h3v2H4v-2zm5 0h3v2H9v-2zm5 0h2v2h-2v-2z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Total Spent</div>
+                <div class="summary-amount" id="totalAll">0 EGP</div>
               </div>
             </div>
-            <button id="openAddExpense" class="primary-btn">+ Log personal expense</button>
+            <div class="summary-card" data-cat="Ads">
+              <div class="summary-icon summary-icon-ads">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Ads</div>
+                <div class="summary-amount" id="totalAds">0 EGP</div>
+              </div>
+            </div>
+            <div class="summary-card" data-cat="Printing">
+              <div class="summary-icon summary-icon-print">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Printing</div>
+                <div class="summary-amount" id="totalPrinting">0 EGP</div>
+              </div>
+            </div>
+            <div class="summary-card" data-cat="Packaging">
+              <div class="summary-icon summary-icon-pkg">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Packaging</div>
+                <div class="summary-amount" id="totalPackaging">0 EGP</div>
+              </div>
+            </div>
+            <div class="summary-card" data-cat="Delivery">
+              <div class="summary-icon summary-icon-del">
+                <svg viewBox="0 0 20 20" fill="currentColor"><path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h.09A2.5 2.5 0 018 14.5h4A2.5 2.5 0 0116.91 16H17a1 1 0 001-1v-5l-3.04-4.56A1 1 0 0014.12 5H3zm7 5V7h4.12l2.02 3H10V9z"/></svg>
+              </div>
+              <div class="summary-info">
+                <div class="summary-label">Delivery</div>
+                <div class="summary-amount" id="totalDelivery">0 EGP</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter + header row -->
+          <div class="panel-header" style="margin-top: 24px;">
+            <div class="filter-row">
+              <h2>Personal Expenses Log</h2>
+              <div class="cat-filters" id="catFilters">
+                <button class="cat-filter-btn active" data-filter="all">All</button>
+                <button class="cat-filter-btn" data-filter="Ads">Ads</button>
+                <button class="cat-filter-btn" data-filter="Printing">Printing</button>
+                <button class="cat-filter-btn" data-filter="Packaging">Packaging</button>
+                <button class="cat-filter-btn" data-filter="Delivery">Delivery</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div class="print-drop-wrap">
+                <button class="ghost-btn print-drop-trigger" id="expensesPrintTrigger">
+                  <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;display:inline;vertical-align:middle;margin-right:6px"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+                  Print ▾
+                </button>
+                <div class="print-drop-menu hidden" id="expensesPrintMenu">
+                  <button class="print-drop-item" data-print="expenses" data-period="all">All expenses</button>
+                  <button class="print-drop-item" data-print="expenses" data-period="month">This month</button>
+                  <button class="print-drop-item" data-print="expenses" data-period="week">This week</button>
+                </div>
+              </div>
+              <button id="openAddExpense" class="primary-btn">+ Log personal expense</button>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="data-table" id="expensesTable">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>Logged by</th>
+                  <th>Note</th>
+                  <th>Date</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="expensesBody"></tbody>
+            </table>
+            <p id="expensesEmpty" class="empty-state hidden">No expenses logged yet. Hit "Log personal expense" to add the first one.</p>
           </div>
         </div>
 
-        <div class="table-wrapper">
-          <table class="data-table" id="expensesTable">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>Description</th>
-                <th>Amount</th>
-                <th>Logged by</th>
-                <th>Note</th>
-                <th>Date</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="expensesBody"></tbody>
-          </table>
-          <p id="expensesEmpty" class="empty-state hidden">No expenses logged yet. Hit "Log personal expense" to add the first one.</p>
+        <!-- ── SUBTAB 2: CAPITAL INJECTIONS ── -->
+        <div id="subtab-personal-capital" class="subtab-view hidden">
+          <div class="panel-header" style="margin-top: 14px;">
+            <div class="filter-row">
+              <h2>Founder Capital Entries</h2>
+              <p class="tagline" style="margin: 0; font-size: 13px;">Money put in as initial or ongoing capital</p>
+            </div>
+            <button type="button" id="openAddCapitalTableBtn" class="primary-btn" style="background:#15803d;border-color:#16a34a;">+ Add Capital</button>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="data-table" id="capitalTable">
+              <thead>
+                <tr>
+                  <th>Description / Source</th>
+                  <th>Amount</th>
+                  <th>Logged by</th>
+                  <th>Note</th>
+                  <th>Date</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="capitalBody"></tbody>
+            </table>
+            <p id="capitalEmpty" class="empty-state hidden">No capital entries logged yet. Hit "+ Add Capital" to record money put in.</p>
+          </div>
         </div>
       </section>
 
@@ -1507,6 +1575,43 @@
     </div>
   </div>
 
+    <!-- ADD CAPITAL MODAL -->
+  <div id="capitalModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Add Founder Capital</h3>
+          <p class="tagline" style="margin-top:2px;font-size:12px;">Record money put into the business capital pool</p>
+        </div>
+        <button type="button" class="modal-close-btn" data-close="capitalModal">&#x2715;</button>
+      </div>
+      <form id="capitalForm">
+        <div class="form-field">
+          <label>Description / Source <span class="req">*</span></label>
+          <input type="text" id="capDescription" placeholder="e.g. Founder Seed, Omar Investment, Working Capital..." required />
+        </div>
+
+        <div class="form-grid form-grid-2" style="margin-top:14px">
+          <div class="form-field">
+            <label>Amount (EGP) <span class="req">*</span></label>
+            <input type="number" id="capAmount" placeholder="0" min="0.01" step="0.01" required />
+          </div>
+          <div class="form-field">
+            <label>Note <span class="opt">(optional)</span></label>
+            <input type="text" id="capNote" placeholder="any extra detail..." />
+          </div>
+        </div>
+
+        <p id="capError" class="error-text"></p>
+
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" data-close="capitalModal">Cancel</button>
+          <button type="submit" class="primary-btn" style="background:#15803d;border-color:#16a34a;">+ Add Capital</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ADD BRAND EXPENSE MODAL -->
   <div id="brandExpenseModal" class="modal hidden">
     <div class="modal-card">
@@ -1943,6 +2048,33 @@
             <button type="button" id="modalExpenseDeleteBtn" class="primary-btn danger" style="padding: 8px 16px; font-size: 13px;">Delete Expense</button>
           </div>
           <button type="button" class="primary-btn" style="padding: 8px 20px; font-size: 13px;" data-close="expenseDetailModal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- CAPITAL DETAIL MODAL -->
+  <div id="capitalDetailModal" class="modal hidden">
+    <div class="modal-card" style="max-width: 480px; width: 92vw;">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin:0;">Capital Entry Details</h3>
+        </div>
+        <button type="button" class="modal-close-btn" data-close="capitalDetailModal">&#x2715;</button>
+      </div>
+      <div style="padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="font-size: 26px; font-weight: 800; color: #22c55e;" id="capitalDetailAmount">0.00 EGP</div>
+        <div style="font-size: 15px; font-weight: 600; color: var(--text);" id="capitalDetailDesc">—</div>
+        <div style="font-size: 12.5px; color: var(--text-muted); display: grid; grid-template-columns: 90px 1fr; row-gap: 6px;">
+          <span>Logged by:</span> <strong id="capitalDetailLoggedBy" style="color: var(--text);">—</strong>
+          <span>Date:</span> <span id="capitalDetailDate">—</span>
+          <span>Note:</span> <span id="capitalDetailNote" style="font-style: italic;">—</span>
+        </div>
+        <div class="modal-actions" style="margin-top: 4px; display: flex; justify-content: space-between; align-items: center;">
+          <div id="modalCapitalDeleteWrap">
+            <button type="button" id="modalCapitalDeleteBtn" class="primary-btn danger" style="padding: 8px 16px; font-size: 13px;">Delete Entry</button>
+          </div>
+          <button type="button" class="primary-btn" style="padding: 8px 20px; font-size: 13px;" data-close="capitalDetailModal">Close</button>
         </div>
       </div>
     </div>

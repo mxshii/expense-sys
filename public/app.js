@@ -1,5 +1,6 @@
 let me = null;
 let allExpenses = [];
+let allCapital = [];
 let allBrandExpenses = [];
 let allOrders   = [];
 let allCustomers = [];
@@ -322,6 +323,11 @@ async function loadBootstrap() {
       renderExpenses();
       renderSummary();
     }
+    if (data.personalCapital) {
+      allCapital = data.personalCapital;
+      renderCapital();
+      renderSummary();
+    }
     if (data.brandExpenses) {
       allBrandExpenses = data.brandExpenses;
       renderBrandExpenses();
@@ -340,7 +346,7 @@ async function loadBootstrap() {
     loadStock();
   } catch (err) {
     console.error("Bootstrap fetch error, falling back to individual calls:", err);
-    await Promise.all([loadOrders(), loadStock(), loadExpenses(), loadBrandExpenses(), loadRevenue(), loadStores()]);
+    await Promise.all([loadOrders(), loadStock(), loadExpenses(), loadBrandExpenses(), loadRevenue(), loadStores(), loadCapital()]);
   }
 }
 
@@ -2943,6 +2949,20 @@ function renderSummary() {
   $("#totalPackaging").textContent= egp(totals.Packaging);
   $("#totalDelivery").textContent = egp(totals.Delivery);
 
+  const totalSpent = totals.all;
+  const totalCapital = allCapital.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+  const remainingCapital = totalCapital - totalSpent;
+
+  const heroRemCapital = $("#personalRemainingCapital");
+  if (heroRemCapital) {
+    heroRemCapital.textContent = (remainingCapital < 0 ? "− " : "") + egp(Math.abs(remainingCapital));
+    heroRemCapital.style.color = remainingCapital < 0 ? "#ef4444" : "#22c55e";
+  }
+  const elTotalCap = $("#personalTotalCapital");
+  if (elTotalCap) elTotalCap.textContent = "+ " + egp(totalCapital);
+  const elTotalSpent = $("#personalTotalSpent");
+  if (elTotalSpent) elTotalSpent.textContent = "− " + egp(totalSpent);
+
   const pt = $("#printTotals");
   if (pt) {
     pt.innerHTML = `
@@ -3029,6 +3049,144 @@ function renderExpenses() {
         loadExpenses();
       }
     });
+  });
+}
+
+/* ─── PERSONAL CAPITAL (FUNDS INJECTED) ────────────────────────── */
+async function loadCapital() {
+  allCapital = await api("/api/capital");
+  renderCapital();
+  renderSummary();
+}
+
+function openCapitalDetail(capId) {
+  const cap = allCapital.find((item) => String(item.id) === String(capId));
+  if (!cap) return;
+
+  $("#capitalDetailAmount").textContent = "+ " + egp(cap.amount);
+  $("#capitalDetailDesc").textContent = cap.description || "—";
+  $("#capitalDetailLoggedBy").textContent = cap.loggedBy || "—";
+  $("#capitalDetailDate").textContent = formatDate12h(cap.createdAt);
+  $("#capitalDetailNote").textContent = cap.note || "No note added";
+
+  const delWrap = $("#modalCapitalDeleteWrap");
+  if (me.role === "founder") {
+    delWrap.style.display = "block";
+    $("#modalCapitalDeleteBtn").onclick = async () => {
+      if (confirm("Delete this capital entry permanently?")) {
+        await api(`/api/capital/${cap.id}`, "DELETE");
+        $("#capitalDetailModal").classList.add("hidden");
+        loadCapital();
+      }
+    };
+  } else {
+    delWrap.style.display = "none";
+  }
+
+  $("#capitalDetailModal").classList.remove("hidden");
+}
+
+function renderCapital() {
+  const body = $("#capitalBody");
+  if (!body) return;
+  body.innerHTML = "";
+  $("#capitalEmpty").classList.toggle("hidden", allCapital.length > 0);
+
+  allCapital.slice().reverse().forEach((c) => {
+    const tr = document.createElement("tr");
+    tr.className = "clickable-row";
+    const initial = (c.loggedBy || "?").charAt(0).toUpperCase();
+    tr.innerHTML = `
+      <td data-label="Description / Source" style="font-family:var(--font);font-weight:600;color:var(--text);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(c.description)}">${escapeHtml(c.description)}</td>
+      <td data-label="Amount" class="amount-cell" style="color:#22c55e;font-weight:700">+ ${egp(c.amount)}</td>
+      <td data-label="Logged by">
+        <div class="logged-by-cell">
+          <div class="mini-avatar" style="background:rgba(34,197,94,0.15);color:#22c55e">${escapeHtml(initial)}</div>
+          <span style="font-family:var(--font);font-size:12.5px">${escapeHtml(c.loggedBy || "—")}</span>
+        </div>
+      </td>
+      <td data-label="Note" class="note-cell" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(c.note || "")}">${c.note ? escapeHtml(c.note) : '<span style="opacity:0.35">—</span>'}</td>
+      <td data-label="Date" style="white-space:nowrap">${formatDate12h(c.createdAt)}</td>
+      <td>${me.role === "founder" ? `<button class="icon-btn" data-del-capital="${c.id}" title="Delete">✕</button>` : ""}</td>
+    `;
+
+    tr.addEventListener("click", (evt) => {
+      if (evt.target.closest("[data-del-capital]")) return;
+      openCapitalDetail(c.id);
+    });
+
+    body.appendChild(tr);
+  });
+
+  body.querySelectorAll("[data-del-capital]").forEach((btn) => {
+    btn.addEventListener("click", async (evt) => {
+      evt.stopPropagation();
+      if (confirm("Delete this capital entry?")) {
+        await api(`/api/capital/${btn.dataset.delCapital}`, "DELETE");
+        loadCapital();
+      }
+    });
+  });
+}
+
+function switchPersonalExpenseSubTab(subtabId) {
+  const targetId = subtabId.startsWith("subtab-") ? subtabId : `subtab-${subtabId}`;
+  const rawId = targetId.replace("subtab-", "");
+  document.querySelectorAll("#personalExpenseSubnav .subnav-btn").forEach((btn) => {
+    const val = btn.dataset.subtab;
+    btn.classList.toggle("active", val === targetId || val === rawId);
+  });
+  document.querySelectorAll("#tab-expenses .subtab-view").forEach((view) => {
+    view.classList.toggle("hidden", view.id !== targetId);
+  });
+}
+
+// Personal Expense Subnav listeners
+document.querySelectorAll("#personalExpenseSubnav .subnav-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    switchPersonalExpenseSubTab(btn.dataset.subtab);
+  });
+});
+
+const quickLogExpBtn = $("#openAddExpenseQuick");
+if (quickLogExpBtn) {
+  quickLogExpBtn.addEventListener("click", () => {
+    switchPersonalExpenseSubTab("subtab-personal-expenses");
+    const btn = $("#openAddExpense");
+    if (btn) btn.click();
+  });
+}
+
+const openCapitalModal = () => {
+  $("#capDescription").value = "";
+  $("#capAmount").value = "";
+  $("#capNote").value = "";
+  $("#capError").textContent = "";
+  $("#capitalModal").classList.remove("hidden");
+};
+const openAddCapBtn = $("#openAddCapital");
+if (openAddCapBtn) openAddCapBtn.addEventListener("click", openCapitalModal);
+const openAddCapTableBtn = $("#openAddCapitalTableBtn");
+if (openAddCapTableBtn) openAddCapTableBtn.addEventListener("click", openCapitalModal);
+
+const capitalForm = $("#capitalForm");
+if (capitalForm) {
+  capitalForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("#capError").textContent = "";
+    const desc = $("#capDescription").value.trim();
+    const amt = $("#capAmount").value;
+    const note = $("#capNote").value.trim() || null;
+    if (!desc) { $("#capError").textContent = "Description is required"; return; }
+    if (!amt || isNaN(Number(amt)) || Number(amt) <= 0) { $("#capError").textContent = "Enter a valid positive amount"; return; }
+    try {
+      await api("/api/capital", "POST", { description: desc, amount: amt, note });
+      e.target.reset();
+      $("#capitalModal").classList.add("hidden");
+      await loadCapital();
+    } catch (err) {
+      $("#capError").textContent = err.message;
+    }
   });
 }
 
