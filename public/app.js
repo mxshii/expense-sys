@@ -1043,113 +1043,546 @@ function initOrderNotifications() {
   }
 }
 
-/* ─── ORDERS ───────────────────────────────────────────────────── */
-function renderOrders() {
-  const body = $("#ordersBody");
-  if (!body) return;
-  body.innerHTML = "";
-  $("#ordersEmpty")?.classList.toggle("hidden", allOrders.length > 0);
+/* ─── ORDERS (PAGINATED & FITTED VIEW) ─────────────────────────── */
+let ordersActiveFilter = "all";
+let ordersSearchQuery = "";
+let ordersSortBy = "newest";
+let ordersViewMode = localStorage.getItem("static_orders_view") || "table";
+let ordersPage = 1;
+let ordersPageSize = parseInt(localStorage.getItem("static_orders_pagesize"), 10) || 15;
+let filteredOrdersCount = 0;
+let isOrdersEventsBound = false;
 
-  allOrders.forEach((o) => {
-    const total = (o.items || []).reduce(
+function formatOrderDateCompact(dateStr) {
+  if (!dateStr) return { dayMonth: "—", time: "" };
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return { dayMonth: "—", time: "" };
+  const dayMonth = d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const time = d.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true });
+  return { dayMonth, time };
+}
+
+function bindOrdersToolbarEvents() {
+  if (isOrdersEventsBound) return;
+  isOrdersEventsBound = true;
+
+  const searchInput = $("#ordersSearchInput");
+  const searchClear = $("#ordersSearchClear");
+
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      ordersSearchQuery = (searchInput.value || "").trim().toLowerCase();
+      if (searchClear) searchClear.classList.toggle("hidden", !ordersSearchQuery);
+      ordersPage = 1;
+      renderOrders();
+    });
+  }
+
+  if (searchClear && searchInput) {
+    searchClear.addEventListener("click", () => {
+      searchInput.value = "";
+      ordersSearchQuery = "";
+      searchClear.classList.add("hidden");
+      searchInput.focus();
+      ordersPage = 1;
+      renderOrders();
+    });
+  }
+
+  document.querySelectorAll("#ordersFilterChips .orders-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll("#ordersFilterChips .orders-chip").forEach((c) => c.classList.remove("active"));
+      chip.classList.add("active");
+      ordersActiveFilter = chip.dataset.ordersFilter || "all";
+      ordersPage = 1;
+      renderOrders();
+    });
+  });
+
+  document.querySelectorAll("#ordersSummaryGrid .orders-kpi-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      const kpi = card.dataset.ordersKpi;
+      let target = "all";
+      if (kpi === "processing") target = "processing";
+      else if (kpi === "unpaid") target = "unpaid";
+      else target = "all";
+
+      ordersActiveFilter = target;
+      document.querySelectorAll("#ordersFilterChips .orders-chip").forEach((c) => {
+        c.classList.toggle("active", (c.dataset.ordersFilter || "all") === target);
+      });
+      ordersPage = 1;
+      renderOrders();
+    });
+  });
+
+  const sortSelect = $("#ordersSortSelect");
+  if (sortSelect) {
+    sortSelect.value = ordersSortBy;
+    sortSelect.addEventListener("change", () => {
+      ordersSortBy = sortSelect.value;
+      ordersPage = 1;
+      renderOrders();
+    });
+  }
+
+  // Pagination page size select
+  const pageSizeSelect = $("#ordersPageSizeSelect");
+  if (pageSizeSelect) {
+    pageSizeSelect.value = String(ordersPageSize);
+    pageSizeSelect.addEventListener("change", () => {
+      const val = pageSizeSelect.value;
+      ordersPageSize = val === "all" ? "all" : (parseInt(val, 10) || 15);
+      localStorage.setItem("static_orders_pagesize", String(ordersPageSize));
+      ordersPage = 1;
+      renderOrders();
+    });
+  }
+
+  // Prev / Next Page Buttons
+  const prevPageBtn = $("#ordersPrevPageBtn");
+  if (prevPageBtn) {
+    prevPageBtn.addEventListener("click", () => {
+      if (ordersPage > 1) {
+        ordersPage--;
+        renderOrders();
+        const scrollArea = document.querySelector(".orders-table-scroll-area");
+        if (scrollArea) scrollArea.scrollTop = 0;
+      }
+    });
+  }
+
+  const nextPageBtn = $("#ordersNextPageBtn");
+  if (nextPageBtn) {
+    nextPageBtn.addEventListener("click", () => {
+      const effectiveSize = ordersPageSize === "all" ? Math.max(1, filteredOrdersCount) : ordersPageSize;
+      const totalPages = Math.max(1, Math.ceil(filteredOrdersCount / effectiveSize));
+      if (ordersPage < totalPages) {
+        ordersPage++;
+        renderOrders();
+        const scrollArea = document.querySelector(".orders-table-scroll-area");
+        if (scrollArea) scrollArea.scrollTop = 0;
+      }
+    });
+  }
+
+  const tableBtn = $("#ordersViewTableBtn");
+  const cardBtn = $("#ordersViewCardBtn");
+
+  function setViewMode(mode) {
+    ordersViewMode = mode;
+    localStorage.setItem("static_orders_view", mode);
+    if (tableBtn) tableBtn.classList.toggle("active", mode === "table");
+    if (cardBtn) cardBtn.classList.toggle("active", mode === "cards");
+    const tableWrapper = $("#ordersTableWrapper");
+    const cardsContainer = $("#ordersCardsContainer");
+    if (tableWrapper) tableWrapper.classList.toggle("hidden", mode === "cards");
+    if (cardsContainer) cardsContainer.classList.toggle("hidden", mode === "table");
+    renderOrders();
+  }
+
+  if (tableBtn) tableBtn.addEventListener("click", () => setViewMode("table"));
+  if (cardBtn) cardBtn.addEventListener("click", () => setViewMode("cards"));
+
+  const resetBtn = $("#ordersResetFilterBtn");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      if (searchInput) searchInput.value = "";
+      if (searchClear) searchClear.classList.add("hidden");
+      ordersSearchQuery = "";
+      ordersActiveFilter = "all";
+      ordersPage = 1;
+      document.querySelectorAll("#ordersFilterChips .orders-chip").forEach((c) => {
+        c.classList.toggle("active", (c.dataset.ordersFilter || "all") === "all");
+      });
+      renderOrders();
+    });
+  }
+}
+
+function renderOrders() {
+  bindOrdersToolbarEvents();
+
+  const body = $("#ordersBody");
+  const cardsGrid = $("#ordersCardsGrid");
+  const tableWrapper = $("#ordersTableWrapper");
+  const cardsContainer = $("#ordersCardsContainer");
+  if (!body) return;
+
+  body.innerHTML = "";
+  if (cardsGrid) cardsGrid.innerHTML = "";
+
+  // 1. Update KPI stats from complete dataset
+  const totalCount = allOrders.length;
+  const procCount = allOrders.filter((o) => o.deliveryStatus === "processing").length;
+  const shipCount = allOrders.filter((o) => o.deliveryStatus === "shipped").length;
+  const delivCount = allOrders.filter((o) => o.deliveryStatus === "delivered").length;
+  const unpaidCount = allOrders.filter((o) => o.paymentStatus === "unpaid").length;
+
+  const kpiTotal = $("#ordersKpiTotalCount");
+  if (kpiTotal) kpiTotal.textContent = totalCount;
+  const kpiProc = $("#ordersKpiProcessing");
+  if (kpiProc) kpiProc.textContent = `${procCount} to pack`;
+  const kpiUnpaid = $("#ordersKpiUnpaid");
+  if (kpiUnpaid) kpiUnpaid.textContent = `${unpaidCount} unpaid`;
+
+  const cntAll = $("#ordersCountAll");
+  if (cntAll) cntAll.textContent = totalCount;
+  const cntProc = $("#ordersCountProc");
+  if (cntProc) cntProc.textContent = procCount;
+  const cntShip = $("#ordersCountShip");
+  if (cntShip) cntShip.textContent = shipCount;
+  const cntDeliv = $("#ordersCountDeliv");
+  if (cntDeliv) cntDeliv.textContent = delivCount;
+  const cntUnpaid = $("#ordersCountUnpaid");
+  if (cntUnpaid) cntUnpaid.textContent = unpaidCount;
+
+  // 2. Filter dataset
+  const filtered = allOrders.filter((o) => {
+    if (ordersActiveFilter === "processing" && o.deliveryStatus !== "processing") return false;
+    if (ordersActiveFilter === "shipped" && o.deliveryStatus !== "shipped") return false;
+    if (ordersActiveFilter === "delivered" && o.deliveryStatus !== "delivered") return false;
+    if (ordersActiveFilter === "unpaid" && o.paymentStatus !== "unpaid") return false;
+
+    if (ordersSearchQuery) {
+      const q = ordersSearchQuery;
+      const code = formatOrderId(o.id).toLowerCase();
+      const rawId = String(o.id || "").toLowerCase();
+      const name = String(o.customerName || "").toLowerCase();
+      const phone = String(o.phone || "").toLowerCase();
+      const email = String(o.email || "").toLowerCase();
+      const addr = String(o.address || "").toLowerCase();
+      const items = (o.items || []).map((it) => `${it.name || it.itemName || ""} ${it.sku || ""}`).join(" ").toLowerCase();
+
+      if (!code.includes(q) && !rawId.includes(q) && !name.includes(q) && !phone.includes(q) && !email.includes(q) && !addr.includes(q) && !items.includes(q)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  filteredOrdersCount = filtered.length;
+
+  // 3. Sort dataset
+  filtered.sort((a, b) => {
+    if (ordersSortBy === "newest") {
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    }
+    if (ordersSortBy === "oldest") {
+      return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+    }
+    if (ordersSortBy === "name_asc") {
+      return (a.customerName || "").localeCompare(b.customerName || "");
+    }
+    if (ordersSortBy === "total_desc" || ordersSortBy === "total_asc") {
+      const aTot = (a.items || []).reduce((s, it) => s + (Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0)), 0) + Number(a.shippingPrice || 0);
+      const bTot = (b.items || []).reduce((s, it) => s + (Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0)), 0) + Number(b.shippingPrice || 0);
+      return ordersSortBy === "total_desc" ? (bTot - aTot) : (aTot - bTot);
+    }
+    return 0;
+  });
+
+  // 4. Empty states management
+  const emptyState = $("#ordersEmpty");
+  const filterEmptyState = $("#ordersFilterEmpty");
+
+  if (allOrders.length === 0) {
+    if (emptyState) emptyState.classList.remove("hidden");
+    if (filterEmptyState) filterEmptyState.classList.add("hidden");
+    if (tableWrapper) tableWrapper.classList.add("hidden");
+    if (cardsContainer) cardsContainer.classList.add("hidden");
+    return;
+  }
+
+  if (emptyState) emptyState.classList.add("hidden");
+
+  if (filtered.length === 0) {
+    if (filterEmptyState) filterEmptyState.classList.remove("hidden");
+    if (tableWrapper) tableWrapper.classList.add("hidden");
+    if (cardsContainer) cardsContainer.classList.add("hidden");
+    return;
+  }
+
+  if (filterEmptyState) filterEmptyState.classList.add("hidden");
+
+  // Mode toggles
+  if (ordersViewMode === "cards") {
+    if (tableWrapper) tableWrapper.classList.add("hidden");
+    if (cardsContainer) cardsContainer.classList.remove("hidden");
+  } else {
+    if (tableWrapper) tableWrapper.classList.remove("hidden");
+    if (cardsContainer) cardsContainer.classList.add("hidden");
+  }
+
+  // 5. Calculate Pagination Slices
+  const effectivePageSize = ordersPageSize === "all" ? Math.max(1, filtered.length) : ordersPageSize;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / effectivePageSize));
+  if (ordersPage > totalPages) ordersPage = totalPages;
+  if (ordersPage < 1) ordersPage = 1;
+
+  const startIdx = ordersPageSize === "all" ? 0 : (ordersPage - 1) * ordersPageSize;
+  const endIdx = ordersPageSize === "all" ? filtered.length : Math.min(startIdx + ordersPageSize, filtered.length);
+  const paginated = filtered.slice(startIdx, endIdx);
+
+  // Update Pagination Controls
+  const pageRangeEl = $("#ordersPageRange");
+  if (pageRangeEl) {
+    pageRangeEl.textContent = filtered.length === 0
+      ? "Showing 0 orders"
+      : `Showing ${startIdx + 1}–${endIdx} of ${filtered.length}`;
+  }
+
+
+  const pageIndicatorEl = $("#ordersPageIndicator");
+  if (pageIndicatorEl) pageIndicatorEl.textContent = `${ordersPage} / ${totalPages}`;
+
+  const prevBtn = $("#ordersPrevPageBtn");
+  if (prevBtn) prevBtn.disabled = ordersPage <= 1;
+
+  const nextBtn = $("#ordersNextPageBtn");
+  if (nextBtn) nextBtn.disabled = ordersPage >= totalPages;
+
+  // 6. Render rows and cards for the paginated slice
+  paginated.forEach((o) => {
+    const rawItems = Array.isArray(o.items) ? o.items : [];
+    const itemsTotal = rawItems.reduce(
       (sum, it) => sum + Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0),
       0
-    ) + Number(o.shippingPrice || 0);
-
-    const itemsText = (o.items || [])
-      .map((it) => `${it.name || it.itemName} ×${it.qty ?? it.quantity ?? 1}`)
-      .join(", ") || "—";
+    );
+    const shipping = Number(o.shippingPrice || 0);
+    const grandTotal = itemsTotal + shipping;
+    const totalPcs = rawItems.reduce((s, it) => s + Number(it.qty ?? it.quantity ?? 1), 0);
+    const itemsPreview = rawItems.map((it) => `${it.name || it.itemName || "Item"} ×${it.qty ?? it.quantity ?? 1}`).join(", ") || "No items";
 
     const isFlashing = newOrderHighlightIds.has(String(o.id));
+    const orderCode = formatOrderId(o.id);
+    const dateInfo = formatOrderDateCompact(o.createdAt);
+
+    // --- Streamlined 7-Column Table Row (100% Screen Fitted, No Horizontal Scroll) ---
     const tr = document.createElement("tr");
     tr.className = "clickable-row" + (isFlashing ? " new-order-flash" : "");
     tr.setAttribute("data-order-row", String(o.id));
     tr.innerHTML = `
-      <td data-label="Customer">
-        <div style="font-size:10.5px;font-family:var(--font-mono);color:var(--accent);font-weight:700;letter-spacing:0.5px;margin-bottom:2px">#${escapeHtml(formatOrderId(o.id))}</div>
-        <div style="font-weight:600;font-family:var(--font)">${escapeHtml(o.customerName)}</div>
-        ${o.email ? `<div style="font-size:11px;color:var(--text-muted)">${escapeHtml(o.email)}</div>` : ""}
+      <td class="col-order-customer">
+        <div class="order-id-row">
+          <span class="order-id-badge">#${escapeHtml(orderCode)}</span>
+          <span class="order-date-tag" title="Ordered at ${escapeHtml(dateInfo.dayMonth)}, ${escapeHtml(dateInfo.time)}">${escapeHtml(dateInfo.dayMonth)}, ${escapeHtml(dateInfo.time)}</span>
+        </div>
+        <div class="order-cust-name" title="${escapeHtml(o.customerName)}">${escapeHtml(o.customerName)}</div>
+        ${o.phone ? `
+        <div class="order-cust-phone">
+          <a href="tel:${escapeHtml(o.phone)}" class="order-phone-link" onclick="event.stopPropagation()" title="Call customer">
+            <svg class="lucide lucide-phone" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <span>${escapeHtml(o.phone)}</span>
+          </a>
+        </div>` : ''}
       </td>
-      <td data-label="Phone">${escapeHtml(o.phone || "—")}</td>
-      <td data-label="Items" title="${escapeHtml(itemsText)}">${escapeHtml(itemsText.length > 40 ? itemsText.slice(0, 38) + "…" : itemsText)}</td>
-      <td data-label="Address">${escapeHtml(o.address)}</td>
-      <td data-label="Total" style="font-weight:600">${money(total)} EGP</td>
-      <td data-label="Shipping">${money(o.shippingPrice)} EGP</td>
-      <td data-label="Payment">
-        <select data-order-id="${o.id}" class="payment-select inline-select">
+      <td class="col-items">
+        <div class="order-items-cell">
+          <span class="order-items-badge">
+            <svg class="lucide lucide-package" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+            ${totalPcs} pcs
+          </span>
+          <span class="order-items-text" title="${escapeHtml(itemsPreview)}">${escapeHtml(itemsPreview)}</span>
+        </div>
+      </td>
+      <td class="col-address">
+        ${o.address ? `
+        <div class="order-addr-cell" title="${escapeHtml(o.address)}">
+          <svg class="lucide lucide-map-pin" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+          <span class="order-addr-text">${escapeHtml(o.address)}</span>
+        </div>` : '<span class="text-muted" style="font-size:11.5px;">—</span>'}
+      </td>
+      <td class="col-amount">
+        <div class="order-total-val">${money(grandTotal)} <span class="order-curr">EGP</span></div>
+        <div class="order-shipping-sub">${shipping > 0 ? `+${money(shipping)} ship` : '<span style="color:var(--success)">Free ship</span>'}</div>
+      </td>
+      <td class="col-status">
+        <select data-order-id="${o.id}" class="payment-select inline-select status-pill status-${o.paymentStatus}">
           <option value="unpaid"  ${o.paymentStatus === "unpaid"  ? "selected" : ""}>Unpaid</option>
           <option value="pending" ${o.paymentStatus === "pending" ? "selected" : ""}>Pending</option>
           <option value="paid"    ${o.paymentStatus === "paid"    ? "selected" : ""}>Paid</option>
         </select>
       </td>
-      <td data-label="Delivery">
-        <select data-order-id="${o.id}" class="delivery-select inline-select">
+      <td class="col-status">
+        <select data-order-id="${o.id}" class="delivery-select inline-select status-pill status-${o.deliveryStatus}">
           <option value="processing" ${o.deliveryStatus === "processing" ? "selected" : ""}>Processing</option>
           <option value="shipped"    ${o.deliveryStatus === "shipped"    ? "selected" : ""}>Shipped</option>
           <option value="delivered"  ${o.deliveryStatus === "delivered"  ? "selected" : ""}>Delivered</option>
         </select>
       </td>
-      <td data-label="Date" style="white-space:nowrap">${formatDate12h(o.createdAt)}</td>
-      <td>
-        <div style="display:flex;gap:4px;align-items:center">
-          <button class="icon-btn edit-order-btn" data-edit-order="${o.id}" title="Edit order" style="color:var(--text-muted);font-size:15px">
-            <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;vertical-align:middle"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+      <td class="col-actions">
+        <div class="order-actions-cell">
+          <button class="order-action-icon-btn receipt-btn" data-receipt-order="${o.id}" title="Print receipt">
+            <svg class="lucide lucide-printer" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
           </button>
-          <button class="icon-btn receipt-btn" data-receipt-order="${o.id}" title="Print receipt" style="color:var(--text-muted);font-size:15px">
-            <svg viewBox="0 0 20 20" fill="currentColor" style="width:14px;height:14px;vertical-align:middle"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h1v1a1 1 0 001 1h8a1 1 0 001-1v-1h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a1 1 0 00-1-1H6a1 1 0 00-1 1zm2 0h6v3H7V4zm-1 9h8v3H6v-3zm8-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+          <button class="order-action-icon-btn edit-order-btn" data-edit-order="${o.id}" title="Edit order">
+            <svg class="lucide lucide-pencil" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
           </button>
-          ${me?.role === "founder" ? `<button class="icon-btn" data-del-order="${o.id}" title="Delete order">✕</button>` : ""}
+          ${me?.role === "founder" ? `<button class="order-action-icon-btn del-order-btn" data-del-order="${o.id}" title="Delete order">
+            <svg class="lucide lucide-trash-2" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+          </button>` : ""}
         </div>
       </td>
     `;
-
     tr.addEventListener("click", (evt) => {
       if (
         evt.target.closest("select") ||
         evt.target.closest("[data-del-order]") ||
         evt.target.closest(".receipt-btn") ||
-        evt.target.closest(".edit-order-btn")
-      )
-        return;
+        evt.target.closest(".edit-order-btn") ||
+        evt.target.closest("a")
+      ) return;
       openOrderDetail(o.id);
     });
-
     body.appendChild(tr);
+
+    // --- Cards Grid View (for Cards mode & mobile) ---
+    if (cardsGrid) {
+      const card = document.createElement("div");
+      card.className = "order-compact-card" + (isFlashing ? " new-order-flash" : "");
+      card.setAttribute("data-order-row", String(o.id));
+      card.innerHTML = `
+        <div class="order-card-header">
+          <div class="order-card-header-left">
+            <span class="order-id-badge">#${escapeHtml(orderCode)}</span>
+            <span class="order-card-name" title="${escapeHtml(o.customerName)}">${escapeHtml(o.customerName)}</span>
+          </div>
+          <div class="order-card-price">
+            <span class="order-card-amount">${money(grandTotal)} <small>EGP</small></span>
+          </div>
+        </div>
+
+        <div class="order-card-meta">
+          <div class="order-card-meta-item">
+            ${o.phone ? `<a href="tel:${escapeHtml(o.phone)}" class="order-phone-link" onclick="event.stopPropagation()">
+              <svg class="lucide lucide-phone" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              <span>${escapeHtml(o.phone)}</span>
+            </a>` : '<span class="text-muted" style="font-size:11px;">No phone</span>'}
+          </div>
+          <div class="order-card-meta-dot">·</div>
+          <div class="order-card-meta-item order-card-date">${dateInfo.dayMonth}, ${dateInfo.time}</div>
+          ${shipping > 0 ? `<div class="order-card-meta-dot">·</div><div class="order-card-meta-item text-muted" style="font-size:11px;">+${money(shipping)} ship</div>` : ''}
+        </div>
+
+        ${o.address ? `
+        <div class="order-card-address" title="${escapeHtml(o.address)}">
+          <svg class="lucide lucide-map-pin" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>${escapeHtml(o.address)}</span>
+        </div>` : ''}
+
+        <div class="order-card-items" title="${escapeHtml(itemsPreview)}">
+          <span class="order-items-badge">
+            <svg class="lucide lucide-package" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+            ${totalPcs} pcs
+          </span>
+          <span class="order-items-text">${escapeHtml(itemsPreview)}</span>
+        </div>
+
+        <div class="order-card-footer">
+          <div class="order-card-statuses">
+            <select data-order-id="${o.id}" class="payment-select inline-select status-pill status-${o.paymentStatus}">
+              <option value="unpaid"  ${o.paymentStatus === "unpaid"  ? "selected" : ""}>Unpaid</option>
+              <option value="pending" ${o.paymentStatus === "pending" ? "selected" : ""}>Pending</option>
+              <option value="paid"    ${o.paymentStatus === "paid"    ? "selected" : ""}>Paid</option>
+            </select>
+            <select data-order-id="${o.id}" class="delivery-select inline-select status-pill status-${o.deliveryStatus}">
+              <option value="processing" ${o.deliveryStatus === "processing" ? "selected" : ""}>Processing</option>
+              <option value="shipped"    ${o.deliveryStatus === "shipped"    ? "selected" : ""}>Shipped</option>
+              <option value="delivered"  ${o.deliveryStatus === "delivered"  ? "selected" : ""}>Delivered</option>
+            </select>
+          </div>
+          <div class="order-actions-cell">
+            <button class="order-action-icon-btn receipt-btn" data-receipt-order="${o.id}" title="Print receipt">
+              <svg class="lucide lucide-printer" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+            </button>
+            <button class="order-action-icon-btn edit-order-btn" data-edit-order="${o.id}" title="Edit order">
+              <svg class="lucide lucide-pencil" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+            </button>
+            ${me?.role === "founder" ? `<button class="order-action-icon-btn del-order-btn" data-del-order="${o.id}" title="Delete order">
+              <svg class="lucide lucide-trash-2" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+            </button>` : ""}
+          </div>
+        </div>
+      `;
+      card.addEventListener("click", (evt) => {
+        if (
+          evt.target.closest("select") ||
+          evt.target.closest("[data-del-order]") ||
+          evt.target.closest(".receipt-btn") ||
+          evt.target.closest(".edit-order-btn") ||
+          evt.target.closest("a")
+        ) return;
+        openOrderDetail(o.id);
+      });
+      cardsGrid.appendChild(card);
+    }
   });
 
-  body.querySelectorAll(".payment-select").forEach((sel) => {
-    sel.addEventListener("change", async (evt) => {
+  // 7. Interactive element listeners (bound on container to avoid duplication)
+  attachOrdersInteractiveListeners(document.getElementById("tab-orders"));
+}
+
+function attachOrdersInteractiveListeners(parent) {
+  if (!parent) return;
+
+  parent.querySelectorAll(".payment-select").forEach((sel) => {
+    sel.onchange = async (evt) => {
       evt.stopPropagation();
-      await api(`/api/orders/${sel.dataset.orderId}`, "PUT", { paymentStatus: sel.value });
+      const newStatus = sel.value;
+      sel.className = `payment-select inline-select status-pill status-${newStatus}`;
+      parent.querySelectorAll(`.payment-select[data-order-id="${sel.dataset.orderId}"]`).forEach((s) => {
+        s.value = newStatus;
+        s.className = `payment-select inline-select status-pill status-${newStatus}`;
+      });
+
+      const targetOrder = allOrders.find((x) => String(x.id) === String(sel.dataset.orderId));
+      if (targetOrder) targetOrder.paymentStatus = newStatus;
+
+      await api(`/api/orders/${sel.dataset.orderId}`, "PUT", { paymentStatus: newStatus });
       loadRevenue();
-    });
+    };
   });
-  body.querySelectorAll(".delivery-select").forEach((sel) => {
-    sel.addEventListener("change", async (evt) => {
+
+  parent.querySelectorAll(".delivery-select").forEach((sel) => {
+    sel.onchange = async (evt) => {
       evt.stopPropagation();
-      await api(`/api/orders/${sel.dataset.orderId}`, "PUT", { deliveryStatus: sel.value });
-    });
+      const newStatus = sel.value;
+      sel.className = `delivery-select inline-select status-pill status-${newStatus}`;
+      parent.querySelectorAll(`.delivery-select[data-order-id="${sel.dataset.orderId}"]`).forEach((s) => {
+        s.value = newStatus;
+        s.className = `delivery-select inline-select status-pill status-${newStatus}`;
+      });
+
+      const targetOrder = allOrders.find((x) => String(x.id) === String(sel.dataset.orderId));
+      if (targetOrder) targetOrder.deliveryStatus = newStatus;
+
+      await api(`/api/orders/${sel.dataset.orderId}`, "PUT", { deliveryStatus: newStatus });
+    };
   });
-  body.querySelectorAll(".edit-order-btn").forEach((btn) => {
-    btn.addEventListener("click", (evt) => {
+
+  parent.querySelectorAll(".edit-order-btn").forEach((btn) => {
+    btn.onclick = (evt) => {
       evt.stopPropagation();
       openEditOrderModal(btn.dataset.editOrder);
-    });
+    };
   });
-  body.querySelectorAll("[data-del-order]").forEach((btn) => {
-    btn.addEventListener("click", async (evt) => {
+
+  parent.querySelectorAll("[data-del-order]").forEach((btn) => {
+    btn.onclick = async (evt) => {
       evt.stopPropagation();
       if (confirm("Delete this order permanently?")) {
         await api(`/api/orders/${btn.dataset.delOrder}`, "DELETE");
         loadOrders();
       }
-    });
+    };
   });
-  body.querySelectorAll(".receipt-btn").forEach((btn) => {
-    btn.addEventListener("click", (evt) => {
+
+  parent.querySelectorAll(".receipt-btn").forEach((btn) => {
+    btn.onclick = (evt) => {
       evt.stopPropagation();
       printOrderReceipt(btn.dataset.receiptOrder);
-    });
+    };
   });
 }
 
@@ -1209,7 +1642,7 @@ function addItemRow() {
   row.innerHTML = `
     <select class="item-stock-select">${options || '<option disabled>No stock items yet — add some in Stock tab first</option>'}</select>
     <input type="number" class="item-qty" min="1" value="1" />
-    <button type="button" class="icon-btn remove-item-row" title="Remove">✕</button>
+    <button type="button" class="icon-btn remove-item-row" title="Remove"><svg class="lucide lucide-x" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   `;
   $("#orderItemsList").appendChild(row);
 
@@ -1335,7 +1768,7 @@ function addEditItemRow(selectedStockId = null, qty = 1, fallbackName = "", fall
   row.innerHTML = `
     <select class="item-stock-select">${extraOption + options || '<option disabled>No stock items available</option>'}</select>
     <input type="number" class="item-qty" min="1" value="${Math.max(1, qty)}" />
-    <button type="button" class="icon-btn remove-item-row" title="Remove">✕</button>
+    <button type="button" class="icon-btn remove-item-row" title="Remove"><svg class="lucide lucide-x" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   `;
   $("#editOrderItemsList").appendChild(row);
 
