@@ -71,17 +71,25 @@ const $ = (sel) => document.querySelector(sel);
 
 /* ─── API HELPER ───────────────────────────────────────────────── */
 async function api(url, method = "GET", body) {
-  const res = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    if (res.status === 404) throw new Error("Server route not found — please restart your dev server.");
-    throw new Error(data.error || `Server error (${res.status})`);
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 404) throw new Error("Server route not found — please restart your dev server.");
+      throw new Error(data.error || `Server error (${res.status})`);
+    }
+    return data;
+  } catch (err) {
+    if (err.name === "TypeError" && err.message === "Failed to fetch") {
+      throw new Error("Network connection dropped or server is restarting. Please retry in a moment.");
+    }
+    throw err;
   }
-  return data;
 }
 
 function escapeHtml(str) {
@@ -304,6 +312,8 @@ function enterApp() {
   initBarcodeScanner();
   initOrderNotifications();
   initPrinterSystem();
+  initOrderQuickAddBars();
+  initRestockAllModal();
 }
 
 /* ─── FAST BOOTSTRAP LOADER ────────────────────────────────────── */
@@ -713,6 +723,45 @@ function dismissToast(toast) {
   if (!toast || toast.classList.contains("fade-out")) return;
   toast.classList.add("fade-out");
   setTimeout(() => toast.remove(), 320);
+}
+
+function showSystemToast({ title, message, duration = 4000 }) {
+  const container = $("#notifToastContainer");
+  if (!container) return;
+
+  const toast = document.createElement("div");
+  toast.className = "notif-toast";
+  toast.innerHTML = `
+    <div class="notif-toast-icon" style="background:rgba(82,130,101,0.15);color:var(--success);">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+        <path d="M3 3v5h5"/>
+        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+        <path d="M16 21h5v-5"/>
+      </svg>
+    </div>
+    <div class="notif-toast-content">
+      <div class="notif-toast-title">${escapeHtml(title)}</div>
+      <div class="notif-toast-body">${escapeHtml(message)}</div>
+    </div>
+    <button type="button" class="notif-toast-close" title="Dismiss" aria-label="Dismiss">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+  `;
+
+  const closeBtn = toast.querySelector(".notif-toast-close");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      dismissToast(toast);
+    });
+  }
+
+  container.prepend(toast);
+  setTimeout(() => dismissToast(toast), duration);
 }
 
 function flashTabTitle(text) {
@@ -1633,50 +1682,315 @@ $("#openAddOrder").addEventListener("click", async () => {
   $("#orderModal").classList.remove("hidden");
 });
 
-$("#addItemRow").addEventListener("click", () => addItemRow());
-
-function addItemRow() {
+/* ─── SEARCHABLE ITEM ROW & PICKER ──────────────────────────────── */
+function renderSearchableItemRow({
+  containerEl,
+  selectedStockId = null,
+  qty = 1,
+  fallbackName = "",
+  fallbackPrice = 0,
+  onUpdateTotal,
+}) {
   const row = document.createElement("div");
   row.className = "item-row";
 
-  const options = stockCache
-    .map((s) => {
-      const isOut = s.quantity <= 0;
-      const sku = formatStockSku(s);
-      return `<option value="${s.id}" data-price="${s.price}" data-name="${escapeHtml(s.itemName)}" ${isOut ? 'disabled' : ''}>
-        [${escapeHtml(sku)}] ${escapeHtml(s.itemName)} ${isOut ? '(Out of Stock)' : `(${s.quantity} in stock)`} — ${money(s.price)} EGP
-      </option>`;
-    })
-    .join("");
+  let initialItem = null;
+  if (selectedStockId) {
+    initialItem = (stockCache || []).find((s) => String(s.id) === String(selectedStockId)) || null;
+  }
+
+  const initialSku = initialItem ? formatStockSku(initialItem) : (fallbackName ? "CUSTOM" : "");
+  const initialName = initialItem ? initialItem.itemName : (fallbackName || "");
+  const initialPrice = initialItem ? Number(initialItem.price) : Number(fallbackPrice || 0);
+  const initialStockQty = initialItem ? initialItem.quantity : null;
+  const initialStockId = initialItem ? initialItem.id : (selectedStockId || "");
+
+  let displayLabel = "";
+  if (initialName) {
+    const stockNote = initialStockQty !== null ? (initialStockQty <= 0 ? " (Out of Stock)" : ` (${initialStockQty} in stock)`) : "";
+    displayLabel = `[${initialSku || "ITEM"}] ${initialName} — ${money(initialPrice)} EGP${stockNote}`;
+  }
 
   row.innerHTML = `
-    <select class="item-stock-select">${options || '<option disabled>No stock items yet — add some in Stock tab first</option>'}</select>
-    <input type="number" class="item-qty" min="1" value="1" />
-    <button type="button" class="icon-btn remove-item-row" title="Remove"><svg class="lucide lucide-x" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    <div class="searchable-picker-wrap">
+      <div class="searchable-picker-input-box ${initialStockId ? 'has-selection' : ''}">
+        <svg class="picker-search-icon lucide lucide-search" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+        </svg>
+        <input type="text" class="picker-search-input" placeholder="Search product by name, SKU or barcode..." value="${escapeHtml(displayLabel)}" autocomplete="off" spellcheck="false" />
+        <button type="button" class="picker-clear-btn ${initialStockId ? '' : 'hidden'}" title="Clear selection">✕</button>
+        <button type="button" class="picker-dropdown-trigger-btn" title="Show all products">
+          <svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+        </button>
+      </div>
+      <input type="hidden" class="item-stock-id" value="${escapeHtml(initialStockId)}" />
+      <input type="hidden" class="item-stock-name" value="${escapeHtml(initialName)}" />
+      <input type="hidden" class="item-stock-price" value="${initialPrice}" />
+      <div class="picker-dropdown-menu hidden">
+        <div class="picker-dropdown-list"></div>
+      </div>
+    </div>
+    <div class="item-qty-wrap">
+      <button type="button" class="item-qty-step-btn qty-minus" title="Decrease">−</button>
+      <input type="number" class="item-qty" min="1" value="${Math.max(1, qty)}" title="Quantity" />
+      <button type="button" class="item-qty-step-btn qty-plus" title="Increase">+</button>
+    </div>
+    <button type="button" class="icon-btn remove-item-row" title="Remove item">
+      <svg class="lucide lucide-x" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
   `;
-  $("#orderItemsList").appendChild(row);
 
-  row.querySelector(".item-qty").addEventListener("input", updateOrderTotalPreview);
-  row.querySelector(".item-stock-select").addEventListener("change", updateOrderTotalPreview);
-  row.querySelector(".remove-item-row").addEventListener("click", () => {
-    row.remove();
-    updateOrderTotalPreview();
+  containerEl.appendChild(row);
+
+  const inputBox = row.querySelector(".searchable-picker-input-box");
+  const searchInput = row.querySelector(".picker-search-input");
+  const clearBtn = row.querySelector(".picker-clear-btn");
+  const triggerBtn = row.querySelector(".picker-dropdown-trigger-btn");
+  const dropdownMenu = row.querySelector(".picker-dropdown-menu");
+  const dropdownList = row.querySelector(".picker-dropdown-list");
+  const idInput = row.querySelector(".item-stock-id");
+  const nameInput = row.querySelector(".item-stock-name");
+  const priceInput = row.querySelector(".item-stock-price");
+  const qtyInput = row.querySelector(".item-qty");
+  const minusBtn = row.querySelector(".qty-minus");
+  const plusBtn = row.querySelector(".qty-plus");
+  const removeBtn = row.querySelector(".remove-item-row");
+
+  let activeIndex = -1;
+
+  function renderOptions(query = "") {
+    const q = String(query).trim().toLowerCase();
+    const filtered = (stockCache || []).filter((s) => {
+      if (!q) return true;
+      const sku = (s.sku || "").toLowerCase();
+      const name = (s.itemName || "").toLowerCase();
+      const id = (s.id || "").toLowerCase();
+      return name.includes(q) || sku.includes(q) || id.includes(q);
+    });
+
+    filtered.sort((a, b) => (b.quantity > 0 ? 1 : 0) - (a.quantity > 0 ? 1 : 0));
+
+    dropdownList.innerHTML = "";
+    activeIndex = -1;
+
+    if (filtered.length === 0) {
+      dropdownList.innerHTML = `<div class="picker-no-results">No products matching "${escapeHtml(q)}"</div>`;
+      return;
+    }
+
+    filtered.forEach((s, idx) => {
+      const isOut = Number(s.quantity) <= 0;
+      const sku = formatStockSku(s);
+      const isCurrent = idInput.value && String(s.id) === String(idInput.value);
+
+      const itemEl = document.createElement("div");
+      itemEl.className = `picker-dropdown-item ${isOut ? 'out-of-stock' : ''} ${isCurrent ? 'selected' : ''}`;
+      itemEl.dataset.idx = idx;
+
+      const stockBadgeCls = isOut ? 'badge-out' : (s.quantity <= 5 ? 'badge-low' : 'badge-ok');
+      const stockBadgeText = isOut ? 'Out of Stock' : `${s.quantity} in stock`;
+
+      itemEl.innerHTML = `
+        <div class="picker-item-main">
+          <span class="picker-item-sku">${escapeHtml(sku)}</span>
+          <span class="picker-item-name">${escapeHtml(s.itemName)}</span>
+        </div>
+        <div class="picker-item-meta">
+          <span class="picker-item-stock ${stockBadgeCls}">${stockBadgeText}</span>
+          <span class="picker-item-price">${money(s.price)} EGP</span>
+        </div>
+      `;
+
+      itemEl.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        selectItem(s);
+      });
+
+      dropdownList.appendChild(itemEl);
+    });
+  }
+
+  function selectItem(s) {
+    if (!s) return;
+    const sku = formatStockSku(s);
+    idInput.value = s.id;
+    nameInput.value = s.itemName;
+    priceInput.value = s.price;
+
+    const isOut = Number(s.quantity) <= 0;
+    const stockNote = isOut ? " (Out of Stock)" : ` (${s.quantity} in stock)`;
+    searchInput.value = `[${sku}] ${s.itemName} — ${money(s.price)} EGP${stockNote}`;
+
+    inputBox.classList.add("has-selection");
+    clearBtn.classList.remove("hidden");
+    closeDropdown();
+
+    if (onUpdateTotal) onUpdateTotal();
+    qtyInput.focus();
+    qtyInput.select();
+  }
+
+  function openDropdown() {
+    document.querySelectorAll(".picker-dropdown-menu, .quick-add-dropdown").forEach((el) => {
+      if (el !== dropdownMenu) el.classList.add("hidden");
+    });
+    renderOptions(searchInput.value && idInput.value ? "" : searchInput.value);
+    dropdownMenu.classList.remove("hidden");
+  }
+
+  function closeDropdown() {
+    dropdownMenu.classList.add("hidden");
+    activeIndex = -1;
+  }
+
+  searchInput.addEventListener("focus", () => {
+    searchInput.select();
+    openDropdown();
   });
-  updateOrderTotalPreview();
+
+  searchInput.addEventListener("input", () => {
+    if (idInput.value) {
+      idInput.value = "";
+      nameInput.value = "";
+      priceInput.value = "";
+      inputBox.classList.remove("has-selection");
+      clearBtn.classList.add("hidden");
+      if (onUpdateTotal) onUpdateTotal();
+    }
+    openDropdown();
+    renderOptions(searchInput.value);
+  });
+
+  searchInput.addEventListener("keydown", (e) => {
+    const items = dropdownList.querySelectorAll(".picker-dropdown-item");
+    if (!items.length) {
+      if (e.key === "Escape") closeDropdown();
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (dropdownMenu.classList.contains("hidden")) {
+        openDropdown();
+        return;
+      }
+      activeIndex = (activeIndex + 1) % items.length;
+      updateKeyboardHighlight(items);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (dropdownMenu.classList.contains("hidden")) {
+        openDropdown();
+        return;
+      }
+      activeIndex = (activeIndex - 1 + items.length) % items.length;
+      updateKeyboardHighlight(items);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (activeIndex >= 0 && activeIndex < items.length) {
+        items[activeIndex].dispatchEvent(new MouseEvent("mousedown"));
+      } else if (items.length === 1) {
+        items[0].dispatchEvent(new MouseEvent("mousedown"));
+      }
+    } else if (e.key === "Escape") {
+      closeDropdown();
+    }
+  });
+
+  function updateKeyboardHighlight(items) {
+    items.forEach((it, idx) => {
+      it.classList.toggle("keyboard-active", idx === activeIndex);
+      if (idx === activeIndex) {
+        it.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+    });
+  }
+
+  clearBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    idInput.value = "";
+    nameInput.value = "";
+    priceInput.value = "";
+    searchInput.value = "";
+    inputBox.classList.remove("has-selection");
+    clearBtn.classList.add("hidden");
+    searchInput.focus();
+    renderOptions("");
+    dropdownMenu.classList.remove("hidden");
+    if (onUpdateTotal) onUpdateTotal();
+  });
+
+  triggerBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (dropdownMenu.classList.contains("hidden")) {
+      searchInput.focus();
+      openDropdown();
+    } else {
+      closeDropdown();
+    }
+  });
+
+  minusBtn.addEventListener("click", () => {
+    const cur = Number(qtyInput.value) || 1;
+    qtyInput.value = Math.max(1, cur - 1);
+    if (onUpdateTotal) onUpdateTotal();
+  });
+  plusBtn.addEventListener("click", () => {
+    const cur = Number(qtyInput.value) || 1;
+    qtyInput.value = cur + 1;
+    if (onUpdateTotal) onUpdateTotal();
+  });
+  qtyInput.addEventListener("input", () => {
+    if (onUpdateTotal) onUpdateTotal();
+  });
+
+  removeBtn.addEventListener("click", () => {
+    row.remove();
+    if (onUpdateTotal) onUpdateTotal();
+  });
+
+  if (onUpdateTotal) onUpdateTotal();
+  return row;
+}
+
+$("#addItemRow").addEventListener("click", () => addItemRow());
+
+function addItemRow(selectedStockId = null, qty = 1) {
+  return renderSearchableItemRow({
+    containerEl: $("#orderItemsList"),
+    selectedStockId,
+    qty,
+    onUpdateTotal: updateOrderTotalPreview,
+  });
 }
 
 function collectOrderItems() {
   return Array.from($("#orderItemsList").querySelectorAll(".item-row"))
     .map((row) => {
+      const idInput = row.querySelector(".item-stock-id");
+      const nameInput = row.querySelector(".item-stock-name");
+      const priceInput = row.querySelector(".item-stock-price");
+      const qtyInput = row.querySelector(".item-qty");
+
+      if (idInput && idInput.value) {
+        return {
+          stockId: idInput.value,
+          name: nameInput?.value || "Item",
+          price: Number(priceInput?.value || 0),
+          qty: Math.max(1, Number(qtyInput?.value) || 1),
+        };
+      }
       const select = row.querySelector(".item-stock-select");
-      const opt = select.options[select.selectedIndex];
-      if (!opt || opt.disabled) return null;
-      return {
-        stockId: opt.value,
-        name: opt.dataset.name,
-        price: Number(opt.dataset.price),
-        qty: Number(row.querySelector(".item-qty").value) || 1,
-      };
+      if (select) {
+        const opt = select.options[select.selectedIndex];
+        if (!opt || opt.disabled) return null;
+        return {
+          stockId: opt.value,
+          name: opt.dataset.name,
+          price: Number(opt.dataset.price),
+          qty: Math.max(1, Number(row.querySelector(".item-qty")?.value) || 1),
+        };
+      }
+      return null;
     })
     .filter(Boolean);
 }
@@ -1711,7 +2025,7 @@ $("#orderForm").addEventListener("submit", async (e) => {
     $("#orderModal").classList.add("hidden");
     loadOrders();
     loadRevenue();
-    loadStock(); // refresh stock after deduction
+    loadStock();
   } catch (err) {
     alert(err.message);
   }
@@ -1722,6 +2036,13 @@ async function openEditOrderModal(orderId) {
   await refreshStockCache();
   const o = allOrders.find((item) => String(item.id) === String(orderId));
   if (!o) return;
+
+  const qInput = $("#quickEditOrderInput");
+  if (qInput) qInput.value = "";
+  const qClear = $("#quickEditOrderClear");
+  if (qClear) qClear.classList.add("hidden");
+  const qDrop = $("#quickEditOrderDropdown");
+  if (qDrop) qDrop.classList.add("hidden");
 
   const orderCode = formatOrderId(o.id);
   $("#editOrdId").value = o.id;
@@ -1752,43 +2073,14 @@ async function openEditOrderModal(orderId) {
 }
 
 function addEditItemRow(selectedStockId = null, qty = 1, fallbackName = "", fallbackPrice = 0) {
-  const row = document.createElement("div");
-  row.className = "item-row";
-
-  let matchFound = false;
-  const options = stockCache
-    .map((s) => {
-      const isSelected = selectedStockId && String(s.id) === String(selectedStockId);
-      if (isSelected) matchFound = true;
-      const isOut = s.quantity <= 0 && !isSelected;
-      const sku = formatStockSku(s);
-      return `<option value="${s.id}" data-price="${s.price}" data-name="${escapeHtml(s.itemName)}" ${isSelected ? 'selected' : ''} ${isOut ? 'disabled' : ''}>
-        [${escapeHtml(sku)}] ${escapeHtml(s.itemName)} ${isOut ? '(Out of Stock)' : `(${s.quantity} in stock)`} — ${money(s.price)} EGP
-      </option>`;
-    })
-    .join("");
-
-  let extraOption = "";
-  if (selectedStockId && !matchFound && fallbackName) {
-    extraOption = `<option value="${escapeHtml(selectedStockId)}" data-price="${fallbackPrice}" data-name="${escapeHtml(fallbackName)}" selected>
-      ${escapeHtml(fallbackName)} (Custom / Archived) — ${money(fallbackPrice)} EGP
-    </option>`;
-  }
-
-  row.innerHTML = `
-    <select class="item-stock-select">${extraOption + options || '<option disabled>No stock items available</option>'}</select>
-    <input type="number" class="item-qty" min="1" value="${Math.max(1, qty)}" />
-    <button type="button" class="icon-btn remove-item-row" title="Remove"><svg class="lucide lucide-x" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-  `;
-  $("#editOrderItemsList").appendChild(row);
-
-  row.querySelector(".item-qty").addEventListener("input", updateEditOrderTotalPreview);
-  row.querySelector(".item-stock-select").addEventListener("change", updateEditOrderTotalPreview);
-  row.querySelector(".remove-item-row").addEventListener("click", () => {
-    row.remove();
-    updateEditOrderTotalPreview();
+  return renderSearchableItemRow({
+    containerEl: $("#editOrderItemsList"),
+    selectedStockId,
+    qty,
+    fallbackName,
+    fallbackPrice,
+    onUpdateTotal: updateEditOrderTotalPreview,
   });
-  updateEditOrderTotalPreview();
 }
 
 $("#editAddItemRow").addEventListener("click", () => addEditItemRow());
@@ -1796,15 +2088,31 @@ $("#editAddItemRow").addEventListener("click", () => addEditItemRow());
 function collectEditOrderItems() {
   return Array.from($("#editOrderItemsList").querySelectorAll(".item-row"))
     .map((row) => {
+      const idInput = row.querySelector(".item-stock-id");
+      const nameInput = row.querySelector(".item-stock-name");
+      const priceInput = row.querySelector(".item-stock-price");
+      const qtyInput = row.querySelector(".item-qty");
+
+      if (idInput && idInput.value) {
+        return {
+          stockId: idInput.value,
+          name: nameInput?.value || "Item",
+          price: Number(priceInput?.value || 0),
+          qty: Math.max(1, Number(qtyInput?.value) || 1),
+        };
+      }
       const select = row.querySelector(".item-stock-select");
-      const opt = select.options[select.selectedIndex];
-      if (!opt || opt.disabled) return null;
-      return {
-        stockId: opt.value,
-        name: opt.dataset.name,
-        price: Number(opt.dataset.price),
-        qty: Number(row.querySelector(".item-qty").value) || 1,
-      };
+      if (select) {
+        const opt = select.options[select.selectedIndex];
+        if (!opt || opt.disabled) return null;
+        return {
+          stockId: opt.value,
+          name: opt.dataset.name,
+          price: Number(opt.dataset.price),
+          qty: Math.max(1, Number(row.querySelector(".item-qty")?.value) || 1),
+        };
+      }
+      return null;
     })
     .filter(Boolean);
 }
@@ -1816,6 +2124,429 @@ function updateEditOrderTotalPreview() {
   $("#editOrderTotalPreview").textContent = money(itemsTotal + shipping) + " EGP";
 }
 $("#editOrdShipping").addEventListener("input", updateEditOrderTotalPreview);
+
+/* ─── QUICK ADD PRODUCT BAR HANDLER ────────────────────────────── */
+function initQuickAddProductBar({ inputId, clearBtnId, dropdownId, containerId, onUpdateTotal }) {
+  const input = document.getElementById(inputId);
+  const clearBtn = document.getElementById(clearBtnId);
+  const dropdown = document.getElementById(dropdownId);
+  const container = document.getElementById(containerId);
+  if (!input || !dropdown || !container) return;
+
+  let activeIndex = -1;
+
+  function render(query = "") {
+    const q = String(query).trim().toLowerCase();
+    const filtered = (stockCache || []).filter((s) => {
+      if (!q) return true;
+      const sku = (s.sku || "").toLowerCase();
+      const name = (s.itemName || "").toLowerCase();
+      const id = (s.id || "").toLowerCase();
+      return name.includes(q) || sku.includes(q) || id.includes(q);
+    });
+    filtered.sort((a, b) => (b.quantity > 0 ? 1 : 0) - (a.quantity > 0 ? 1 : 0));
+
+    dropdown.innerHTML = "";
+    activeIndex = -1;
+
+    if (filtered.length === 0) {
+      dropdown.innerHTML = `<div class="picker-no-results">No products matching "${escapeHtml(q)}"</div>`;
+      dropdown.classList.remove("hidden");
+      return;
+    }
+
+    filtered.forEach((s, idx) => {
+      const isOut = Number(s.quantity) <= 0;
+      const sku = formatStockSku(s);
+      const itemEl = document.createElement("div");
+      itemEl.className = `picker-dropdown-item ${isOut ? 'out-of-stock' : ''}`;
+      itemEl.dataset.idx = idx;
+
+      const stockBadgeCls = isOut ? 'badge-out' : (s.quantity <= 5 ? 'badge-low' : 'badge-ok');
+      const stockBadgeText = isOut ? 'Out of Stock' : `${s.quantity} in stock`;
+
+      itemEl.innerHTML = `
+        <div class="picker-item-main">
+          <span class="picker-item-sku">${escapeHtml(sku)}</span>
+          <span class="picker-item-name">${escapeHtml(s.itemName)}</span>
+        </div>
+        <div class="picker-item-meta">
+          <span class="picker-item-stock ${stockBadgeCls}">${stockBadgeText}</span>
+          <span class="picker-item-price">${money(s.price)} EGP</span>
+        </div>
+      `;
+
+      itemEl.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        addOrIncrementItem(s);
+      });
+
+      dropdown.appendChild(itemEl);
+    });
+    dropdown.classList.remove("hidden");
+  }
+
+  function addOrIncrementItem(s) {
+    const existingRows = Array.from(container.querySelectorAll(".item-row"));
+    const match = existingRows.find((row) => {
+      const idVal = row.querySelector(".item-stock-id")?.value;
+      return idVal && String(idVal) === String(s.id);
+    });
+
+    if (match) {
+      const qtyInput = match.querySelector(".item-qty");
+      if (qtyInput) {
+        qtyInput.value = (Number(qtyInput.value) || 1) + 1;
+      }
+      match.classList.remove("row-added-pulse");
+      void match.offsetWidth;
+      match.classList.add("row-added-pulse");
+      match.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    } else {
+      const emptyRow = existingRows.find((row) => {
+        const idVal = row.querySelector(".item-stock-id")?.value;
+        return !idVal;
+      });
+      if (emptyRow) {
+        emptyRow.remove();
+      }
+      renderSearchableItemRow({
+        containerEl: container,
+        selectedStockId: s.id,
+        qty: 1,
+        onUpdateTotal,
+      });
+    }
+
+    if (onUpdateTotal) onUpdateTotal();
+    input.value = "";
+    if (clearBtn) clearBtn.classList.add("hidden");
+    dropdown.classList.add("hidden");
+    input.focus();
+  }
+
+  input.addEventListener("focus", () => render(input.value));
+  input.addEventListener("input", () => {
+    if (clearBtn) clearBtn.classList.toggle("hidden", !input.value);
+    render(input.value);
+  });
+
+  input.addEventListener("keydown", (e) => {
+    const items = dropdown.querySelectorAll(".picker-dropdown-item");
+    if (!items.length) {
+      if (e.key === "Escape") dropdown.classList.add("hidden");
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      dropdown.classList.remove("hidden");
+      activeIndex = (activeIndex + 1) % items.length;
+      items.forEach((it, i) => it.classList.toggle("keyboard-active", i === activeIndex));
+      if (items[activeIndex]) items[activeIndex].scrollIntoView({ block: "nearest" });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      dropdown.classList.remove("hidden");
+      activeIndex = (activeIndex - 1 + items.length) % items.length;
+      items.forEach((it, i) => it.classList.toggle("keyboard-active", i === activeIndex));
+      if (items[activeIndex]) items[activeIndex].scrollIntoView({ block: "nearest" });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (activeIndex >= 0 && activeIndex < items.length) {
+        items[activeIndex].dispatchEvent(new MouseEvent("mousedown"));
+      } else if (items.length > 0) {
+        items[0].dispatchEvent(new MouseEvent("mousedown"));
+      }
+    } else if (e.key === "Escape") {
+      dropdown.classList.add("hidden");
+    }
+  });
+
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      input.value = "";
+      clearBtn.classList.add("hidden");
+      dropdown.classList.add("hidden");
+      input.focus();
+    });
+  }
+}
+
+function initOrderQuickAddBars() {
+  initQuickAddProductBar({
+    inputId: "quickAddOrderInput",
+    clearBtnId: "quickAddOrderClear",
+    dropdownId: "quickAddOrderDropdown",
+    containerId: "orderItemsList",
+    onUpdateTotal: updateOrderTotalPreview,
+  });
+
+  initQuickAddProductBar({
+    inputId: "quickEditOrderInput",
+    clearBtnId: "quickEditOrderClear",
+    dropdownId: "quickEditOrderDropdown",
+    containerId: "editOrderItemsList",
+    onUpdateTotal: updateEditOrderTotalPreview,
+  });
+}
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".searchable-picker-wrap") && !e.target.closest(".quick-add-product-bar")) {
+    document.querySelectorAll(".picker-dropdown-menu, .quick-add-dropdown").forEach((el) => {
+      el.classList.add("hidden");
+    });
+  }
+});
+
+/* ─── RESTOCK EVERYTHING MODAL LOGIC ───────────────────────────── */
+function initRestockAllModal() {
+  const openBtn = $("#openRestockAllBtn");
+  const modal = $("#restockAllModal");
+  const form = $("#restockAllForm");
+  const qtyInput = $("#restockQtyInput");
+  const minusBtn = $("#restockQtyMinus");
+  const plusBtn = $("#restockQtyPlus");
+  const modeGrid = $("#restockModeGrid");
+  const scopePills = $("#restockScopePills");
+  const presetChips = $("#restockPresetChips");
+  const summaryText = $("#restockSummaryText");
+  const previewBadge = $("#restockTargetPreviewBadge");
+  const submitBtnText = $("#restockSubmitBtnText");
+
+  if (!openBtn || !modal || !form) return;
+
+  let currentMode = "add";
+
+  function updateSummary() {
+    const qty = Math.max(0, parseInt(qtyInput.value, 10) || 0);
+    const scopeRadio = form.querySelector('input[name="restockScope"]:checked');
+    const scope = scopeRadio ? scopeRadio.value : "all";
+
+    const totalProducts = (allStock || []).length;
+    const outStockItems = (allStock || []).filter((s) => Number(s.quantity) <= 0);
+    const lowStockItems = (allStock || []).filter((s) => Number(s.quantity) <= 5);
+
+    let targetCount = totalProducts;
+    let scopeLabel = "All Products";
+    if (scope === "out_stock" || scope === "no_stock") {
+      targetCount = outStockItems.length;
+      scopeLabel = "No Stock";
+    } else if (scope === "low_stock") {
+      targetCount = lowStockItems.length;
+      scopeLabel = "Low Stock";
+    }
+
+    const currentUnits = (allStock || []).reduce((sum, s) => sum + (Number(s.quantity) || 0), 0);
+    let projectedUnits = currentUnits;
+
+    if (currentMode === "add") {
+      projectedUnits = currentUnits + (targetCount * qty);
+      submitBtnText.textContent = `Add +${qty} to ${targetCount} ${targetCount === 1 ? 'Product' : 'Products'}`;
+      if (scope === "out_stock" || scope === "no_stock") {
+        summaryText.innerHTML = `Adding <b>+${qty} units</b> to <b>${targetCount} out-of-stock product${targetCount === 1 ? '' : 's'}</b>. Warehouse stock will increase from <b>${currentUnits}</b> to <b>${projectedUnits} units</b>.`;
+      } else if (scope === "low_stock") {
+        summaryText.innerHTML = `Adding <b>+${qty} units</b> to <b>${targetCount} low-stock product${targetCount === 1 ? '' : 's'}</b>. Warehouse stock will increase from <b>${currentUnits}</b> to <b>${projectedUnits} units</b>.`;
+      } else {
+        summaryText.innerHTML = `Adding <b>+${qty} units</b> to <b>${targetCount} product${targetCount === 1 ? '' : 's'}</b>. Warehouse stock will increase from <b>${currentUnits}</b> to <b>${projectedUnits} units</b>.`;
+      }
+    } else if (currentMode === "deduct") {
+      let itemsToDeduct = (allStock || []);
+      if (scope === "out_stock" || scope === "no_stock") {
+        itemsToDeduct = outStockItems;
+      } else if (scope === "low_stock") {
+        itemsToDeduct = lowStockItems;
+      }
+
+      const deductTotal = itemsToDeduct.reduce((sum, s) => sum + Math.min(Math.max(0, Number(s.quantity) || 0), qty), 0);
+      projectedUnits = Math.max(0, currentUnits - deductTotal);
+
+      submitBtnText.textContent = `Deduct -${qty} from ${targetCount} ${targetCount === 1 ? 'Product' : 'Products'}`;
+      if (scope === "out_stock" || scope === "no_stock") {
+        summaryText.innerHTML = `Deducting from <b>${targetCount} out-of-stock product${targetCount === 1 ? '' : 's'}</b>. Quantities are already 0 and cannot go negative. Warehouse stock remains <b>${currentUnits} units</b>.`;
+      } else {
+        summaryText.innerHTML = `Deducting up to <b>-${qty} units</b> from <b>${targetCount} product${targetCount === 1 ? '' : 's'}</b> (floored at 0). Warehouse stock will decrease from <b>${currentUnits}</b> to <b>${projectedUnits} units</b> (-${deductTotal} total deducted).`;
+      }
+    } else {
+      if (scope === "out_stock" || scope === "no_stock") {
+        projectedUnits = currentUnits + (targetCount * qty);
+        summaryText.innerHTML = `Setting <b>${targetCount} out-of-stock product${targetCount === 1 ? '' : 's'}</b> to exactly <b>${qty} units</b>. Warehouse inventory will be <b>${projectedUnits} total units</b>.`;
+      } else if (scope === "low_stock") {
+        const diff = lowStockItems.reduce((sum, s) => sum + (qty - (Number(s.quantity) || 0)), 0);
+        projectedUnits = Math.max(0, currentUnits + diff);
+        summaryText.innerHTML = `Setting <b>${targetCount} low-stock product${targetCount === 1 ? '' : 's'}</b> to exactly <b>${qty} units</b>. Warehouse inventory will be <b>${projectedUnits} total units</b>.`;
+      } else {
+        projectedUnits = targetCount * qty;
+        summaryText.innerHTML = `Setting <b>${targetCount} product${targetCount === 1 ? '' : 's'}</b> to exactly <b>${qty} units</b>. Warehouse inventory will be <b>${projectedUnits} total units</b>.`;
+      }
+      submitBtnText.textContent = `Set ${targetCount} ${targetCount === 1 ? 'Product' : 'Products'} to ${qty} Units`;
+    }
+
+    if (previewBadge) {
+      previewBadge.textContent = `${targetCount} products targeted (${scopeLabel})`;
+    }
+  }
+
+  function updatePresetChipLabels(mode) {
+    if (!presetChips) return;
+    presetChips.querySelectorAll(".restock-preset-chip").forEach((chip) => {
+      const q = chip.dataset.qty;
+      if (q === "0") {
+        chip.textContent = mode === "set" ? "0 (Zero Out)" : "0";
+      } else if (mode === "deduct") {
+        chip.textContent = `-${q}`;
+      } else if (mode === "add") {
+        chip.textContent = `+${q}`;
+      } else {
+        chip.textContent = q;
+      }
+    });
+  }
+
+  openBtn.addEventListener("click", () => {
+    const totalProducts = (allStock || []).length;
+    const outCount = (allStock || []).filter((s) => Number(s.quantity) <= 0).length;
+    const lowCount = (allStock || []).filter((s) => Number(s.quantity) <= 5).length;
+
+    const allCountEl = $("#restockScopeAllCount");
+    const outCountEl = $("#restockScopeOutCount");
+    const lowCountEl = $("#restockScopeLowCount");
+    if (allCountEl) allCountEl.textContent = totalProducts;
+    if (outCountEl) outCountEl.textContent = outCount;
+    if (lowCountEl) lowCountEl.textContent = lowCount;
+
+    qtyInput.value = "50";
+    currentMode = "add";
+    if (modeGrid) {
+      modeGrid.querySelectorAll(".restock-mode-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.mode === "add");
+      });
+    }
+    if (scopePills) {
+      scopePills.querySelectorAll(".restock-scope-pill").forEach((p) => {
+        const radio = p.querySelector("input");
+        if (radio && radio.value === "all") {
+          radio.checked = true;
+          p.classList.add("active");
+        } else {
+          p.classList.remove("active");
+        }
+      });
+    }
+    if (presetChips) {
+      presetChips.querySelectorAll(".restock-preset-chip").forEach((c) => {
+        c.classList.toggle("active", c.dataset.qty === "50");
+      });
+    }
+
+    updatePresetChipLabels("add");
+    updateSummary();
+    modal.classList.remove("hidden");
+  });
+
+  if (minusBtn) {
+    minusBtn.addEventListener("click", () => {
+      const cur = parseInt(qtyInput.value, 10) || 10;
+      qtyInput.value = Math.max(1, cur - 10);
+      updateSummary();
+    });
+  }
+
+  if (plusBtn) {
+    plusBtn.addEventListener("click", () => {
+      const cur = parseInt(qtyInput.value, 10) || 0;
+      qtyInput.value = cur + 10;
+      updateSummary();
+    });
+  }
+
+  if (qtyInput) {
+    qtyInput.addEventListener("input", updateSummary);
+  }
+
+  if (scopePills) {
+    scopePills.addEventListener("change", () => {
+      scopePills.querySelectorAll(".restock-scope-pill").forEach((p) => {
+        const radio = p.querySelector("input");
+        p.classList.toggle("active", radio?.checked);
+      });
+      updateSummary();
+    });
+  }
+
+  if (modeGrid) {
+    modeGrid.querySelectorAll(".restock-mode-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        modeGrid.querySelectorAll(".restock-mode-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentMode = btn.dataset.mode;
+        updatePresetChipLabels(currentMode);
+        updateSummary();
+      });
+    });
+  }
+
+  if (presetChips) {
+    presetChips.querySelectorAll(".restock-preset-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        presetChips.querySelectorAll(".restock-preset-chip").forEach((c) => c.classList.remove("active"));
+        chip.classList.add("active");
+        qtyInput.value = chip.dataset.qty;
+        updateSummary();
+      });
+    });
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const qty = parseInt(qtyInput.value, 10);
+    if (isNaN(qty) || qty < 0) {
+      alert("Please enter a valid quantity.");
+      return;
+    }
+    const scopeRadio = form.querySelector('input[name="restockScope"]:checked');
+    const scope = scopeRadio ? scopeRadio.value : "all";
+    const onlyNeedingRestock = scope === "low_stock";
+
+    const submitBtn = $("#restockAllSubmitBtn");
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span>Restocking...</span>`;
+
+    try {
+      const res = await api("/api/stock/restock-all", "POST", {
+        mode: currentMode,
+        quantity: qty,
+        scope,
+        onlyNeedingRestock,
+        threshold: 5,
+      });
+
+      modal.classList.add("hidden");
+
+      try {
+        await loadStock();
+      } catch (loadErr) {
+        console.warn("Could not reload stock immediately:", loadErr);
+      }
+
+      let actionDesc = "";
+      if (currentMode === "add") actionDesc = `Added +${qty} units to`;
+      else if (currentMode === "deduct") actionDesc = `Deducted -${qty} units from`;
+      else actionDesc = `Set to ${qty} units for`;
+
+      showSystemToast({
+        title: currentMode === "deduct" ? "Inventory Deducted!" : "Inventory Restocked!",
+        message: `${actionDesc} ${res.updatedCount || (allStock || []).length} products.`,
+        duration: 3500,
+      });
+    } catch (err) {
+      alert(err.message || "Failed to restock products.");
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalText;
+    }
+  });
+}
 
 $("#editOrderForm").addEventListener("submit", async (e) => {
   e.preventDefault();

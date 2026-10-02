@@ -402,6 +402,10 @@
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8v8"/><path d="M10 8v8"/><path d="M14 8v8"/><path d="M17 8v8"/></svg>
                 <span>Scan Barcode</span>
               </button>
+              <button type="button" id="openRestockAllBtn" class="ghost-btn stock-restock-btn" style="display:flex;align-items:center;gap:6px;font-size:13px;" title="Restock all products in one click">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                <span>Restock All</span>
+              </button>
               <button id="openAddStock" class="primary-btn" style="display:flex;align-items:center;gap:6px;">
                 <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
                 <span>New product</span>
@@ -522,7 +526,9 @@
           <!-- Empty & No-Match States -->
           <p id="stockEmpty" class="empty-state hidden">No stock items yet. Hit "New product" to add your first item.</p>
           <div id="stockNoResults" class="stock-no-results hidden">
-            <div class="no-results-icon">🔍</div>
+            <div class="no-results-icon">
+              <svg class="lucide lucide-search-x" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="8" x2="14" y2="14"/><line x1="14" y1="8" x2="8" y2="14"/></svg>
+            </div>
             <h4>No products found</h4>
             <p>No inventory items match your current search or filter criteria.</p>
             <button type="button" id="stockResetFiltersBtn" class="ghost-btn" style="margin-top:10px;padding:6px 14px;font-size:12.5px;">Reset all filters</button>
@@ -1340,9 +1346,25 @@
           </div>
         </div>
 
-        <div class="form-section-label">Items <span class="req">*</span></div>
+        <div class="form-section-label" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Items <span class="req">*</span></span>
+          <span style="font-size:11px;font-weight:500;color:var(--text-muted);">Search by name, SKU or barcode</span>
+        </div>
+
+        <!-- Quick Item Search & Add Bar -->
+        <div class="quick-add-product-bar" id="quickAddOrderBar">
+          <div class="quick-add-input-wrap">
+            <svg class="quick-add-search-icon lucide lucide-search" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+            <input type="text" id="quickAddOrderInput" class="quick-add-search-input" placeholder="Quick search product to add (type name, SKU or barcode)..." autocomplete="off" />
+            <button type="button" id="quickAddOrderClear" class="quick-add-clear-btn hidden" title="Clear">✕</button>
+          </div>
+          <div id="quickAddOrderDropdown" class="quick-add-dropdown hidden"></div>
+        </div>
+
         <div id="orderItemsList" class="items-list"></div>
-        <button type="button" id="addItemRow" class="add-item-btn" style="display:inline-flex;align-items:center;gap:6px;"><svg class="lucide lucide-plus" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg><span>Add item</span></button>
+        <button type="button" id="addItemRow" class="add-item-btn" style="display:inline-flex;align-items:center;gap:6px;"><svg class="lucide lucide-plus" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg><span>Add item row</span></button>
 
         <div class="form-grid form-grid-3 mt-16">
           <div class="form-field">
@@ -1414,9 +1436,25 @@
           </div>
         </div>
 
-        <div class="form-section-label">Items <span class="req">*</span></div>
+        <div class="form-section-label" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Items <span class="req">*</span></span>
+          <span style="font-size:11px;font-weight:500;color:var(--text-muted);">Search by name, SKU or barcode</span>
+        </div>
+
+        <!-- Quick Item Search & Add Bar -->
+        <div class="quick-add-product-bar" id="quickEditOrderBar">
+          <div class="quick-add-input-wrap">
+            <svg class="quick-add-search-icon lucide lucide-search" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+            <input type="text" id="quickEditOrderInput" class="quick-add-search-input" placeholder="Quick search product to add (type name, SKU or barcode)..." autocomplete="off" />
+            <button type="button" id="quickEditOrderClear" class="quick-add-clear-btn hidden" title="Clear">✕</button>
+          </div>
+          <div id="quickEditOrderDropdown" class="quick-add-dropdown hidden"></div>
+        </div>
+
         <div id="editOrderItemsList" class="items-list"></div>
-        <button type="button" id="editAddItemRow" class="add-item-btn" style="display:inline-flex;align-items:center;gap:6px;"><svg class="lucide lucide-plus" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg><span>Add item</span></button>
+        <button type="button" id="editAddItemRow" class="add-item-btn" style="display:inline-flex;align-items:center;gap:6px;"><svg class="lucide lucide-plus" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg><span>Add item row</span></button>
 
         <div class="form-grid form-grid-3 mt-16">
           <div class="form-field">
@@ -1483,6 +1521,127 @@
         <div class="modal-actions">
           <button type="button" class="ghost-btn" data-close="stockModal">Cancel</button>
           <button type="submit" class="primary-btn">Save item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- RESTOCK ALL STOCK MODAL -->
+  <div id="restockAllModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:34px;height:34px;border-radius:8px;background:rgba(82,130,101,0.12);display:flex;align-items:center;justify-content:center;color:var(--success);">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+              <path d="M16 21h5v-5"/>
+            </svg>
+          </div>
+          <div>
+            <h3 style="margin:0;font-size:16px;">Restock Everything</h3>
+            <p class="tagline" style="margin:0;font-size:12px;">Replenish warehouse products in one click</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" data-close="restockAllModal">&#x2715;</button>
+      </div>
+
+      <form id="restockAllForm">
+        <!-- Target scope selector -->
+        <div class="form-field">
+          <label>Target Scope</label>
+          <div class="restock-scope-pills" id="restockScopePills">
+            <label class="restock-scope-pill active" title="Apply to every product in the warehouse">
+              <input type="radio" name="restockScope" value="all" checked />
+              <svg class="lucide lucide-boxes" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+              <span>All (<b id="restockScopeAllCount">0</b>)</span>
+            </label>
+            <label class="restock-scope-pill" title="Target only completely sold out products (0 stock)">
+              <input type="radio" name="restockScope" value="out_stock" />
+              <svg class="lucide lucide-package-x" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/><path d="m17 13 5 5"/><path d="m22 13-5 5"/></svg>
+              <span>No Stock (<b id="restockScopeOutCount">0</b>)</span>
+            </label>
+            <label class="restock-scope-pill" title="Target products with low stock (5 or fewer units)">
+              <input type="radio" name="restockScope" value="low_stock" />
+              <svg class="lucide lucide-alert-triangle" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span>Low Stock &le; 5 (<b id="restockScopeLowCount">0</b>)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Mode selector: Add to existing vs Set to exact amount -->
+        <div class="form-field mt-12">
+          <label>Restock Action</label>
+          <div class="restock-mode-grid" id="restockModeGrid">
+            <button type="button" class="restock-mode-btn active" data-mode="add">
+              <div class="restock-mode-title">
+                <span class="restock-mode-icon">
+                  <svg class="lucide lucide-plus-circle" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                </span>
+                <span>Add to Stock</span>
+              </div>
+              <span class="restock-mode-sub">Increments stock by +X units</span>
+            </button>
+            <button type="button" class="restock-mode-btn" data-mode="deduct">
+              <div class="restock-mode-title">
+                <span class="restock-mode-icon" style="color:var(--danger, #e53935);">
+                  <svg class="lucide lucide-minus-circle" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                </span>
+                <span>Deduct Quantity</span>
+              </div>
+              <span class="restock-mode-sub">Deducts -X units (min 0)</span>
+            </button>
+            <button type="button" class="restock-mode-btn" data-mode="set">
+              <div class="restock-mode-title">
+                <span class="restock-mode-icon">
+                  <svg class="lucide lucide-target" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                </span>
+                <span>Set Exact Level</span>
+              </div>
+              <span class="restock-mode-sub">Sets products to exact amount</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Quantity input & presets -->
+        <div class="form-field mt-12">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label id="restockQtyLabel">Quantity per Product <span class="req">*</span></label>
+            <span id="restockTargetPreviewBadge" class="restock-preview-badge">Total units: ...</span>
+          </div>
+          <div class="restock-qty-row">
+            <button type="button" class="restock-stepper-btn" id="restockQtyMinus" title="Decrease">−</button>
+            <input type="number" id="restockQtyInput" min="0" max="10000" value="50" required />
+            <button type="button" class="restock-stepper-btn" id="restockQtyPlus" title="Increase">+</button>
+          </div>
+          <!-- Quick Preset Chips -->
+          <div class="restock-preset-chips" id="restockPresetChips">
+            <button type="button" class="restock-preset-chip" data-qty="0">0 (No Stock)</button>
+            <button type="button" class="restock-preset-chip" data-qty="10">+10</button>
+            <button type="button" class="restock-preset-chip" data-qty="20">+20</button>
+            <button type="button" class="restock-preset-chip active" data-qty="50">+50</button>
+            <button type="button" class="restock-preset-chip" data-qty="100">+100</button>
+            <button type="button" class="restock-preset-chip" data-qty="200">+200</button>
+          </div>
+        </div>
+
+        <!-- Info / Summary Box -->
+        <div class="restock-summary-box" id="restockSummaryBox">
+          <div class="restock-summary-icon">
+            <svg class="lucide lucide-package" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+          </div>
+          <div class="restock-summary-text" id="restockSummaryText">
+            Ready to restock.
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" data-close="restockAllModal">Cancel</button>
+          <button type="submit" id="restockAllSubmitBtn" class="primary-btn" style="display:inline-flex;align-items:center;gap:6px;">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+            <span id="restockSubmitBtnText">Restock All Products</span>
+          </button>
         </div>
       </form>
     </div>
@@ -2419,7 +2578,9 @@
     <div class="modal-card printer-modal-card">
       <div class="modal-header">
         <div style="display:flex;align-items:center;gap:10px;">
-          <div class="printer-modal-header-icon">🖨️</div>
+          <div class="printer-modal-header-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          </div>
           <div>
             <h3 style="margin:0;font-size:16px;">Choose Printer Destination</h3>
             <p class="tagline" style="margin-top:2px;font-size:12px;" id="printerDocDesc">Select format for printing</p>
@@ -2453,7 +2614,7 @@
         <div class="printer-choice-card" id="printerChoiceStandard" data-target="standard">
           <div class="printer-card-radio"></div>
           <div class="printer-card-icon-wrap standard-theme">
-            <span class="printer-emoji">📄</span>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
           </div>
           <div class="printer-card-details">
             <div class="printer-card-header">
@@ -2472,7 +2633,9 @@
 
       <!-- Thermal Printer App Help Tip -->
       <div id="printerCatAppTip" class="printer-cat-app-tip">
-        <span class="tip-icon">💡</span>
+        <span class="tip-icon">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </span>
         <div class="tip-text">
           <strong>Thermal Printer Tip:</strong> Companion apps (WalkPrint, iPrint, Fun Print) reject PDF files with <em>"Unsupported file"</em>. Click <strong>"Save as PNG Image"</strong> to download a 384px image that prints directly in your printer app!
         </div>

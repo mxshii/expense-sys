@@ -566,6 +566,24 @@ app.put("/api/stock/:id", requireLogin, withDB, async (req, res) => {
   res.json(item);
 });
 
+app.post("/api/stock/restock-all", requireLogin, withDB, async (req, res) => {
+  try {
+    const { mode = "set", quantity = 50, scope = "all", onlyNeedingRestock = false, threshold = 5 } = req.body;
+    const numQty = Math.max(0, parseInt(quantity, 10) || 0);
+    const updated = await db.bulkRestock({
+      mode,
+      quantity: numQty,
+      scope,
+      onlyNeedingRestock: Boolean(onlyNeedingRestock),
+      threshold: Number(threshold) || 5,
+    });
+    res.json({ ok: true, updatedCount: updated.length, items: updated });
+  } catch (err) {
+    console.error("bulk restock error:", err.message);
+    res.status(500).json({ error: "could not restock products" });
+  }
+});
+
 app.post("/api/stock/scan", requireLogin, withDB, async (req, res) => {
   const { code, mode = "decrement", qty = 1 } = req.body;
   if (!code || !String(code).trim()) {
