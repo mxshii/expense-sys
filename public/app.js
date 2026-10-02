@@ -475,7 +475,10 @@ function openOrderDetail(orderId) {
   if (!o) return;
   activeOrderDetailId = o.id;
 
-  const total = (o.items || []).reduce((sum, it) => sum + it.qty * it.price, 0) + Number(o.shippingPrice || 0);
+  const subtotal = (o.items || []).reduce((sum, it) => sum + (Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0)), 0);
+  const shipping = Number(o.shippingPrice || 0);
+  const discount = Math.max(0, Number(o.discount || 0));
+  const total = Math.max(0, subtotal + shipping - discount);
 
   const orderCode = formatOrderId(o.id);
   const idEl = $("#orderDetailId");
@@ -523,6 +526,11 @@ function openOrderDetail(orderId) {
 
   $("#orderDetailAddress").textContent = o.address || "—";
   $("#orderDetailShipping").textContent = money(o.shippingPrice) + " EGP";
+  const discountEl = $("#orderDetailDiscount");
+  if (discountEl) {
+    discountEl.textContent = discount > 0 ? `-${money(discount)} EGP` : "0.00 EGP";
+    discountEl.style.color = discount > 0 ? "#ef4444" : "var(--text-muted)";
+  }
   $("#orderDetailDate").textContent = formatDate12h(o.createdAt);
 
   const delWrap = $("#modalOrderDeleteWrap");
@@ -640,10 +648,10 @@ function ringBellIcon() {
 function showDesktopNotification(order) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
 
-  const total = (order.items || []).reduce(
+  const total = Math.max(0, (order.items || []).reduce(
     (sum, it) => sum + Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0),
     0
-  ) + Number(order.shippingPrice || 0);
+  ) + Number(order.shippingPrice || 0) - Number(order.discount || 0));
 
   const itemsText = (order.items || [])
     .map((it) => `${it.name || it.itemName} ×${it.qty ?? it.quantity ?? 1}`)
@@ -669,10 +677,10 @@ function showOrderToast(order) {
   const container = $("#notifToastContainer");
   if (!container) return;
 
-  const total = (order.items || []).reduce(
+  const total = Math.max(0, (order.items || []).reduce(
     (sum, it) => sum + Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0),
     0
-  ) + Number(order.shippingPrice || 0);
+  ) + Number(order.shippingPrice || 0) - Number(order.discount || 0));
 
   const itemsText = (order.items || [])
     .map((it) => `${it.name || it.itemName} ×${it.qty ?? it.quantity ?? 1}`)
@@ -1334,8 +1342,8 @@ function renderOrders() {
       return (a.customerName || "").localeCompare(b.customerName || "");
     }
     if (ordersSortBy === "total_desc" || ordersSortBy === "total_asc") {
-      const aTot = (a.items || []).reduce((s, it) => s + (Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0)), 0) + Number(a.shippingPrice || 0);
-      const bTot = (b.items || []).reduce((s, it) => s + (Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0)), 0) + Number(b.shippingPrice || 0);
+      const aTot = Math.max(0, (a.items || []).reduce((s, it) => s + (Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0)), 0) + Number(a.shippingPrice || 0) - Number(a.discount || 0));
+      const bTot = Math.max(0, (b.items || []).reduce((s, it) => s + (Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0)), 0) + Number(b.shippingPrice || 0) - Number(b.discount || 0));
       return ordersSortBy === "total_desc" ? (bTot - aTot) : (aTot - bTot);
     }
     return 0;
@@ -1409,7 +1417,8 @@ function renderOrders() {
       0
     );
     const shipping = Number(o.shippingPrice || 0);
-    const grandTotal = itemsTotal + shipping;
+    const discount = Math.max(0, Number(o.discount || 0));
+    const grandTotal = Math.max(0, itemsTotal + shipping - discount);
     const totalPcs = rawItems.reduce((s, it) => s + Number(it.qty ?? it.quantity ?? 1), 0);
     const itemsPreview = rawItems.map((it) => `${it.name || it.itemName || "Item"} ×${it.qty ?? it.quantity ?? 1}`).join(", ") || "No items";
 
@@ -1454,7 +1463,10 @@ function renderOrders() {
       </td>
       <td class="col-amount">
         <div class="order-total-val">${money(grandTotal)} <span class="order-curr">EGP</span></div>
-        <div class="order-shipping-sub">${shipping > 0 ? `+${money(shipping)} ship` : '<span style="color:var(--success)">Free ship</span>'}</div>
+        <div class="order-shipping-sub">
+          ${shipping > 0 ? `+${money(shipping)} ship` : '<span style="color:var(--success)">Free ship</span>'}
+          ${discount > 0 ? ` · <span style="color:#ef4444;">-${money(discount)} off</span>` : ''}
+        </div>
       </td>
       <td class="col-status">
         <select data-order-id="${o.id}" class="payment-select inline-select status-pill status-${o.paymentStatus}">
@@ -1522,6 +1534,7 @@ function renderOrders() {
           <div class="order-card-meta-dot">·</div>
           <div class="order-card-meta-item order-card-date">${dateInfo.dayMonth}, ${dateInfo.time}</div>
           ${shipping > 0 ? `<div class="order-card-meta-dot">·</div><div class="order-card-meta-item text-muted" style="font-size:11px;">+${money(shipping)} ship</div>` : ''}
+          ${discount > 0 ? `<div class="order-card-meta-dot">·</div><div class="order-card-meta-item" style="font-size:11px;color:#ef4444;">-${money(discount)} off</div>` : ''}
         </div>
 
         ${o.address ? `
@@ -1677,6 +1690,7 @@ $("#openAddOrder").addEventListener("click", async () => {
   $("#ordEmail").value = "";
   $("#ordAddress").value = "";
   $("#ordShipping").value = "0";
+  if ($("#ordDiscount")) $("#ordDiscount").value = "0";
   $("#ordPayment").value = "unpaid";
   $("#ordDelivery").value = "processing";
   $("#orderModal").classList.remove("hidden");
@@ -1998,10 +2012,13 @@ function collectOrderItems() {
 function updateOrderTotalPreview() {
   const items = collectOrderItems();
   const itemsTotal = items.reduce((sum, it) => sum + it.qty * it.price, 0);
-  const shipping = Number($("#ordShipping").value) || 0;
-  $("#orderTotalPreview").textContent = money(itemsTotal + shipping) + " EGP";
+  const shipping = Number($("#ordShipping")?.value) || 0;
+  const discount = Number($("#ordDiscount")?.value) || 0;
+  const grandTotal = Math.max(0, itemsTotal + shipping - discount);
+  $("#orderTotalPreview").textContent = money(grandTotal) + " EGP";
 }
 $("#ordShipping").addEventListener("input", updateOrderTotalPreview);
+$("#ordDiscount")?.addEventListener("input", updateOrderTotalPreview);
 
 $("#orderForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -2016,6 +2033,7 @@ $("#orderForm").addEventListener("submit", async (e) => {
       address: $("#ordAddress").value.trim(),
       items,
       shippingPrice: $("#ordShipping").value,
+      discount: $("#ordDiscount")?.value || 0,
       paymentStatus: $("#ordPayment").value,
       deliveryStatus: $("#ordDelivery").value,
     });
@@ -2052,6 +2070,7 @@ async function openEditOrderModal(orderId) {
   $("#editOrdEmail").value = o.email || "";
   $("#editOrdAddress").value = o.address || "";
   $("#editOrdShipping").value = o.shippingPrice ?? 0;
+  if ($("#editOrdDiscount")) $("#editOrdDiscount").value = o.discount ?? 0;
   $("#editOrdPayment").value = o.paymentStatus || "unpaid";
   $("#editOrdDelivery").value = o.deliveryStatus || "processing";
 
@@ -2120,10 +2139,13 @@ function collectEditOrderItems() {
 function updateEditOrderTotalPreview() {
   const items = collectEditOrderItems();
   const itemsTotal = items.reduce((sum, it) => sum + it.qty * it.price, 0);
-  const shipping = Number($("#editOrdShipping").value) || 0;
-  $("#editOrderTotalPreview").textContent = money(itemsTotal + shipping) + " EGP";
+  const shipping = Number($("#editOrdShipping")?.value) || 0;
+  const discount = Number($("#editOrdDiscount")?.value) || 0;
+  const grandTotal = Math.max(0, itemsTotal + shipping - discount);
+  $("#editOrderTotalPreview").textContent = money(grandTotal) + " EGP";
 }
 $("#editOrdShipping").addEventListener("input", updateEditOrderTotalPreview);
+$("#editOrdDiscount")?.addEventListener("input", updateEditOrderTotalPreview);
 
 /* ─── QUICK ADD PRODUCT BAR HANDLER ────────────────────────────── */
 function initQuickAddProductBar({ inputId, clearBtnId, dropdownId, containerId, onUpdateTotal }) {
@@ -2564,6 +2586,7 @@ $("#editOrderForm").addEventListener("submit", async (e) => {
       address: $("#editOrdAddress").value.trim(),
       items,
       shippingPrice: Number($("#editOrdShipping").value) || 0,
+      discount: Number($("#editOrdDiscount")?.value) || 0,
       paymentStatus: $("#editOrdPayment").value,
       deliveryStatus: $("#editOrdDelivery").value,
     });
@@ -5000,7 +5023,7 @@ function renderSc03hReport(type, period) {
     reportTitle = "ORDERS SUMMARY";
     const data = filterByPeriod(allOrders, period);
     const totalRevenue = data.reduce((s, o) =>
-      s + (o.items || []).reduce((si, it) => si + it.qty * it.price, 0) + Number(o.shippingPrice || 0), 0);
+      s + Math.max(0, (o.items || []).reduce((si, it) => si + it.qty * it.price, 0) + Number(o.shippingPrice || 0) - Number(o.discount || 0)), 0);
     const paid      = data.filter((o) => o.paymentStatus  === "paid").length;
     const delivered = data.filter((o) => o.deliveryStatus === "delivered").length;
 
@@ -5017,7 +5040,7 @@ function renderSc03hReport(type, period) {
     `;
 
     entriesHtml = data.length ? data.map((o, idx) => {
-      const tot = (o.items || []).reduce((s, it) => s + it.qty * it.price, 0) + Number(o.shippingPrice || 0);
+      const tot = Math.max(0, (o.items || []).reduce((s, it) => s + it.qty * it.price, 0) + Number(o.shippingPrice || 0) - Number(o.discount || 0));
       const itemsList = (o.items || []).map((it) => `${it.qty}x ${it.name}`).join(", ") || "—";
       const code = formatOrderId(o.id);
       return `
@@ -5238,7 +5261,7 @@ function renderStandardReport(type, period) {
   if (type === "orders") {
     const data = filterByPeriod(allOrders, period);
     const totalRevenue = data.reduce((s, o) =>
-      s + (o.items || []).reduce((si, it) => si + it.qty * it.price, 0) + Number(o.shippingPrice || 0), 0);
+      s + Math.max(0, (o.items || []).reduce((si, it) => si + it.qty * it.price, 0) + Number(o.shippingPrice || 0) - Number(o.discount || 0)), 0);
     const paid      = data.filter((o) => o.paymentStatus  === "paid").length;
     const delivered = data.filter((o) => o.deliveryStatus === "delivered").length;
 
@@ -5265,7 +5288,7 @@ function renderStandardReport(type, period) {
         </thead>
         <tbody>
           ${data.map((o, i) => {
-            const tot = (o.items||[]).reduce((s,it)=>s+it.qty*it.price,0) + Number(o.shippingPrice||0);
+            const tot = Math.max(0, (o.items||[]).reduce((s,it)=>s+it.qty*it.price,0) + Number(o.shippingPrice||0) - Number(o.discount||0));
             const its = (o.items||[]).map(it=>`${it.name} x${it.qty}`).join(", ") || "—";
             return `<tr>
               <td>${i+1}</td><td>${escapeHtml(o.customerName)}</td><td>${escapeHtml(o.phone||"—")}</td>
@@ -5479,7 +5502,8 @@ function renderNormalReceipt(o, isCat = false) {
     return sum + (q * p);
   }, 0);
   const shipping   = Number(o.shippingPrice || 0);
-  const grandTotal = itemsSubtotal + shipping;
+  const discount   = Math.max(0, Number(o.discount || 0));
+  const grandTotal = Math.max(0, itemsSubtotal + shipping - discount);
 
   const orderDate = new Date(o.createdAt || Date.now());
   const dateFormatted = !isNaN(orderDate.getTime())
@@ -5559,9 +5583,14 @@ function renderNormalReceipt(o, isCat = false) {
           <span>Items Subtotal:</span>
           <span style="font-weight:700;">${money(itemsSubtotal)} EGP</span>
         </div>
+        ${discount > 0 ? `
+        <div class="receipt-meta-row" style="color:#c0392b;">
+          <span>Discount:</span>
+          <span style="font-weight:700;">-${money(discount)} EGP</span>
+        </div>` : ""}
         <div class="receipt-meta-row">
           <span>Shipping:</span>
-          <span style="font-weight:700;">${money(shipping)} EGP</span>
+          <span style="font-weight:700;">${shipping > 0 ? `${money(shipping)} EGP` : 'FREE'}</span>
         </div>
 
         <div class="receipt-divider-dash">----------------------------------------</div>
@@ -5633,7 +5662,8 @@ function renderReceiptToCanvas(o, canvasWidth = 384) {
     return sum + (q * p);
   }, 0);
   const shipping = Number(o.shippingPrice || 0);
-  const grandTotal = itemsSubtotal + shipping;
+  const discount = Math.max(0, Number(o.discount || 0));
+  const grandTotal = Math.max(0, itemsSubtotal + shipping - discount);
 
   const orderDate = new Date(o.createdAt || Date.now());
   const dateFormatted = !isNaN(orderDate.getTime())
@@ -5668,6 +5698,7 @@ function renderReceiptToCanvas(o, canvasWidth = 384) {
   totalH += items.length * 24; // items
   totalH += 22; // dashes
   totalH += 22; // Subtotal
+  if (discount > 0) totalH += 22; // Discount
   totalH += 22; // Shipping
   totalH += 22; // dashes
   totalH += 30; // TOTAL AMOUNT
@@ -5794,11 +5825,20 @@ function renderReceiptToCanvas(o, canvasWidth = 384) {
   ctx.fillText(`${money(itemsSubtotal)} EGP`, canvasWidth - padX, y);
   y += 22;
 
+  // Discount
+  if (discount > 0) {
+    ctx.textAlign = "left";
+    ctx.fillText("Discount:", padX, y);
+    ctx.textAlign = "right";
+    ctx.fillText(`-${money(discount)} EGP`, canvasWidth - padX, y);
+    y += 22;
+  }
+
   // Shipping
   ctx.textAlign = "left";
   ctx.fillText("Shipping:", padX, y);
   ctx.textAlign = "right";
-  ctx.fillText(`${money(shipping)} EGP`, canvasWidth - padX, y);
+  ctx.fillText(shipping > 0 ? `${money(shipping)} EGP` : "FREE", canvasWidth - padX, y);
   y += 22;
 
   // Divider dash

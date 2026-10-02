@@ -772,7 +772,7 @@ function broadcastNewOrder(order) {
 
 // PUBLIC: Storefront order submission (no login required)
 app.post("/api/orders/storefront", withDB, async (req, res) => {
-  const { customerName, phone, email, items, address, shippingPrice, note, paymentMethod } = req.body;
+  const { customerName, phone, email, items, address, shippingPrice, note, paymentMethod, discount, promoCode } = req.body;
   if (!customerName || !address)
     return res.status(400).json({ error: "name and address are required" });
   if (!phone)
@@ -784,6 +784,8 @@ app.post("/api/orders/storefront", withDB, async (req, res) => {
 
   const noteParts = [address];
   if (paymentMethod) noteParts.push("[Payment: " + paymentMethod + "]");
+  if (promoCode) noteParts.push("[Promo: " + promoCode + "]");
+  if (discount && Number(discount) > 0) noteParts.push("[Discount: -" + Number(discount) + " EGP]");
   if (note) noteParts.push("[Note: " + note + "]");
 
   await db.deductStockForOrder(items);
@@ -796,6 +798,7 @@ app.post("/api/orders/storefront", withDB, async (req, res) => {
     items,
     address: noteParts.join(" — "),
     shippingPrice: Number(shippingPrice) || 0,
+    discount: Math.max(0, Number(discount) || 0),
     paymentStatus: "unpaid",
     deliveryStatus: "processing",
     createdBy: "storefront",
@@ -841,7 +844,7 @@ app.get("/api/orders/next-id", requireLogin, withDB, async (req, res) => {
 });
 
 app.post("/api/orders", requireLogin, withDB, async (req, res) => {
-  const { id, customerName, phone, email, items, address, paymentStatus, deliveryStatus, shippingPrice } = req.body;
+  const { id, customerName, phone, email, items, address, paymentStatus, deliveryStatus, shippingPrice, discount } = req.body;
   if (!customerName || !address)
     return res.status(400).json({ error: "name and address are required" });
   if (!phone)
@@ -869,6 +872,7 @@ app.post("/api/orders", requireLogin, withDB, async (req, res) => {
     items,
     address,
     shippingPrice: Number(shippingPrice) || 0,
+    discount: Math.max(0, Number(discount) || 0),
     paymentStatus: paymentStatus || "unpaid",
     deliveryStatus: deliveryStatus || "processing",
     createdBy: req.user.username,
@@ -879,7 +883,7 @@ app.post("/api/orders", requireLogin, withDB, async (req, res) => {
 });
 
 app.put("/api/orders/:id", requireLogin, withDB, async (req, res) => {
-  const { customerName, phone, email, items, address, shippingPrice, paymentStatus, deliveryStatus } = req.body;
+  const { customerName, phone, email, items, address, shippingPrice, paymentStatus, deliveryStatus, discount } = req.body;
   const existing = await db.getOrderById(req.params.id);
   if (!existing) return res.status(404).json({ error: "order not found" });
 
@@ -909,6 +913,7 @@ app.put("/api/orders/:id", requireLogin, withDB, async (req, res) => {
   if (items !== undefined) updates.items = items;
   if (address !== undefined) updates.address = address.trim();
   if (shippingPrice !== undefined) updates.shippingPrice = Number(shippingPrice) || 0;
+  if (discount !== undefined) updates.discount = Math.max(0, Number(discount) || 0);
   if (paymentStatus !== undefined) updates.paymentStatus = paymentStatus;
   if (deliveryStatus !== undefined) updates.deliveryStatus = deliveryStatus;
 
