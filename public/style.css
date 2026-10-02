@@ -2714,14 +2714,14 @@ body.dark .cat-chip-other      { background: rgba(160,165,175,0.18);color: #A0A5
 
 .receipt-paper {
   width: 100%;
-  max-width: 320px;
+  max-width: 330px;
   margin: 0 auto;
-  padding: 14px 16px 18px;
+  padding: 14px 14px 20px;
   background: #ffffff !important;
   color: #000000 !important;
   font-family: 'Courier New', Courier, 'SF Mono', Menlo, Consolas, monospace !important;
-  font-size: 12.5px;
-  line-height: 1.45;
+  font-size: 13.5px;
+  line-height: 1.4;
   letter-spacing: 0.2px;
   box-sizing: border-box;
   border-radius: 0;
@@ -2731,29 +2731,30 @@ body.dark .cat-chip-other      { background: rgba(160,165,175,0.18);color: #A0A5
 
 .receipt-stars {
   text-align: center;
-  font-size: 11px;
-  letter-spacing: 1.5px;
+  font-size: 13px;
+  letter-spacing: 1px;
   color: #000000;
   user-select: none;
   overflow: hidden;
   white-space: nowrap;
-  font-weight: bold;
+  font-weight: 900;
+  line-height: 1.2;
 }
 
 .receipt-title {
   text-align: center;
-  font-size: 20px;
+  font-size: 25px;
   font-weight: 900;
   letter-spacing: 3px;
   color: #000000;
-  margin: 4px 0 1px;
+  margin: 4px 0 2px;
   font-family: 'Courier New', Courier, monospace;
 }
 
 .receipt-subtitle {
   text-align: center;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 900;
   letter-spacing: 4px;
   color: #000000;
   margin-bottom: 4px;
@@ -2763,21 +2764,23 @@ body.dark .cat-chip-other      { background: rgba(160,165,175,0.18);color: #A0A5
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 3px 0;
-  font-size: 11.5px;
+  margin: 4px 0;
+  font-size: 13.5px;
+  font-weight: 700;
   color: #000000;
 }
 
 .receipt-divider-dash {
   text-align: center;
-  font-size: 11px;
-  letter-spacing: 1.5px;
+  font-size: 13px;
+  letter-spacing: 1px;
   margin: 6px 0;
   color: #000000;
   overflow: hidden;
   white-space: nowrap;
   user-select: none;
-  font-weight: bold;
+  font-weight: 900;
+  line-height: 1.2;
 }
 
 .receipt-items-list {
@@ -2791,55 +2794,58 @@ body.dark .cat-chip-other      { background: rgba(160,165,175,0.18);color: #A0A5
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  font-size: 12.5px;
+  font-size: 14px;
   color: #000000;
   gap: 8px;
+  margin: 2px 0;
 }
 
 .receipt-item-name {
-  font-weight: 600;
+  font-weight: 800;
   flex: 1;
   word-break: break-word;
 }
 
 .receipt-item-price {
-  font-weight: 700;
+  font-weight: 900;
   white-space: nowrap;
   text-align: right;
+  font-size: 14.5px;
 }
 
 .receipt-total-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 14.5px;
+  font-size: 19px;
   font-weight: 900;
   color: #000000;
-  margin: 6px 0 4px;
+  margin: 8px 0 6px;
   letter-spacing: 0.5px;
 }
 
 .receipt-thankyou {
   text-align: center;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
   margin: 10px 0 8px;
   color: #000000;
 }
 
 .receipt-barcode-wrap {
   text-align: center;
-  margin-top: 14px;
+  margin-top: 10px;
   padding-top: 2px;
 }
 
 .receipt-upc-barcode {
-  width: 220px;
-  max-width: 100%;
-  height: auto;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
   display: block;
   margin: 0 auto 5px;
+  shape-rendering: crispEdges !important;
 }
 
 .modal-barcode-card {
@@ -2848,9 +2854,59 @@ body.dark .cat-chip-other      { background: rgba(160,165,175,0.18);color: #A0A5
 .modal-barcode-card:hover {
   box-shadow: 0 2px 12px rgba(0,0,0,0.08);
 }
-.modal-barcode-card .receipt-upc-barcode {
-  width: 240px;
-  max-width: 100%;
+.modal-barcode-card .receipt-upc-barcode,
+.modal-barcode-card .order-modal-barcode-svg,
+.modal-barcode-card svg {
+  width: 100% !important;
+  max-width: 220px !important;
+  height: auto !important;
+  margin: 0 auto !important;
+  display: block !important;
+}
+
+/* Order Detail Modal Action Buttons (Responsive for Desktop & Mobile) */
+.order-modal-actions {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+  margin-top: 6px !important;
+}
+
+.order-modal-right-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+}
+
+@media (max-width: 520px) {
+  .order-modal-actions {
+    flex-direction: column-reverse !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .order-modal-right-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+  .order-modal-right-actions button {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 8px 6px !important;
+    font-size: 12px !important;
+  }
+  #modalOrderDeleteWrap {
+    width: 100% !important;
+  }
+  #modalOrderDeleteWrap button {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 8px 10px !important;
+  }
 }
 
 .receipt-social-link {
@@ -2858,22 +2914,830 @@ body.dark .cat-chip-other      { background: rgba(160,165,175,0.18);color: #A0A5
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
+  gap: 2px;
 }
 
 .receipt-ig-handle {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 13.5px;
+  font-weight: 900;
   letter-spacing: 1px;
   color: #000000;
   font-family: 'Courier New', Courier, monospace;
 }
 
 .receipt-ig-url {
-  font-size: 9.5px;
+  font-size: 11px;
+  font-weight: 700;
   letter-spacing: 0.5px;
-  color: #444444;
+  color: #000000;
   font-family: 'Courier New', Courier, monospace;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PRINTER TARGET SELECTOR (TOPBAR BUTTON & MODAL)
+   ════════════════════════════════════════════════════════════════ */
+.topbar-printer-tabs {
+  display: inline-flex;
+  align-items: center;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  padding: 3px;
+  border-radius: 20px;
+  gap: 2px;
+  user-select: none;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.printer-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  padding: 5px 11px;
+  border-radius: 16px;
+  font-family: var(--font);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+}
+
+.printer-tab-btn svg {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.printer-tab-btn:hover {
+  color: var(--text);
+  background: rgba(125, 125, 125, 0.12);
+}
+
+.printer-tab-btn.active {
+  background: var(--accent);
+  color: #ffffff !important;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.22);
+}
+
+.tab-label-desktop {
+  display: inline;
+}
+.tab-label-mobile {
+  display: none;
+}
+
+body.dark .topbar-printer-tabs {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+body.dark .printer-tab-btn {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+body.dark .printer-tab-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+body.dark .printer-tab-btn.active {
+  background: var(--accent);
+  color: #ffffff !important;
+  box-shadow: 0 1px 8px rgba(197, 138, 54, 0.45);
+}
+
+/* Mobile & Tablet Responsiveness for Topbar & Switcher */
+@media (max-width: 768px) {
+  .topbar-right {
+    gap: 8px !important;
+  }
+  .topbar-printer-tabs {
+    padding: 2px;
+  }
+  .printer-tab-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 600px) {
+  .tab-label-desktop {
+    display: none !important;
+  }
+  .tab-label-mobile {
+    display: inline !important;
+  }
+  .topbar-printer-tabs {
+    padding: 2px;
+    border-radius: 16px;
+  }
+  .printer-tab-btn {
+    padding: 4px 7px;
+    font-size: 10.5px;
+    gap: 3px;
+    border-radius: 12px;
+  }
+  .printer-tab-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .topbar {
+    padding: 0 8px !important;
+    gap: 6px !important;
+  }
+  .topbar-left {
+    gap: 6px !important;
+    min-width: 0 !important;
+  }
+  .page-title {
+    font-size: 14px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 85px !important;
+  }
+  .topbar-right {
+    gap: 4px !important;
+  }
+  .printer-tab-btn {
+    padding: 3px 6px;
+    font-size: 10px;
+  }
+}
+
+.printer-modal-card {
+  max-width: 520px;
+  width: 94vw;
+  padding: 20px 22px 22px;
+}
+.printer-modal-header-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+.printer-options-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0;
+}
+.printer-choice-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: var(--surface-raised);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  user-select: none;
+}
+.printer-choice-card:hover {
+  border-color: var(--accent-warm);
+  transform: translateY(-1px);
+}
+.printer-choice-card.active {
+  border-color: var(--accent);
+  background: rgba(74, 51, 38, 0.08);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+body.dark .printer-choice-card.active {
+  border-color: var(--accent);
+  background: rgba(160, 120, 96, 0.15);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.printer-card-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  margin-top: 3px;
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+.printer-choice-card.active .printer-card-radio {
+  border-color: var(--accent);
+}
+.printer-choice-card.active .printer-card-radio::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.printer-card-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+.printer-card-icon-wrap.cat-theme {
+  background: #FFF4E5;
+  border: 1px solid #FFE0B2;
+}
+body.dark .printer-card-icon-wrap.cat-theme {
+  background: #3B2A1E;
+  border-color: #5A3E2A;
+}
+.printer-card-icon-wrap.standard-theme {
+  background: #E8EEF5;
+  border: 1px solid #C8D8E8;
+}
+body.dark .printer-card-icon-wrap.standard-theme {
+  background: #1C2836;
+  border-color: #2D3E52;
+}
+.printer-card-details {
+  flex: 1;
+}
+.printer-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.printer-name {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.printer-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.printer-tag.thermal-tag {
+  background: rgba(197, 138, 54, 0.18);
+  color: #C58A36;
+  border: 1px solid rgba(197, 138, 54, 0.35);
+}
+.printer-tag.standard-tag {
+  background: rgba(82, 130, 101, 0.18);
+  color: var(--success);
+  border: 1px solid rgba(82, 130, 101, 0.35);
+}
+.printer-card-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 4px 0 8px;
+  line-height: 1.4;
+}
+.printer-features-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.feat-pill {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.printer-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.printer-remember-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.printer-confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.printer-cat-app-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  color: #5d4037;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  margin: 12px 0 6px;
+  box-sizing: border-box;
+}
+body.dark .printer-cat-app-tip {
+  background: rgba(255, 193, 7, 0.12);
+  border-color: rgba(255, 193, 7, 0.25);
+  color: #ffecb3;
+}
+.printer-img-btn {
+  background: #2e7d32 !important;
+  border-color: #2e7d32 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  font-size: 13.5px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.printer-img-btn:hover {
+  background: #256628 !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SC03h-B976 MINI CAT PRINTER — 58mm CONTINUOUS THERMAL ROLL
+   ════════════════════════════════════════════════════════════════ */
+@media print {
+  body.print-target-sc03h {
+    width: 58mm !important;
+    max-width: 58mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'Courier New', Courier, 'SF Mono', monospace !important;
+  }
+
+  body.print-target-sc03h #printSection {
+    width: 58mm !important;
+    max-width: 58mm !important;
+    margin: 0 auto !important;
+    padding: 0 1mm 10mm 1mm !important; /* Bottom tear margin */
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+  }
+
+  body.print-target-sc03h .receipt-paper,
+  .receipt-paper.sc03h-normal-paper {
+    width: 56mm !important;
+    max-width: 56mm !important;
+    margin: 0 auto !important;
+    padding: 2mm 1mm 10mm 1mm !important;
+    font-size: 13.5px !important;
+    line-height: 1.35 !important;
+  }
+
+  body.print-target-sc03h .receipt-title {
+    font-size: 26px !important;
+  }
+  body.print-target-sc03h .receipt-subtitle {
+    font-size: 16px !important;
+  }
+  body.print-target-sc03h .receipt-meta-row {
+    font-size: 13.5px !important;
+  }
+  body.print-target-sc03h .receipt-item-line {
+    font-size: 14px !important;
+  }
+  body.print-target-sc03h .receipt-total-row {
+    font-size: 19.5px !important;
+  }
+  body.print-target-sc03h .receipt-upc-barcode {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ─── SC03H THERMAL RECEIPT ─── */
+.print-receipt-sc03h {
+  width: 56mm !important;
+  max-width: 56mm !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  color: #000000 !important;
+  background: #ffffff !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+
+.receipt-paper-sc03h {
+  width: 100% !important;
+  padding: 2mm 1mm 10mm 1mm !important;
+  color: #000000 !important;
+  background: #ffffff !important;
+  box-sizing: border-box !important;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.sc03h-header {
+  text-align: center;
+  margin-bottom: 6px;
+}
+.sc03h-brand {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #000000;
+  text-transform: uppercase;
+}
+.sc03h-tagline {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #000000;
+  margin-top: 1px;
+}
+.sc03h-solid-bar {
+  border-bottom: 2.5px solid #000000;
+  margin: 5px 0;
+}
+
+.sc03h-order-box {
+  border: 2px solid #000000;
+  padding: 5px 4px;
+  text-align: center;
+  margin: 6px 0;
+  background: #ffffff;
+}
+.sc03h-order-num {
+  font-size: 18px;
+  font-weight: 900;
+  font-family: 'SF Mono', 'Courier New', Courier, monospace;
+  color: #000000;
+  letter-spacing: 0.5px;
+}
+.sc03h-order-date {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #000000;
+  margin-top: 2px;
+}
+
+.sc03h-meta-block {
+  margin: 6px 0;
+  font-size: 11.5px;
+}
+.sc03h-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  margin: 3px 0;
+  color: #000000;
+}
+.sc03h-lbl {
+  font-weight: 800;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #000000;
+}
+.sc03h-val {
+  font-weight: 600;
+  color: #000000;
+  text-align: right;
+}
+.sc03h-bold {
+  font-weight: 800 !important;
+}
+
+.sc03h-status-badge {
+  font-size: 12px;
+  font-weight: 900;
+  border: 2px solid #000000;
+  padding: 1px 6px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.sc03h-status-badge.badge-paid {
+  background: #000000;
+  color: #ffffff !important;
+}
+.sc03h-status-badge.badge-unpaid {
+  background: #ffffff;
+  color: #000000;
+}
+
+.sc03h-thick-divider {
+  text-align: center;
+  font-weight: 900;
+  letter-spacing: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+  margin: 6px 0;
+  font-size: 11px;
+  color: #000000;
+}
+.sc03h-dotted-divider {
+  text-align: center;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  overflow: hidden;
+  white-space: nowrap;
+  margin: 5px 0;
+  font-size: 10px;
+  color: #000000;
+}
+
+.sc03h-items-title {
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 4px 0 2px;
+  color: #000000;
+}
+.sc03h-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.sc03h-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  border-bottom: 1px dashed #cccccc;
+  padding-bottom: 3px;
+}
+.sc03h-item-main {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex: 1;
+}
+.sc03h-item-qty {
+  font-weight: 900;
+  font-size: 13px;
+  color: #000000;
+}
+.sc03h-item-name {
+  font-weight: 800;
+  font-size: 12.5px;
+  color: #000000;
+  word-break: break-word;
+}
+.sc03h-item-price {
+  font-weight: 900;
+  font-size: 13px;
+  white-space: nowrap;
+  text-align: right;
+  color: #000000;
+}
+
+.sc03h-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 3px 0;
+  font-size: 12px;
+  color: #000000;
+}
+
+.sc03h-total-box {
+  border: 3px solid #000000;
+  padding: 6px 4px;
+  text-align: center;
+  margin: 8px 0;
+  background: #ffffff;
+}
+.sc03h-total-title {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #000000;
+}
+.sc03h-total-amount {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: #000000;
+  margin-top: 1px;
+}
+
+.sc03h-barcode-wrap {
+  text-align: center;
+  margin: 10px 0 6px;
+}
+.sc03h-barcode-svg-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+.sc03h-barcode-svg-container svg {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  shape-rendering: crispEdges !important;
+}
+.sc03h-barcode-caption {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  margin-top: 2px;
+  color: #000000;
+}
+
+.sc03h-footer {
+  text-align: center;
+  margin-top: 8px;
+}
+.sc03h-thanks {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #000000;
+}
+.sc03h-ig {
+  font-size: 11px;
+  font-weight: 700;
+  color: #000000;
+  margin-top: 2px;
+}
+.sc03h-cut-hint {
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  margin-top: 8px;
+  color: #444444;
+}
+
+/* ─── SC03H THERMAL REPORT TAPE ─── */
+.print-report-sc03h {
+  width: 56mm !important;
+  max-width: 56mm !important;
+  margin: 0 auto !important;
+  padding: 2mm 1mm 10mm 1mm !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+  color: #000000 !important;
+  background: #ffffff !important;
+  box-sizing: border-box !important;
+}
+.sc03h-report-title {
+  font-size: 16px;
+  font-weight: 900;
+  text-align: center;
+  letter-spacing: 1px;
+  margin: 3px 0;
+  text-transform: uppercase;
+}
+.sc03h-report-meta {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-align: center;
+  color: #222222;
+  margin-bottom: 6px;
+}
+.sc03h-report-kpis {
+  border: 2px solid #000000;
+  padding: 6px;
+  margin: 6px 0;
+}
+.sc03h-kpi-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+  margin: 2px 0;
+}
+.sc03h-kpi-main {
+  font-size: 15px;
+  font-weight: 900;
+  border-bottom: 1.5px solid #000;
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+}
+.sc03h-report-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+.sc03h-entry-card {
+  border-bottom: 1px dashed #777777;
+  padding-bottom: 4px;
+  font-size: 11px;
+}
+.sc03h-entry-header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 800;
+  font-size: 12px;
+}
+.sc03h-entry-sub {
+  color: #222222;
+  margin: 2px 0;
+  font-size: 10.5px;
+}
+.sc03h-entry-footer {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+/* ─── SC03H CONTINUOUS BARCODE STICKER ROLL ─── */
+.print-barcode-sheet.sheet-paper-cat-roll {
+  width: 58mm !important;
+  max-width: 58mm !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  page-break-after: avoid !important;
+  break-after: avoid !important;
+}
+.sheet-paper-cat-roll .cat-roll-sticker {
+  width: 56mm !important;
+  padding: 3mm 1mm 3mm 1mm !important;
+  border-bottom: 2px dashed #000000 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+  margin-bottom: 2mm !important;
+}
+.cat-roll-brand {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.cat-roll-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  margin: 2px 0 1px;
+  word-break: break-word;
+  max-width: 95%;
+}
+.cat-roll-price-box {
+  display: inline-block;
+  border: 2px solid #000000;
+  padding: 2px 8px;
+  font-size: 15px;
+  font-weight: 900;
+  margin: 3px 0 5px;
+  letter-spacing: 0.5px;
+}
+.cat-roll-barcode-container {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+}
+.cat-roll-barcode-container svg {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  shape-rendering: crispEdges !important;
+}
+.cat-roll-sku {
+  font-family: 'SF Mono', 'Courier New', Courier, monospace;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+.cat-roll-cut-guide {
+  font-size: 9px;
+  font-weight: 800;
+  color: #333333;
+  margin-top: 4px;
+  letter-spacing: 1px;
 }
 
 /* ══════════════════════════════════════════════

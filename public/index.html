@@ -128,7 +128,18 @@
           <div id="pageTitle" class="page-title">Orders</div>
         </div>
         <div class="topbar-right">
-          <div class="topbar-date" id="topbarDate"></div>
+          <div class="topbar-printer-tabs" id="topbarPrinterTabs" role="tablist" aria-label="Printer Format">
+            <button type="button" class="printer-tab-btn active" id="tabPrinterSc03h" data-target="sc03h" title="Switch to SC03h-B976 Thermal (58mm)">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              <span class="tab-label-desktop">SC03h-B976</span>
+              <span class="tab-label-mobile">SC03h</span>
+            </button>
+            <button type="button" class="printer-tab-btn" id="tabPrinterNormal" data-target="standard" title="Switch to Normal / A4 Printing">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span class="tab-label-desktop">Normal Printing</span>
+              <span class="tab-label-mobile">Normal</span>
+            </button>
+          </div>
           <div class="topbar-notif-wrap">
             <button id="notifBellBtn" class="topbar-icon-btn" type="button" title="Order Alerts (PC & Laptop)" aria-label="Order Alerts">
               <svg class="bell-icon" id="bellIconActive" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1863,9 +1874,9 @@
         </div>
 
         <!-- On-screen Scannable Barcode -->
-        <div class="modal-barcode-card" id="orderDetailBarcodeWrap" style="background:#ffffff;padding:10px 12px;border-radius:10px;border:1px solid var(--border);text-align:center;color:#000000;">
-          <div style="font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#555555;margin-bottom:4px;font-family:var(--font);">Scannable Barcode</div>
-          <div id="orderDetailBarcodeSvg" style="display:flex;justify-content:center;align-items:center;min-height:50px;"></div>
+        <div class="modal-barcode-card" id="orderDetailBarcodeWrap" style="background:#ffffff;padding:8px 12px;border-radius:10px;border:1px solid var(--border);text-align:center;color:#000000;overflow:hidden;">
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#555555;margin-bottom:2px;font-family:var(--font);">Scannable Barcode</div>
+          <div id="orderDetailBarcodeSvg" style="display:flex;justify-content:center;align-items:center;width:100%;max-width:240px;margin:0 auto;"></div>
         </div>
 
         <div style="background: var(--surface-raised); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);">
@@ -1908,20 +1919,24 @@
           </div>
         </div>
 
-        <div class="modal-actions" style="margin-top: 4px; display: flex; justify-content: space-between; align-items: center;">
+        <div class="modal-actions order-modal-actions">
           <div id="modalOrderDeleteWrap">
-            <button type="button" id="modalOrderDeleteBtn" class="primary-btn danger" style="padding: 8px 16px; font-size: 13px;">Delete Order</button>
+            <button type="button" id="modalOrderDeleteBtn" class="primary-btn danger" style="padding: 8px 14px; font-size: 13px;">Delete Order</button>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <button type="button" id="modalOrderEditBtn" class="primary-btn" style="padding: 8px 16px; font-size: 13px; background:var(--accent-warm); display:inline-flex; align-items:center; gap:6px;">
-              <svg class="lucide lucide-pencil" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-              <span>Edit Order</span>
+          <div class="order-modal-right-actions">
+            <button type="button" id="modalOrderEditBtn" class="primary-btn" style="padding: 8px 14px; font-size: 13px; background:var(--accent-warm); display:inline-flex; align-items:center; gap:5px;">
+              <svg class="lucide lucide-pencil" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+              <span>Edit</span>
             </button>
-            <button type="button" id="modalOrderReceiptBtn" class="ghost-btn" style="padding: 8px 16px; font-size: 13px; display:inline-flex; align-items:center; gap:6px;">
-              <svg class="lucide lucide-printer" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
-              <span>Print Receipt</span>
+            <button type="button" id="modalOrderReceiptBtn" class="ghost-btn" style="padding: 8px 13px; font-size: 13px; display:inline-flex; align-items:center; gap:5px;">
+              <svg class="lucide lucide-printer" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+              <span>Receipt</span>
             </button>
-            <button type="button" class="primary-btn" style="padding: 8px 20px; font-size: 13px;" data-close="orderDetailModal">Close</button>
+            <button type="button" id="modalOrderReceiptPngBtn" class="ghost-btn" style="padding: 8px 12px; font-size: 13px; display:inline-flex; align-items:center; gap:5px; color:#10b981; border-color:rgba(16,185,129,0.35);" title="Download PNG for Thermal Companion App">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>PNG</span>
+            </button>
+            <button type="button" class="primary-btn" style="padding: 8px 16px; font-size: 13px;" data-close="orderDetailModal">Close</button>
           </div>
         </div>
       </div>
@@ -2055,8 +2070,11 @@
         <div class="form-field">
           <label style="font-size:12.5px;font-weight:600;color:var(--text);">Sticker Sheet / Paper Format (A4 & A5 Support)</label>
           <select id="barcodeSheetLayout" style="font-size:13px;font-weight:500;">
+            <optgroup label="Mini Thermal Printers (58mm)">
+              <option value="cat-roll" selected>SC03h-B976 (58mm Continuous Thermal Roll)</option>
+            </optgroup>
             <optgroup label="A4 Paper (210 × 297 mm)">
-              <option value="a4-60" selected>A4 Sheet — 60 Labels (4 cols × 15 rows) [Recommended for 60x]</option>
+              <option value="a4-60">A4 Sheet — 60 Labels (4 cols × 15 rows) [Recommended for 60x]</option>
               <option value="a4-30">A4 Sheet — 30 Labels (3 cols × 10 rows) [Standard Avery 30-up]</option>
               <option value="a4-24">A4 Sheet — 24 Labels (3 cols × 8 rows) [Medium Labels]</option>
               <option value="a4-12">A4 Sheet — 12 Labels (2 cols × 6 rows) [Large Product Labels]</option>
@@ -2104,13 +2122,27 @@
           </div>
         </div>
 
+        <!-- Thermal Printer App Tip inside Barcodes Modal -->
+        <div id="barcodeCatAppNotice" class="printer-cat-app-tip" style="display: flex;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:#10b981;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <div>
+            <strong>Thermal Printer Tip:</strong> Companion apps (WalkPrint, iPrint, Fun Print) reject PDF files with <em>"Unsupported file"</em>. Click <strong>"Save as PNG (Printer App)"</strong> to download ready-to-print sticker images!
+          </div>
+        </div>
+
         <!-- Actions -->
-        <div class="modal-actions" style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;">
+        <div class="modal-actions" style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
           <button type="button" class="ghost-btn" data-close="stockBarcodeModal">Cancel</button>
-          <button type="button" id="confirmPrintBarcodesBtn" class="primary-btn" style="padding:10px 24px;font-size:14px;font-weight:700;display:inline-flex;align-items:center;gap:7px;">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            <span>Print 60 Barcodes</span>
-          </button>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button type="button" id="barcodeSavePngBtn" class="primary-btn printer-img-btn" style="padding:10px 16px;font-size:13.5px;font-weight:700;display:inline-flex;align-items:center;gap:7px;background:#10b981;border-color:#059669;color:#fff;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>Save as PNG (Printer App)</span>
+            </button>
+            <button type="button" id="confirmPrintBarcodesBtn" class="primary-btn" style="padding:10px 20px;font-size:13.5px;font-weight:700;display:inline-flex;align-items:center;gap:7px;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              <span>Print Barcodes</span>
+            </button>
+          </div>
         </div>
 
       </div>
@@ -2379,6 +2411,90 @@
           <button type="submit" class="primary-btn">Save password</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- PRINTER SELECTION MODAL (SC03h-B976 Mini Cat Printer vs Standard A4) -->
+  <div id="printerModal" class="modal hidden">
+    <div class="modal-card printer-modal-card">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="printer-modal-header-icon">🖨️</div>
+          <div>
+            <h3 style="margin:0;font-size:16px;">Choose Printer Destination</h3>
+            <p class="tagline" style="margin-top:2px;font-size:12px;" id="printerDocDesc">Select format for printing</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" data-close="printerModal">&#x2715;</button>
+      </div>
+
+      <div class="printer-options-container">
+        <!-- Option 1: SC03h-B976 Thermal Printer -->
+        <div class="printer-choice-card active" id="printerChoiceCat" data-target="sc03h">
+          <div class="printer-card-radio"></div>
+          <div class="printer-card-icon-wrap cat-theme">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          </div>
+          <div class="printer-card-details">
+            <div class="printer-card-header">
+              <span class="printer-name">SC03h-B976 Thermal Printer</span>
+              <span class="printer-tag thermal-tag">58mm Thermal Roll</span>
+            </div>
+            <p class="printer-card-sub">Big &amp; bold high-contrast thermal layout, continuous full-width barcodes, auto-tear roll feed.</p>
+            <div class="printer-features-pills">
+              <span class="feat-pill">Bold 900 Heavy Typography</span>
+              <span class="feat-pill">Continuous Edge-to-Edge Barcode</span>
+              <span class="feat-pill">Zero Page Breaks</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Option 2: Standard A4 Printer / PDF -->
+        <div class="printer-choice-card" id="printerChoiceStandard" data-target="standard">
+          <div class="printer-card-radio"></div>
+          <div class="printer-card-icon-wrap standard-theme">
+            <span class="printer-emoji">📄</span>
+          </div>
+          <div class="printer-card-details">
+            <div class="printer-card-header">
+              <span class="printer-name">Standard / A4 Printer</span>
+              <span class="printer-tag standard-tag">Office PDF / Paper</span>
+            </div>
+            <p class="printer-card-sub">Standard multi-column tables, full-width reports, signature blocks, and desktop PDF layouts.</p>
+            <div class="printer-features-pills">
+              <span class="feat-pill">A4 / A5 Paper</span>
+              <span class="feat-pill">Full Multi-Column Data</span>
+              <span class="feat-pill">Desktop PDF</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Thermal Printer App Help Tip -->
+      <div id="printerCatAppTip" class="printer-cat-app-tip">
+        <span class="tip-icon">💡</span>
+        <div class="tip-text">
+          <strong>Thermal Printer Tip:</strong> Companion apps (WalkPrint, iPrint, Fun Print) reject PDF files with <em>"Unsupported file"</em>. Click <strong>"Save as PNG Image"</strong> to download a 384px image that prints directly in your printer app!
+        </div>
+      </div>
+
+      <div class="printer-modal-footer">
+        <label class="printer-remember-toggle">
+          <input type="checkbox" id="printerAlwaysAskCheckbox" checked />
+          <span>Always make me choose before printing</span>
+        </label>
+        <div class="modal-actions" style="margin:0;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="ghost-btn" data-close="printerModal">Cancel</button>
+          <button type="button" id="savePrinterImageBtn" class="primary-btn printer-img-btn" style="background:#2e7d32;border-color:#2e7d32;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Save as PNG Image (Cat App)</span>
+          </button>
+          <button type="button" id="confirmPrintTargetBtn" class="primary-btn printer-confirm-btn">
+            <span>Print via Browser</span>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 

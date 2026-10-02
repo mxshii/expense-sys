@@ -303,6 +303,7 @@ function enterApp() {
   if (me.role === "founder") loadUsers();
   initBarcodeScanner();
   initOrderNotifications();
+  initPrinterSystem();
 }
 
 /* ─── FAST BOOTSTRAP LOADER ────────────────────────────────────── */
@@ -477,10 +478,12 @@ function openOrderDetail(orderId) {
   const barcodeSvgEl = $("#orderDetailBarcodeSvg");
   if (barcodeSvgEl) {
     barcodeSvgEl.innerHTML = generateCode128BarcodeSVG(orderCode, {
-      moduleWidth: 2,
-      barHeight: 44,
+      moduleWidth: 1.5,
+      barHeight: 34,
       showText: true,
       displayText: "#" + orderCode,
+      fontSize: 11,
+      className: "order-modal-barcode-svg",
     });
   }
 
@@ -540,6 +543,13 @@ function openOrderDetail(orderId) {
     receiptBtn.onclick = () => {
       $("#orderDetailModal").classList.add("hidden");
       printOrderReceipt(o.id);
+    };
+  }
+
+  const receiptPngBtn = $("#modalOrderReceiptPngBtn");
+  if (receiptPngBtn) {
+    receiptPngBtn.onclick = () => {
+      downloadReceiptPng(o.id);
     };
   }
 
@@ -2551,8 +2561,10 @@ function updateBarcodeLivePreview() {
   // Calculate pages estimate
   const estimateEl = $("#barcodeTotalPagesEstimate");
   if (estimateEl) {
-    if (layout === "thermal") {
-      estimateEl.textContent = `${qty} Label${qty > 1 ? "s" : ""} on Roll`;
+    if (layout === "cat-roll") {
+      estimateEl.textContent = `Continuous Roll (${qty} sticker${qty > 1 ? "s" : ""} on 58mm roll)`;
+    } else if (layout === "thermal") {
+      estimateEl.textContent = `${qty} Label${qty > 1 ? "s" : ""} on 50mm Roll`;
     } else {
       let perSheet = 60;
       let paperLabel = "A4 Sheet";
@@ -2570,12 +2582,19 @@ function updateBarcodeLivePreview() {
     }
   }
 
+  // Toggle Thermal App Notice & Save PNG button
+  const isCat = layout === "cat-roll";
+  const catNotice = $("#barcodeCatAppNotice");
+  if (catNotice) catNotice.style.display = isCat ? "flex" : "none";
+  const savePngBtn = $("#barcodeSavePngBtn");
+  if (savePngBtn) savePngBtn.style.display = isCat ? "inline-flex" : "none";
+
   // Update confirm button text with SVG icon
   const confirmBtn = $("#confirmPrintBarcodesBtn");
   if (confirmBtn) {
     confirmBtn.innerHTML = `
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;display:inline-block;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-      <span>Print ${qty} Barcode${qty > 1 ? "s" : ""}</span>
+      <span>Print ${qty} Barcode${qty > 1 ? "s" : ""}${isCat ? " (SC03h)" : ""}</span>
     `;
   }
 
@@ -2638,7 +2657,7 @@ $("#barcodeSheetLayout").addEventListener("change", updateBarcodeLivePreview);
 $("#confirmPrintBarcodesBtn").addEventListener("click", () => {
   if (!activeBarcodeStockItem) return;
   const qty = Math.max(1, parseInt($("#barcodePrintQty").value, 10) || 60);
-  const layout = $("#barcodeSheetLayout").value || "a4-60";
+  const layout = $("#barcodeSheetLayout").value || "cat-roll";
   const options = {
     showBrand:  $("#optShowBrand").checked,
     showIg:     $("#optShowIg") ? $("#optShowIg").checked : true,
@@ -2649,18 +2668,73 @@ $("#confirmPrintBarcodesBtn").addEventListener("click", () => {
   };
 
   $("#stockBarcodeModal").classList.add("hidden");
-  printStockBarcodesSheet(activeBarcodeStockItem, qty, layout, options);
+
+  const finalTarget = layout === "cat-roll" ? "sc03h" : currentPrinterTarget;
+  printStockBarcodesSheet(activeBarcodeStockItem, qty, layout, options, finalTarget);
 });
 
-function printStockBarcodesSheet(item, qty, layout, options = {}) {
-  // Clear any scroll lock
-  document.body.style.overflow = "";
-  document.documentElement.style.overflow = "";
+const barcodeSavePngBtn = $("#barcodeSavePngBtn");
+if (barcodeSavePngBtn) {
+  barcodeSavePngBtn.addEventListener("click", () => {
+    if (!activeBarcodeStockItem) return;
+    const qty = Math.max(1, parseInt($("#barcodePrintQty").value, 10) || 60);
+    const options = {
+      showBrand:  $("#optShowBrand").checked,
+      showIg:     $("#optShowIg") ? $("#optShowIg").checked : true,
+      showName:   $("#optShowName").checked,
+      showPrice:  $("#optShowPrice").checked,
+      showSku:    $("#optShowSku").checked,
+      showBorder: $("#optShowBorder").checked,
+    };
+    $("#stockBarcodeModal").classList.add("hidden");
+    downloadBarcodeRollPng(activeBarcodeStockItem, qty, options);
+  });
+}
 
+/* ─── SC03h-B976 CONTINUOUS THERMAL BARCODE ROLL GENERATOR ─── */
+function renderSc03hBarcodeRoll(item, qty, options = {}) {
   const sku = formatStockSku(item);
-  const section = $("#printSection");
-  if (!section) return;
+  const showBrand = options.showBrand !== false;
+  const showIg    = options.showIg !== false;
+  const showName  = options.showName !== false;
+  const showPrice = options.showPrice !== false;
+  const showSku   = options.showSku !== false;
 
+  // High-density, high-contrast Code 128 barcode spanning the full 48mm printable area
+  const singleBarcodeSvg = generateCode128BarcodeSVG(sku, {
+    moduleWidth: 2.15,
+    barHeight: 46,
+    showText: false,
+    quietModules: 6,
+  });
+
+  const cells = [];
+  for (let i = 0; i < qty; i++) {
+    cells.push(`
+      <div class="cat-roll-sticker">
+        ${(showBrand || showIg) ? `
+          <div style="display:flex;justify-content:space-between;width:100%;align-items:center;margin-bottom:2px;">
+            ${showBrand ? `<span class="cat-roll-brand">STATIC</span>` : "<span></span>"}
+            ${showIg ? `<span style="font-size:10.5px;font-weight:700;">@static._.eg</span>` : ""}
+          </div>
+        ` : ""}
+        ${showName ? `<div class="cat-roll-title">${escapeHtml(item.itemName)}</div>` : ""}
+        ${showPrice ? `<div class="cat-roll-price-box">${money(item.price)} EGP</div>` : ""}
+        <div class="cat-roll-barcode-container">${singleBarcodeSvg}</div>
+        ${showSku ? `<div class="cat-roll-sku">${escapeHtml(sku)}</div>` : ""}
+      </div>
+    `);
+  }
+
+  return `
+    <div class="print-barcode-sheet sheet-paper-cat-roll">
+      ${cells.join("")}
+    </div>
+  `;
+}
+
+function renderStandardBarcodeSheet(item, qty, layout, options = {}) {
+  const sku = formatStockSku(item);
   const showBrand  = options.showBrand !== false;
   const showIg     = options.showIg !== false;
   const showName   = options.showName !== false;
@@ -2668,60 +2742,31 @@ function printStockBarcodesSheet(item, qty, layout, options = {}) {
   const showSku    = options.showSku !== false;
   const showBorder = options.showBorder !== false;
 
-  // Determine SVG barHeight & moduleWidth based on layout density
   let barHeight = 20;
   let moduleWidth = 1.15;
   let paperClass = "sheet-paper-a4";
   let gridClass = "sheet-grid-a4-60";
 
   if (layout === "a4-60" || layout === "60") {
-    barHeight = 15;
-    moduleWidth = 1.0;
-    paperClass = "sheet-paper-a4";
-    gridClass = "sheet-grid-a4-60";
+    barHeight = 15; moduleWidth = 1.0; paperClass = "sheet-paper-a4"; gridClass = "sheet-grid-a4-60";
   } else if (layout === "a4-30" || layout === "30") {
-    barHeight = 20;
-    moduleWidth = 1.15;
-    paperClass = "sheet-paper-a4";
-    gridClass = "sheet-grid-a4-30";
+    barHeight = 20; moduleWidth = 1.15; paperClass = "sheet-paper-a4"; gridClass = "sheet-grid-a4-30";
   } else if (layout === "a4-24" || layout === "24") {
-    barHeight = 24;
-    moduleWidth = 1.25;
-    paperClass = "sheet-paper-a4";
-    gridClass = "sheet-grid-a4-24";
+    barHeight = 24; moduleWidth = 1.25; paperClass = "sheet-paper-a4"; gridClass = "sheet-grid-a4-24";
   } else if (layout === "a4-12" || layout === "12") {
-    barHeight = 34;
-    moduleWidth = 1.55;
-    paperClass = "sheet-paper-a4";
-    gridClass = "sheet-grid-a4-12";
+    barHeight = 34; moduleWidth = 1.55; paperClass = "sheet-paper-a4"; gridClass = "sheet-grid-a4-12";
   } else if (layout === "a5-30") {
-    barHeight = 15;
-    moduleWidth = 1.0;
-    paperClass = "sheet-paper-a5";
-    gridClass = "sheet-grid-a5-30";
+    barHeight = 15; moduleWidth = 1.0; paperClass = "sheet-paper-a5"; gridClass = "sheet-grid-a5-30";
   } else if (layout === "a5-20") {
-    barHeight = 18;
-    moduleWidth = 1.1;
-    paperClass = "sheet-paper-a5";
-    gridClass = "sheet-grid-a5-20";
+    barHeight = 18; moduleWidth = 1.1; paperClass = "sheet-paper-a5"; gridClass = "sheet-grid-a5-20";
   } else if (layout === "a5-12") {
-    barHeight = 24;
-    moduleWidth = 1.25;
-    paperClass = "sheet-paper-a5";
-    gridClass = "sheet-grid-a5-12";
+    barHeight = 24; moduleWidth = 1.25; paperClass = "sheet-paper-a5"; gridClass = "sheet-grid-a5-12";
   } else if (layout === "a5-8") {
-    barHeight = 32;
-    moduleWidth = 1.45;
-    paperClass = "sheet-paper-a5";
-    gridClass = "sheet-grid-a5-8";
+    barHeight = 32; moduleWidth = 1.45; paperClass = "sheet-paper-a5"; gridClass = "sheet-grid-a5-8";
   } else if (layout === "thermal") {
-    barHeight = 24;
-    moduleWidth = 1.25;
-    paperClass = "sheet-paper-thermal";
-    gridClass = "sheet-grid-thermal";
+    barHeight = 24; moduleWidth = 1.25; paperClass = "sheet-paper-thermal"; gridClass = "sheet-grid-thermal";
   }
 
-  // Pre-generate the crisp SVG barcode once for optimal speed
   const singleBarcodeSvg = generateCode128BarcodeSVG(sku, {
     moduleWidth,
     barHeight,
@@ -2748,22 +2793,24 @@ function printStockBarcodesSheet(item, qty, layout, options = {}) {
     `);
   }
 
-  section.innerHTML = `
+  return `
     <div class="print-barcode-sheet ${paperClass} ${gridClass}">
       ${cells.join("")}
     </div>
   `;
+}
 
-  setTimeout(() => {
-    window.print();
-  }, 100);
+function printStockBarcodesSheet(item, qty, layout, options = {}, target = null) {
+  const isCat = layout === "cat-roll" || target === "sc03h";
+  const finalTarget = isCat ? "sc03h" : (target || "standard");
 
-  const cleanup = () => {
-    section.innerHTML = "";
-    window.removeEventListener("afterprint", cleanup);
-  };
-  window.addEventListener("afterprint", cleanup, { once: true });
-  setTimeout(cleanup, 4000);
+  executePrint(finalTarget, (section) => {
+    if (finalTarget === "sc03h") {
+      section.innerHTML = renderSc03hBarcodeRoll(item, qty, options);
+    } else {
+      section.innerHTML = renderStandardBarcodeSheet(item, qty, layout, options);
+    }
+  });
 }
 
 /* ─── PHYSICAL STORES & CONSIGNED STOCK MODULE ───────────────────── */
@@ -3078,44 +3125,99 @@ function renderStoreItems(items = []) {
   });
 }
 
-async function printStoreSlip(storeId) {
-  let store = allStores.find((s) => s.id === storeId) || activeStore;
-  if (!store && storeId) {
-    try {
-      store = await api(`/api/stores/${storeId}`);
-    } catch (e) {
-      console.warn("Could not find store:", e);
-    }
-  }
-  if (!store) return;
-
-  // Ensure full store items are loaded even if opened directly from card
-  if (!store.items || (activeStore && activeStore.id === store.id && activeStore.items)) {
-    if (activeStore && activeStore.id === store.id && activeStore.items) {
-      store = activeStore;
-    } else {
-      try {
-        const full = await api(`/api/stores/${store.id}`);
-        if (full) store = full;
-      } catch (e) {
-        console.warn("Could not fetch full store details:", e);
-      }
-    }
-  }
-
-  const section = $("#printSection");
-  if (!section) return;
-
-  // Clear any modal scroll locks
-  document.body.style.overflow = "";
-  document.documentElement.style.overflow = "";
-
+/* ─── PHYSICAL STORE DELIVERY SLIP RENDERERS ─── */
+function renderSc03hStoreSlip(store) {
   const items = store.items || [];
   const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   const totalUnits = items.reduce((s, it) => s + (Number(it.quantity) || 0), 0);
   const totalVal = items.reduce((s, it) => s + ((Number(it.quantity) || 0) * (Number(it.price) || 0)), 0);
 
-  section.innerHTML = `
+  return `
+    <div class="print-receipt-sc03h">
+      <div class="receipt-paper-sc03h">
+        <div class="sc03h-header">
+          <div class="sc03h-brand">STATIC</div>
+          <div class="sc03h-tagline">CONSIGNMENT SLIP</div>
+        </div>
+        <div class="sc03h-solid-bar"></div>
+
+        <div class="sc03h-order-box">
+          <div class="sc03h-order-num">${escapeHtml(store.name)}</div>
+          <div class="sc03h-order-date">Partner Consignment · ${dateStr}</div>
+        </div>
+
+        <div class="sc03h-meta-block">
+          ${store.location ? `<div class="sc03h-meta-row"><span class="sc03h-lbl">Location:</span><span class="sc03h-val sc03h-bold">${escapeHtml(store.location)}</span></div>` : ""}
+          ${store.contact ? `<div class="sc03h-meta-row"><span class="sc03h-lbl">Contact:</span><span class="sc03h-val sc03h-bold">${escapeHtml(store.contact)}</span></div>` : ""}
+          <div class="sc03h-meta-row"><span class="sc03h-lbl">Stock Type:</span><span class="sc03h-val">Offline Consigned</span></div>
+          ${store.notes ? `<div class="sc03h-meta-row" style="flex-direction:column;align-items:flex-start;"><span class="sc03h-lbl">Notes:</span><span class="sc03h-val" style="text-align:left;">${escapeHtml(store.notes)}</span></div>` : ""}
+        </div>
+
+        <div class="sc03h-thick-divider">================================</div>
+        <div class="sc03h-items-title">DELIVERED ITEMS (${items.length})</div>
+        <div class="sc03h-thick-divider">--------------------------------</div>
+
+        <div class="sc03h-items-list">
+          ${items.length ? items.map((it) => {
+            const q = Number(it.quantity) || 0;
+            const p = Number(it.price) || 0;
+            const lineTot = q * p;
+            return `
+              <div class="sc03h-item-row" style="flex-direction:column;gap:2px;">
+                <div style="display:flex;justify-content:space-between;width:100%;align-items:baseline;">
+                  <span class="sc03h-item-name" style="font-size:12.5px;font-weight:900;">${escapeHtml(it.itemName)}</span>
+                  <span class="sc03h-item-price" style="font-size:13px;font-weight:900;">${money(lineTot)} EGP</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;width:100%;font-size:11px;color:#222;">
+                  <span>${escapeHtml(it.sku || "—")}</span>
+                  <span><strong>${q} pcs</strong> × ${money(p)} EGP</span>
+                </div>
+              </div>
+            `;
+          }).join("") : '<div style="text-align:center;padding:12px;font-weight:700;">No items consigned.</div>'}
+        </div>
+
+        <div class="sc03h-thick-divider">================================</div>
+
+        <div class="sc03h-summary-row">
+          <span style="font-weight:800;font-size:13px;">TOTAL QUANTITY:</span>
+          <span style="font-weight:900;font-size:14px;">${totalUnits} pcs</span>
+        </div>
+
+        <div class="sc03h-total-box">
+          <div class="sc03h-total-title">TOTAL RETAIL VALUE</div>
+          <div class="sc03h-total-amount">${money(totalVal)} EGP</div>
+        </div>
+
+        <div class="sc03h-thick-divider">--------------------------------</div>
+
+        <div style="margin:12px 0 6px;font-size:11px;">
+          <div style="margin-bottom:10px;">
+            <div style="font-weight:900;text-transform:uppercase;">Delivered By (Static):</div>
+            <div style="margin-top:16px;border-bottom:1.5px solid #000;"></div>
+          </div>
+          <div>
+            <div style="font-weight:900;text-transform:uppercase;">Received By (${escapeHtml(store.name)}):</div>
+            <div style="margin-top:16px;border-bottom:1.5px solid #000;"></div>
+          </div>
+        </div>
+
+        <div class="sc03h-footer">
+          <div class="sc03h-thanks">STATIC CONSIGNMENT SYSTEM</div>
+          <div class="sc03h-ig">@static._.eg</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderStandardStoreSlip(store) {
+  const items = store.items || [];
+  const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const totalUnits = items.reduce((s, it) => s + (Number(it.quantity) || 0), 0);
+  const totalVal = items.reduce((s, it) => s + ((Number(it.quantity) || 0) * (Number(it.price) || 0)), 0);
+
+  return `
     <div class="print-page print-report-page">
       <div class="print-header">
         <div class="print-logo-row">
@@ -3184,17 +3286,41 @@ async function printStoreSlip(storeId) {
       </div>
     </div>
   `;
+}
 
-  setTimeout(() => {
-    window.print();
-  }, 120);
+async function printStoreSlip(storeId, target = null) {
+  let store = allStores.find((s) => s.id === storeId) || activeStore;
+  if (!store && storeId) {
+    try {
+      store = await api(`/api/stores/${storeId}`);
+    } catch (e) {
+      console.warn("Could not find store:", e);
+    }
+  }
+  if (!store) return;
 
-  const cleanup = () => {
-    section.innerHTML = "";
-    window.removeEventListener("afterprint", cleanup);
-  };
-  window.addEventListener("afterprint", cleanup, { once: true });
-  setTimeout(cleanup, 4000);
+  // Ensure full store items are loaded even if opened directly from card
+  if (!store.items || (activeStore && activeStore.id === store.id && activeStore.items)) {
+    if (activeStore && activeStore.id === store.id && activeStore.items) {
+      store = activeStore;
+    } else {
+      try {
+        const full = await api(`/api/stores/${store.id}`);
+        if (full) store = full;
+      } catch (e) {
+        console.warn("Could not fetch full store details:", e);
+      }
+    }
+  }
+
+  const finalTarget = target || currentPrinterTarget || "sc03h";
+  executePrint(finalTarget, (section) => {
+    if (finalTarget === "sc03h") {
+      section.innerHTML = renderSc03hStoreSlip(store);
+    } else {
+      section.innerHTML = renderStandardStoreSlip(store);
+    }
+  });
 }
 
 // Wire up store forms and controls
@@ -3846,7 +3972,271 @@ function renderRevenue() {
   });
 }
 
-/* ─── PRINT SYSTEM ─────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════
+   PRINT & EXPORT ENGINE (SC03h-B976 Mini Cat Printer & Standard A4)
+   ════════════════════════════════════════════════════════════════ */
+
+// Active Printer Target: "sc03h" (SC03h-B976 Thermal Printer) or "standard" (Normal / A4)
+let currentPrinterTarget = localStorage.getItem("static_printer_target") || "sc03h";
+let printerAlwaysAsk = false;
+let pendingPrintJob = null;
+let selectedModalTarget = currentPrinterTarget;
+
+function updateTopbarPrinterTabs() {
+  const sc03hBtn = $("#tabPrinterSc03h");
+  const normalBtn = $("#tabPrinterNormal");
+  const isSc03h = currentPrinterTarget === "sc03h";
+  if (sc03hBtn) sc03hBtn.classList.toggle("active", isSc03h);
+  if (normalBtn) normalBtn.classList.toggle("active", !isSc03h);
+}
+
+function updateTopbarPrinterBadge() {
+  updateTopbarPrinterTabs();
+}
+
+function selectPrinterChoiceCard(target) {
+  selectedModalTarget = target;
+  const catCard = $("#printerChoiceCat");
+  const stdCard = $("#printerChoiceStandard");
+  const saveImgBtn = $("#savePrinterImageBtn");
+  const catTip = $("#printerCatAppTip");
+
+  if (catCard && stdCard) {
+    if (target === "sc03h") {
+      catCard.classList.add("active");
+      stdCard.classList.remove("active");
+      if (saveImgBtn) saveImgBtn.style.display = "inline-flex";
+      if (catTip) catTip.style.display = "flex";
+    } else {
+      catCard.classList.remove("active");
+      stdCard.classList.add("active");
+      if (saveImgBtn) saveImgBtn.style.display = "none";
+      if (catTip) catTip.style.display = "none";
+    }
+  }
+}
+
+function initPrinterSystem() {
+  updateTopbarPrinterTabs();
+
+  const sc03hBtn = $("#tabPrinterSc03h");
+  const normalBtn = $("#tabPrinterNormal");
+
+  if (sc03hBtn && !sc03hBtn.dataset.bound) {
+    sc03hBtn.dataset.bound = "1";
+    sc03hBtn.addEventListener("click", () => {
+      currentPrinterTarget = "sc03h";
+      localStorage.setItem("static_printer_target", "sc03h");
+      updateTopbarPrinterTabs();
+    });
+  }
+
+  if (normalBtn && !normalBtn.dataset.bound) {
+    normalBtn.dataset.bound = "1";
+    normalBtn.addEventListener("click", () => {
+      currentPrinterTarget = "standard";
+      localStorage.setItem("static_printer_target", "standard");
+      updateTopbarPrinterTabs();
+    });
+  }
+
+  const catCard = $("#printerChoiceCat");
+  const stdCard = $("#printerChoiceStandard");
+  if (catCard && !catCard.dataset.bound) {
+    catCard.dataset.bound = "1";
+    catCard.addEventListener("click", () => selectPrinterChoiceCard("sc03h"));
+  }
+  if (stdCard && !stdCard.dataset.bound) {
+    stdCard.dataset.bound = "1";
+    stdCard.addEventListener("click", () => selectPrinterChoiceCard("standard"));
+  }
+
+  const alwaysAskBox = $("#printerAlwaysAskCheckbox");
+  if (alwaysAskBox && !alwaysAskBox.dataset.bound) {
+    alwaysAskBox.dataset.bound = "1";
+    alwaysAskBox.checked = printerAlwaysAsk;
+    alwaysAskBox.addEventListener("change", () => {
+      printerAlwaysAsk = alwaysAskBox.checked;
+      localStorage.setItem("static_printer_always_ask", printerAlwaysAsk ? "true" : "false");
+    });
+  }
+
+  const modalEl = $("#printerModal");
+  if (modalEl && !modalEl.dataset.boundClose) {
+    modalEl.dataset.boundClose = "1";
+    modalEl.querySelectorAll("[data-close='printerModal']").forEach((b) => {
+      b.addEventListener("click", () => {
+        pendingPrintJob = null;
+      });
+    });
+  }
+
+  // Handle Save as PNG Image (for Cat Printer Companion App)
+  const saveImgBtn = $("#savePrinterImageBtn");
+  if (saveImgBtn && !saveImgBtn.dataset.bound) {
+    saveImgBtn.dataset.bound = "1";
+    saveImgBtn.addEventListener("click", () => {
+      const modal = $("#printerModal");
+      if (modal) modal.classList.add("hidden");
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+
+      if (pendingPrintJob) {
+        const job = pendingPrintJob;
+        pendingPrintJob = null;
+
+        if (job.type === "order" && job.orderId) {
+          downloadReceiptPng(job.orderId);
+        } else if (job.type === "barcode" && job.item) {
+          downloadBarcodeRollPng(job.item, job.qty || 10, job.options || {});
+        } else if (job.type === "report" && job.reportType) {
+          downloadReportPng(job.reportType, job.period || "month");
+        } else if (job.type === "store" && job.storeId) {
+          downloadStoreSlipPng(job.storeId);
+        } else if (typeof job.onConfirm === "function") {
+          job.onConfirm("sc03h");
+        }
+      }
+    });
+  }
+
+  const confirmBtn = $("#confirmPrintTargetBtn");
+  if (confirmBtn && !confirmBtn.dataset.bound) {
+    confirmBtn.dataset.bound = "1";
+    confirmBtn.addEventListener("click", () => {
+      const chosen = selectedModalTarget || "sc03h";
+      const alwaysAsk = alwaysAskBox ? alwaysAskBox.checked : true;
+      printerAlwaysAsk = alwaysAsk;
+      localStorage.setItem("static_printer_always_ask", alwaysAsk ? "true" : "false");
+
+      currentPrinterTarget = chosen;
+      localStorage.setItem("static_printer_target", chosen);
+      updateTopbarPrinterBadge();
+
+      const modal = $("#printerModal");
+      if (modal) modal.classList.add("hidden");
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+
+      if (pendingPrintJob && typeof pendingPrintJob.onConfirm === "function") {
+        const job = pendingPrintJob;
+        pendingPrintJob = null;
+        job.onConfirm(chosen);
+      }
+    });
+  }
+}
+
+function requestPrinterChoice(options = {}) {
+  const modal = $("#printerModal");
+  if (!modal) {
+    if (typeof options.onConfirm === "function") options.onConfirm(options.defaultTarget || currentPrinterTarget || "sc03h");
+    return;
+  }
+
+  pendingPrintJob = {
+    type: options.type || "generic",
+    orderId: options.orderId,
+    item: options.item,
+    qty: options.qty,
+    options: options.options,
+    reportType: options.reportType,
+    period: options.period,
+    storeId: options.storeId,
+    docTitle: options.docTitle,
+    defaultTarget: options.defaultTarget,
+    onConfirm: options.onConfirm,
+    mode: options.mode || "print",
+  };
+  selectedModalTarget = options.defaultTarget || currentPrinterTarget || "sc03h";
+  selectPrinterChoiceCard(selectedModalTarget);
+
+  const descEl = $("#printerDocDesc");
+  if (descEl) {
+    descEl.textContent = options.docTitle || "Select destination format for printing";
+  }
+
+  const confirmBtn = $("#confirmPrintTargetBtn");
+  if (confirmBtn) {
+    const btnSpan = confirmBtn.querySelector("span");
+    if (btnSpan) {
+      btnSpan.textContent = options.mode === "settings" ? "Save Default" : "Print via Browser";
+    }
+  }
+
+  const alwaysAskBox = $("#printerAlwaysAskCheckbox");
+  if (alwaysAskBox) {
+    alwaysAskBox.checked = printerAlwaysAsk;
+  }
+
+  modal.classList.remove("hidden");
+}
+
+function executePrint(target, renderFn) {
+  const section = $("#printSection");
+  if (!section) return;
+
+  // Clear any modal scroll locks
+  document.body.style.overflow = "";
+  document.documentElement.style.overflow = "";
+
+  if (target === "sc03h") {
+    document.body.classList.add("print-target-sc03h");
+    document.body.classList.remove("print-target-standard");
+  } else {
+    document.body.classList.add("print-target-standard");
+    document.body.classList.remove("print-target-sc03h");
+  }
+
+  // Dynamic @page rule: 58mm auto for continuous thermal roll vs auto for A4
+  let dynStyle = document.getElementById("dynamicPrintPageStyle");
+  if (!dynStyle) {
+    dynStyle = document.createElement("style");
+    dynStyle.id = "dynamicPrintPageStyle";
+    document.head.appendChild(dynStyle);
+  }
+
+  if (target === "sc03h") {
+    dynStyle.innerHTML = `
+      @page {
+        size: 58mm auto !important;
+        margin: 0mm !important;
+      }
+      @media print {
+        html, body {
+          width: 58mm !important;
+          margin: 0 auto !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+          color: #000000 !important;
+        }
+      }
+    `;
+  } else {
+    dynStyle.innerHTML = `
+      @page {
+        size: auto !important;
+        margin: 5mm auto !important;
+      }
+    `;
+  }
+
+  renderFn(section);
+
+  setTimeout(() => {
+    window.print();
+  }, 120);
+
+  const cleanup = () => {
+    section.innerHTML = "";
+    document.body.classList.remove("print-target-sc03h");
+    document.body.classList.remove("print-target-standard");
+    if (dynStyle) dynStyle.innerHTML = "";
+    window.removeEventListener("afterprint", cleanup);
+  };
+  window.addEventListener("afterprint", cleanup, { once: true });
+  setTimeout(cleanup, 5000);
+}
 
 /** Filter an array to the selected period. dateField defaults to 'createdAt'. */
 function filterByPeriod(items, period, dateField = "createdAt") {
@@ -3865,8 +4255,251 @@ function filterByPeriod(items, period, dateField = "createdAt") {
 
 const PERIOD_LABEL = { all: "All Time", month: "This Month", week: "This Week" };
 
-function printReport(type, period) {
-  const section = $("#printSection");
+/* ─── SC03h CONTINUOUS THERMAL REPORT RENDERER ─────────────────── */
+function renderSc03hReport(type, period) {
+  const label   = PERIOD_LABEL[period] || period || "";
+  const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const byStr   = me ? me.username : "Staff";
+
+  let reportTitle = "REPORT SUMMARY";
+  let kpisHtml = "";
+  let entriesHtml = "";
+
+  if (type === "orders") {
+    reportTitle = "ORDERS SUMMARY";
+    const data = filterByPeriod(allOrders, period);
+    const totalRevenue = data.reduce((s, o) =>
+      s + (o.items || []).reduce((si, it) => si + it.qty * it.price, 0) + Number(o.shippingPrice || 0), 0);
+    const paid      = data.filter((o) => o.paymentStatus  === "paid").length;
+    const delivered = data.filter((o) => o.deliveryStatus === "delivered").length;
+
+    kpisHtml = `
+      <div class="sc03h-report-kpis">
+        <div class="sc03h-kpi-row sc03h-kpi-main">
+          <span>TOTAL REVENUE:</span>
+          <span>${money(totalRevenue)} EGP</span>
+        </div>
+        <div class="sc03h-kpi-row"><span>Total Orders:</span><span style="font-weight:900;">${data.length}</span></div>
+        <div class="sc03h-kpi-row"><span>Paid Orders:</span><span style="font-weight:900;">${paid}</span></div>
+        <div class="sc03h-kpi-row"><span>Delivered:</span><span style="font-weight:900;">${delivered}</span></div>
+      </div>
+    `;
+
+    entriesHtml = data.length ? data.map((o, idx) => {
+      const tot = (o.items || []).reduce((s, it) => s + it.qty * it.price, 0) + Number(o.shippingPrice || 0);
+      const itemsList = (o.items || []).map((it) => `${it.qty}x ${it.name}`).join(", ") || "—";
+      const code = formatOrderId(o.id);
+      return `
+        <div class="sc03h-entry-card">
+          <div class="sc03h-entry-header">
+            <span>#${idx + 1} · ORD-${escapeHtml(code)}</span>
+            <span>${money(tot)} EGP</span>
+          </div>
+          <div class="sc03h-entry-sub"><strong>${escapeHtml(o.customerName)}</strong> ${o.phone ? `(${escapeHtml(o.phone)})` : ""}</div>
+          <div class="sc03h-entry-sub" style="font-size:10px;">${escapeHtml(itemsList)}</div>
+          <div class="sc03h-entry-footer">
+            <span style="text-transform:uppercase;">${escapeHtml(o.paymentStatus)} · ${escapeHtml(o.deliveryStatus)}</span>
+            <span>${formatDate12h(o.createdAt)}</span>
+          </div>
+        </div>
+      `;
+    }).join("") : '<div style="text-align:center;padding:12px;font-size:11px;">No orders found for this period.</div>';
+
+  } else if (type === "expenses") {
+    reportTitle = "EXPENSES SUMMARY";
+    const data = filterByPeriod(allExpenses, period);
+    const cats = ["Ads", "Printing", "Packaging", "Delivery"];
+    const totals = { all: 0 };
+    cats.forEach((c) => (totals[c] = 0));
+    data.forEach((e) => {
+      totals.all += e.amount;
+      if (totals[e.category] !== undefined) totals[e.category] += e.amount;
+    });
+
+    kpisHtml = `
+      <div class="sc03h-report-kpis">
+        <div class="sc03h-kpi-row sc03h-kpi-main">
+          <span>TOTAL SPENT:</span>
+          <span>${egp(totals.all)}</span>
+        </div>
+        <div class="sc03h-kpi-row"><span>Ads:</span><span style="font-weight:900;">${egp(totals.Ads)}</span></div>
+        <div class="sc03h-kpi-row"><span>Printing:</span><span style="font-weight:900;">${egp(totals.Printing)}</span></div>
+        <div class="sc03h-kpi-row"><span>Packaging:</span><span style="font-weight:900;">${egp(totals.Packaging)}</span></div>
+        <div class="sc03h-kpi-row"><span>Delivery:</span><span style="font-weight:900;">${egp(totals.Delivery)}</span></div>
+      </div>
+    `;
+
+    entriesHtml = data.length ? data.slice().reverse().map((e, idx) => `
+      <div class="sc03h-entry-card">
+        <div class="sc03h-entry-header">
+          <span>#${idx + 1} [${escapeHtml(e.category)}]</span>
+          <span>${egp(e.amount)}</span>
+        </div>
+        <div class="sc03h-entry-sub">${escapeHtml(e.description)}${e.note ? ` · ${escapeHtml(e.note)}` : ""}</div>
+        <div class="sc03h-entry-footer">
+          <span>By: ${escapeHtml(e.loggedBy || "—")}</span>
+          <span>${formatDate12h(e.createdAt)}</span>
+        </div>
+      </div>
+    `).join("") : '<div style="text-align:center;padding:12px;font-size:11px;">No expenses found for this period.</div>';
+
+  } else if (type === "brand-expenses") {
+    reportTitle = "BRAND EXPENSES";
+    const data = filterByPeriod(allBrandExpenses, period);
+    const cats = ["Ads", "Printing", "Packaging", "Delivery", "Operations", "Other"];
+    const totals = { all: 0 };
+    cats.forEach((c) => (totals[c] = 0));
+    data.forEach((e) => {
+      totals.all += e.amount;
+      if (totals[e.category] !== undefined) totals[e.category] += e.amount;
+    });
+
+    kpisHtml = `
+      <div class="sc03h-report-kpis">
+        <div class="sc03h-kpi-row sc03h-kpi-main">
+          <span>TOTAL BRAND:</span>
+          <span>${egp(totals.all)}</span>
+        </div>
+        <div class="sc03h-kpi-row"><span>Ads:</span><span>${egp(totals.Ads)}</span></div>
+        <div class="sc03h-kpi-row"><span>Printing:</span><span>${egp(totals.Printing)}</span></div>
+        <div class="sc03h-kpi-row"><span>Packaging:</span><span>${egp(totals.Packaging)}</span></div>
+        <div class="sc03h-kpi-row"><span>Delivery:</span><span>${egp(totals.Delivery)}</span></div>
+        <div class="sc03h-kpi-row"><span>Operations:</span><span>${egp(totals.Operations)}</span></div>
+      </div>
+    `;
+
+    entriesHtml = data.length ? data.slice().reverse().map((e, idx) => `
+      <div class="sc03h-entry-card">
+        <div class="sc03h-entry-header">
+          <span>#${idx + 1} [${escapeHtml(e.category)}]</span>
+          <span>${egp(e.amount)}</span>
+        </div>
+        <div class="sc03h-entry-sub">${escapeHtml(e.description)}${e.note ? ` · ${escapeHtml(e.note)}` : ""}</div>
+        <div class="sc03h-entry-footer">
+          <span>By: ${escapeHtml(e.loggedBy || "—")}</span>
+          <span>${formatDate12h(e.createdAt)}</span>
+        </div>
+      </div>
+    `).join("") : '<div style="text-align:center;padding:12px;font-size:11px;">No brand expenses found.</div>';
+
+  } else if (type === "revenue") {
+    reportTitle = "REVENUE SUMMARY";
+    const data = filterByPeriod(allRevenue, period);
+    const totals = { all: 0, Stickers: 0, Posters: 0, "Mail Subscription": 0, Other: 0 };
+    data.forEach((r) => {
+      totals.all += r.amount;
+      if (totals[r.category] !== undefined) totals[r.category] += r.amount;
+    });
+
+    kpisHtml = `
+      <div class="sc03h-report-kpis">
+        <div class="sc03h-kpi-row sc03h-kpi-main">
+          <span>TOTAL REVENUE:</span>
+          <span>${egp(totals.all)}</span>
+        </div>
+        <div class="sc03h-kpi-row"><span>Stickers:</span><span>${egp(totals.Stickers)}</span></div>
+        <div class="sc03h-kpi-row"><span>Posters:</span><span>${egp(totals.Posters)}</span></div>
+        <div class="sc03h-kpi-row"><span>Mail Sub:</span><span>${egp(totals["Mail Subscription"])}</span></div>
+        <div class="sc03h-kpi-row"><span>Other:</span><span>${egp(totals.Other)}</span></div>
+      </div>
+    `;
+
+    entriesHtml = data.length ? data.slice().reverse().map((r, idx) => `
+      <div class="sc03h-entry-card">
+        <div class="sc03h-entry-header">
+          <span>#${idx + 1} [${escapeHtml(r.category)}]</span>
+          <span>${egp(r.amount)}</span>
+        </div>
+        <div class="sc03h-entry-sub">${escapeHtml(r.description)}${r.note ? ` · ${escapeHtml(r.note)}` : ""}</div>
+        <div class="sc03h-entry-footer">
+          <span>By: ${escapeHtml(r.collectedBy || "—")}</span>
+          <span>${formatDate12h(r.createdAt)}</span>
+        </div>
+      </div>
+    `).join("") : '<div style="text-align:center;padding:12px;font-size:11px;">No revenue logged for this period.</div>';
+
+  } else if (type === "brand-funds") {
+    reportTitle = "TREASURY & BRAND FUNDS";
+    const revData = filterByPeriod(allRevenue, period);
+    const expData = filterByPeriod(allBrandExpenses, period);
+    const totalRev = revData.reduce((s, r) => s + r.amount, 0);
+    const totalExp = expData.reduce((s, e) => s + e.amount, 0);
+    const netFunds = totalRev - totalExp;
+
+    const txs = [
+      ...revData.map((r) => ({ type: "Inflow", ...r })),
+      ...expData.map((e) => ({ type: "Outflow", ...e }))
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    kpisHtml = `
+      <div class="sc03h-report-kpis">
+        <div class="sc03h-kpi-row sc03h-kpi-main">
+          <span>NET FUNDS:</span>
+          <span>${egp(netFunds)}</span>
+        </div>
+        <div class="sc03h-kpi-row"><span>Total Inflow (+):</span><span style="font-weight:900;">${egp(totalRev)}</span></div>
+        <div class="sc03h-kpi-row"><span>Total Outflow (−):</span><span style="font-weight:900;">${egp(totalExp)}</span></div>
+      </div>
+    `;
+
+    entriesHtml = txs.length ? txs.map((t, idx) => `
+      <div class="sc03h-entry-card">
+        <div class="sc03h-entry-header">
+          <span>#${idx + 1} ${t.type === 'Inflow' ? '[+]' : '[−]'} ${escapeHtml(t.category)}</span>
+          <span style="font-weight:900;">${t.type === 'Inflow' ? '+' : '−'}${egp(Math.abs(t.amount))}</span>
+        </div>
+        <div class="sc03h-entry-sub">${escapeHtml(t.description)}</div>
+        <div class="sc03h-entry-footer">
+          <span>${escapeHtml(t.collectedBy || t.loggedBy || "—")}</span>
+          <span>${formatDate12h(t.createdAt)}</span>
+        </div>
+      </div>
+    `).join("") : '<div style="text-align:center;padding:12px;font-size:11px;">No transactions recorded.</div>';
+  }
+
+  const barcodeReportSvg = generateCode128BarcodeSVG(
+    "RPT-" + type.toUpperCase().slice(0, 4) + "-" + period.toUpperCase(),
+    { moduleWidth: 2.15, barHeight: 40, showText: false, quietModules: 6 }
+  );
+
+  return `
+    <div class="print-report-sc03h">
+      <div class="sc03h-header">
+        <div class="sc03h-brand">STATIC</div>
+        <div class="sc03h-report-title">${reportTitle}</div>
+        <div class="sc03h-report-meta">${label} · ${dateStr}<br/>Generated by ${escapeHtml(byStr)}</div>
+      </div>
+      <div class="sc03h-solid-bar"></div>
+
+      ${kpisHtml}
+
+      <div class="sc03h-thick-divider">================================</div>
+      <div class="sc03h-items-title">RECORDED ENTRIES</div>
+      <div class="sc03h-thick-divider">--------------------------------</div>
+
+      <div class="sc03h-report-entries">
+        ${entriesHtml}
+      </div>
+
+      <div class="sc03h-thick-divider">================================</div>
+
+      <div class="sc03h-barcode-wrap">
+        <div class="sc03h-barcode-svg-container">
+          ${barcodeReportSvg}
+        </div>
+        <div class="sc03h-barcode-caption">* STATIC FINANCIAL SYSTEM · ${dateStr} *</div>
+      </div>
+
+      <div class="sc03h-footer">
+        <div class="sc03h-thanks">STATIC ARCHIVE &amp; REPORT</div>
+        <div class="sc03h-ig">@static._.eg</div>
+      </div>
+    </div>
+  `;
+}
+
+/* ─── STANDARD A4 REPORT RENDERER ──────────────────────────────── */
+function renderStandardReport(type, period) {
   const label   = PERIOD_LABEL[period] || "";
   const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
   const byStr   = me ? me.username : "";
@@ -3878,7 +4511,7 @@ function printReport(type, period) {
     const paid      = data.filter((o) => o.paymentStatus  === "paid").length;
     const delivered = data.filter((o) => o.deliveryStatus === "delivered").length;
 
-    section.innerHTML = `
+    return `
       <div class="print-brand">
         <div class="print-brand-name">STATIC</div>
         <div class="print-brand-sub">Orders Report &mdash; ${label}</div>
@@ -3926,7 +4559,7 @@ function printReport(type, period) {
       if (totals[e.category] !== undefined) totals[e.category] += e.amount;
     });
 
-    section.innerHTML = `
+    return `
       <div class="print-brand">
         <div class="print-brand-name">STATIC</div>
         <div class="print-brand-sub">Expense Report &mdash; ${label}</div>
@@ -3969,7 +4602,7 @@ function printReport(type, period) {
       if (totals[e.category] !== undefined) totals[e.category] += e.amount;
     });
 
-    section.innerHTML = `
+    return `
       <div class="print-brand">
         <div class="print-brand-name">STATIC</div>
         <div class="print-brand-sub">Brand Expenses Report (Company Funds) &mdash; ${label}</div>
@@ -4011,7 +4644,7 @@ function printReport(type, period) {
       if (totals[r.category] !== undefined) totals[r.category] += r.amount;
     });
 
-    section.innerHTML = `
+    return `
       <div class="print-brand">
         <div class="print-brand-name">STATIC</div>
         <div class="print-brand-sub">Revenue Report &mdash; ${label}</div>
@@ -4056,7 +4689,7 @@ function printReport(type, period) {
       ...expData.map(e => ({ type: "Outflow", ...e }))
     ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    section.innerHTML = `
+    return `
       <div class="print-brand">
         <div class="print-brand-name">STATIC</div>
         <div class="print-brand-sub">Brand Funds & Treasury Report &mdash; ${label}</div>
@@ -4092,31 +4725,30 @@ function printReport(type, period) {
     `;
   }
 
-  setTimeout(() => {
-    window.print();
-  }, 50);
-
-  window.addEventListener("afterprint", () => {
-    section.innerHTML = "";
-  }, { once: true });
+  return "";
 }
 
-/* ─── CUSTOMER RECEIPT ───────────────────────────────────────── */
-function printOrderReceipt(orderId) {
-  const o = allOrders.find((item) => String(item.id) === String(orderId));
-  if (!o) return;
+function printReport(type, period, target = null) {
+  const finalTarget = target || currentPrinterTarget || "sc03h";
 
-  // Clear any potential scroll lock from open modals/sidebars
-  document.body.style.overflow = "";
-  document.documentElement.style.overflow = "";
+  executePrint(finalTarget, (section) => {
+    if (finalTarget === "sc03h") {
+      section.innerHTML = renderSc03hReport(type, period);
+    } else {
+      section.innerHTML = renderStandardReport(type, period);
+    }
+  });
+}
 
+/* ─── CUSTOMER RECEIPT RENDERER (NORMAL DESIGN — WORDS BIGGER & BOLDER) ─── */
+function renderNormalReceipt(o, isCat = false) {
   const itemsSubtotal = (o.items || []).reduce((sum, it) => {
     const q = Number(it.qty ?? it.quantity ?? 1) || 0;
     const p = Number(it.price ?? it.unitPrice ?? 0) || 0;
     return sum + (q * p);
   }, 0);
-  const shipping      = Number(o.shippingPrice || 0);
-  const grandTotal    = itemsSubtotal + shipping;
+  const shipping   = Number(o.shippingPrice || 0);
+  const grandTotal = itemsSubtotal + shipping;
 
   const orderDate = new Date(o.createdAt || Date.now());
   const dateFormatted = !isNaN(orderDate.getTime())
@@ -4127,6 +4759,7 @@ function printOrderReceipt(orderId) {
     : "";
 
   const orderCode = formatOrderId(o.id);
+  const paymentStatus = (o.paymentStatus || "unpaid").toUpperCase();
 
   const itemsRows = (o.items && o.items.length > 0)
     ? o.items.map((it) => {
@@ -4139,15 +4772,22 @@ function printOrderReceipt(orderId) {
           <span class="receipt-item-price">${money(q * p)} EGP</span>
         </div>
       `;
-    }).join("")
-    : `<div class="receipt-item-line"><span>1 x Custom Order</span><span>${money(grandTotal)} EGP</span></div>`;
+      }).join("")
+    : `<div class="receipt-item-line"><span class="receipt-item-name">1 x Custom Order</span><span class="receipt-item-price">${money(grandTotal)} EGP</span></div>`;
 
-  const paymentStatus = (o.paymentStatus || "unpaid").toUpperCase();
+  // Continuous high-contrast Code 128 barcode
+  const barcodeSvg = generateCode128BarcodeSVG(orderCode, {
+    moduleWidth: isCat ? 2.15 : 2.0,
+    barHeight: isCat ? 54 : 48,
+    showText: true,
+    displayText: "ORDER #" + orderCode,
+    fontSize: isCat ? 13 : 11.5,
+    className: "receipt-upc-barcode continuous-barcode",
+  });
 
-  const section = $("#printSection");
-  section.innerHTML = `
-    <div class="print-receipt">
-      <div class="receipt-paper">
+  return `
+    <div class="print-receipt ${isCat ? 'target-sc03h-receipt' : ''}">
+      <div class="receipt-paper ${isCat ? 'sc03h-normal-paper' : ''}">
         <div class="receipt-stars">****************************************</div>
         <div class="receipt-title">RECEIPT</div>
         <div class="receipt-subtitle">STATIC</div>
@@ -4164,12 +4804,12 @@ function printOrderReceipt(orderId) {
         ${o.phone ? `
         <div class="receipt-meta-row">
           <span>Phone:</span>
-          <span>${escapeHtml(o.phone)}</span>
+          <span style="font-weight:700;">${escapeHtml(o.phone)}</span>
         </div>` : ""}
         ${o.address ? `
         <div class="receipt-meta-row" style="align-items:flex-start;">
           <span>Address:</span>
-          <span style="text-align:right;max-width:65%;word-break:break-word;">${escapeHtml(o.address)}</span>
+          <span style="text-align:right;max-width:65%;word-break:break-word;font-weight:600;">${escapeHtml(o.address)}</span>
         </div>` : ""}
         <div class="receipt-meta-row">
           <span>Payment:</span>
@@ -4186,11 +4826,11 @@ function printOrderReceipt(orderId) {
 
         <div class="receipt-meta-row">
           <span>Items Subtotal:</span>
-          <span style="font-weight:600;">${money(itemsSubtotal)} EGP</span>
+          <span style="font-weight:700;">${money(itemsSubtotal)} EGP</span>
         </div>
         <div class="receipt-meta-row">
           <span>Shipping:</span>
-          <span style="font-weight:600;">${money(shipping)} EGP</span>
+          <span style="font-weight:700;">${money(shipping)} EGP</span>
         </div>
 
         <div class="receipt-divider-dash">----------------------------------------</div>
@@ -4205,7 +4845,7 @@ function printOrderReceipt(orderId) {
         <div class="receipt-thankyou">********** THANK YOU! **********</div>
 
         <div class="receipt-barcode-wrap">
-          ${generateCode128BarcodeSVG(orderCode, { moduleWidth: 2, barHeight: 48, showText: true, displayText: "ORDER #" + orderCode })}
+          ${barcodeSvg}
           <div class="receipt-social-link">
             <div class="receipt-ig-handle">@static._.eg</div>
             <div class="receipt-ig-url">instagram.com/static._.eg</div>
@@ -4214,17 +4854,553 @@ function printOrderReceipt(orderId) {
       </div>
     </div>
   `;
+}
 
-  setTimeout(() => {
-    window.print();
-  }, 120);
+function renderSc03hReceipt(o) {
+  return renderNormalReceipt(o, true);
+}
 
-  const cleanup = () => {
-    section.innerHTML = "";
-    window.removeEventListener("afterprint", cleanup);
-  };
-  window.addEventListener("afterprint", cleanup, { once: true });
-  setTimeout(cleanup, 4000);
+function renderStandardReceipt(o) {
+  return renderNormalReceipt(o, false);
+}
+
+/* ─── CANVAS IMAGE EXPORTERS (DIRECT PNG FOR CAT PRINTER COMPANION APPS) ─── */
+function getCode128Modules(rawText) {
+  const text = String(rawText || "").trim() || "1001";
+  const codes = [104];
+  let checkSum = 104;
+  for (let i = 0; i < text.length; i++) {
+    let charCode = text.charCodeAt(i);
+    let val = (charCode >= 32 && charCode <= 126) ? (charCode - 32) : 0;
+    codes.push(val);
+    checkSum += (i + 1) * val;
+  }
+  codes.push(checkSum % 103);
+  codes.push(106);
+
+  const modules = [];
+  for (let c = 0; c < codes.length; c++) {
+    const pattern = CODE128_PATTERNS[codes[c]];
+    if (!pattern) continue;
+    for (let p = 0; p < pattern.length; p++) {
+      const width = parseInt(pattern[p], 10);
+      const isBlack = (p % 2 === 0);
+      modules.push({ width, isBlack });
+    }
+  }
+  return modules;
+}
+
+function renderReceiptToCanvas(o, canvasWidth = 384) {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvasWidth;
+  const ctx = canvas.getContext("2d");
+
+  const itemsSubtotal = (o.items || []).reduce((sum, it) => {
+    const q = Number(it.qty ?? it.quantity ?? 1) || 0;
+    const p = Number(it.price ?? it.unitPrice ?? 0) || 0;
+    return sum + (q * p);
+  }, 0);
+  const shipping = Number(o.shippingPrice || 0);
+  const grandTotal = itemsSubtotal + shipping;
+
+  const orderDate = new Date(o.createdAt || Date.now());
+  const dateFormatted = !isNaN(orderDate.getTime())
+    ? orderDate.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : new Date().toLocaleDateString("en-GB");
+  const timeFormatted = !isNaN(orderDate.getTime())
+    ? orderDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })
+    : "";
+
+  const orderCode = formatOrderId(o.id);
+  const paymentStatus = (o.paymentStatus || "unpaid").toUpperCase();
+
+  const items = (o.items && o.items.length > 0)
+    ? o.items
+    : [{ name: "Custom Order", qty: 1, price: grandTotal }];
+
+  const padX = 14;
+
+  // Measure dynamic height
+  let totalH = 20;
+  totalH += 22; // stars
+  totalH += 34; // RECEIPT
+  totalH += 24; // STATIC
+  totalH += 22; // stars
+  totalH += 10;
+  totalH += 22; // Order #
+  totalH += 22; // Customer
+  if (o.phone) totalH += 22;
+  if (o.address) totalH += 36;
+  totalH += 22; // Payment
+  totalH += 22; // dashes
+  totalH += items.length * 24; // items
+  totalH += 22; // dashes
+  totalH += 22; // Subtotal
+  totalH += 22; // Shipping
+  totalH += 22; // dashes
+  totalH += 30; // TOTAL AMOUNT
+  totalH += 22; // dashes
+  totalH += 26; // THANK YOU
+  totalH += 70; // Barcode + text
+  totalH += 24; // IG handle
+  totalH += 20; // IG url
+  totalH += 30; // bottom tear margin
+
+  canvas.height = Math.ceil(totalH);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#000000";
+  ctx.textBaseline = "middle";
+
+  let y = 18;
+
+  // Stars
+  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("****************************************", canvasWidth / 2, y);
+  y += 24;
+
+  // Title RECEIPT
+  ctx.font = "900 25px 'Courier New', Courier, monospace";
+  ctx.fillText("RECEIPT", canvasWidth / 2, y);
+  y += 26;
+
+  // Subtitle STATIC
+  ctx.font = "900 16px 'Courier New', Courier, monospace";
+  ctx.fillText("STATIC", canvasWidth / 2, y);
+  y += 22;
+
+  // Stars
+  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  ctx.fillText("****************************************", canvasWidth / 2, y);
+  y += 24;
+
+  // Order Code & Date
+  ctx.font = "700 13.5px 'Courier New', Courier, monospace";
+  ctx.textAlign = "left";
+  ctx.fillText(`Order #${orderCode}`, padX, y);
+  ctx.textAlign = "right";
+  ctx.fillText(`${dateFormatted} ${timeFormatted}`, canvasWidth - padX, y);
+  y += 22;
+
+  // Customer
+  ctx.textAlign = "left";
+  ctx.fillText("Customer:", padX, y);
+  ctx.textAlign = "right";
+  ctx.font = "900 14px 'Courier New', Courier, monospace";
+  ctx.fillText(o.customerName || "Customer", canvasWidth - padX, y);
+  y += 22;
+
+  // Phone
+  if (o.phone) {
+    ctx.font = "700 13.5px 'Courier New', Courier, monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("Phone:", padX, y);
+    ctx.textAlign = "right";
+    ctx.fillText(o.phone, canvasWidth - padX, y);
+    y += 22;
+  }
+
+  // Address
+  if (o.address) {
+    ctx.font = "700 13.5px 'Courier New', Courier, monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("Address:", padX, y);
+    ctx.textAlign = "right";
+    let addr = String(o.address).trim();
+    if (addr.length > 25) addr = addr.slice(0, 24) + "…";
+    ctx.fillText(addr, canvasWidth - padX, y);
+    y += 22;
+  }
+
+  // Payment
+  ctx.font = "700 13.5px 'Courier New', Courier, monospace";
+  ctx.textAlign = "left";
+  ctx.fillText("Payment:", padX, y);
+  ctx.textAlign = "right";
+  ctx.font = "900 14px 'Courier New', Courier, monospace";
+  ctx.fillText(paymentStatus, canvasWidth - padX, y);
+  y += 22;
+
+  // Divider dash
+  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("----------------------------------------", canvasWidth / 2, y);
+  y += 22;
+
+  // Items
+  items.forEach((it) => {
+    const q = Number(it.qty ?? it.quantity ?? 1) || 1;
+    const p = Number(it.price ?? it.unitPrice ?? 0);
+    const name = it.name || it.itemName || "Item";
+    let displayName = `${q} x ${name}`;
+    if (displayName.length > 22) displayName = displayName.slice(0, 21) + "…";
+
+    ctx.font = "800 14px 'Courier New', Courier, monospace";
+    ctx.textAlign = "left";
+    ctx.fillText(displayName, padX, y);
+
+    ctx.font = "900 14.5px 'Courier New', Courier, monospace";
+    ctx.textAlign = "right";
+    ctx.fillText(`${money(q * p)} EGP`, canvasWidth - padX, y);
+    y += 22;
+  });
+
+  // Divider dash
+  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("----------------------------------------", canvasWidth / 2, y);
+  y += 22;
+
+  // Subtotal
+  ctx.font = "700 13.5px 'Courier New', Courier, monospace";
+  ctx.textAlign = "left";
+  ctx.fillText("Items Subtotal:", padX, y);
+  ctx.textAlign = "right";
+  ctx.fillText(`${money(itemsSubtotal)} EGP`, canvasWidth - padX, y);
+  y += 22;
+
+  // Shipping
+  ctx.textAlign = "left";
+  ctx.fillText("Shipping:", padX, y);
+  ctx.textAlign = "right";
+  ctx.fillText(`${money(shipping)} EGP`, canvasWidth - padX, y);
+  y += 22;
+
+  // Divider dash
+  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("----------------------------------------", canvasWidth / 2, y);
+  y += 24;
+
+  // Total
+  ctx.font = "900 18.5px 'Courier New', Courier, monospace";
+  ctx.textAlign = "left";
+  ctx.fillText("TOTAL AMOUNT", padX, y);
+  ctx.textAlign = "right";
+  ctx.fillText(`${money(grandTotal)} EGP`, canvasWidth - padX, y);
+  y += 26;
+
+  // Divider dash
+  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("----------------------------------------", canvasWidth / 2, y);
+  y += 22;
+
+  // Thank You
+  ctx.font = "900 14px 'Courier New', Courier, monospace";
+  ctx.fillText("********** THANK YOU! **********", canvasWidth / 2, y);
+  y += 24;
+
+  // Barcode
+  const barcodeY = y + 2;
+  const barcodeH = 46;
+  const modWidth = 2.15;
+  const barcodeModules = getCode128Modules(orderCode);
+
+  let totalModulesWidth = 0;
+  barcodeModules.forEach(m => totalModulesWidth += m.width * modWidth);
+  const startBarcodeX = Math.max(8, (canvasWidth - totalModulesWidth) / 2);
+
+  let curX = startBarcodeX;
+  barcodeModules.forEach(m => {
+    const w = m.width * modWidth;
+    if (m.isBlack) {
+      ctx.fillRect(Math.round(curX), barcodeY, Math.ceil(w), barcodeH);
+    }
+    curX += w;
+  });
+
+  y = barcodeY + barcodeH + 14;
+
+  // Barcode caption
+  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText(`ORDER #${orderCode}`, canvasWidth / 2, y);
+  y += 22;
+
+  // Social link
+  ctx.font = "800 13.5px 'Courier New', Courier, monospace";
+  ctx.fillText("@static._.eg", canvasWidth / 2, y);
+  y += 18;
+
+  ctx.font = "700 11px 'Courier New', Courier, monospace";
+  ctx.fillText("instagram.com/static._.eg", canvasWidth / 2, y);
+
+  return canvas;
+}
+
+function downloadReceiptPng(orderId) {
+  const o = allOrders.find((item) => String(item.id) === String(orderId));
+  if (!o) return;
+  const canvas = renderReceiptToCanvas(o, 384);
+  const orderCode = formatOrderId(o.id);
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `receipt-${orderCode}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+  }, "image/png");
+}
+
+function downloadBarcodeRollPng(item, qty = 10, options = {}) {
+  const canvasWidth = 384;
+  const stickerH = 150;
+  const totalH = stickerH * qty;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvasWidth;
+  canvas.height = totalH;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvasWidth, totalH);
+
+  const sku = formatStockSku(item);
+  const showBrand = options.showBrand !== false;
+  const showIg    = options.showIg !== false;
+  const showName  = options.showName !== false;
+  const showPrice  = options.showPrice !== false;
+  const showSku    = options.showSku !== false;
+  const showBorder = options.showBorder !== false;
+  const barcodeModules = getCode128Modules(sku);
+  const modWidth = 2.15;
+
+  let totalModulesWidth = 0;
+  barcodeModules.forEach(m => totalModulesWidth += m.width * modWidth);
+  const startX = Math.max(8, (canvasWidth - totalModulesWidth) / 2);
+
+  for (let i = 0; i < qty; i++) {
+    const topY = i * stickerH;
+    let y = topY + 16;
+
+    if (showBorder) {
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(10, topY + 4, canvasWidth - 20, stickerH - 16);
+    }
+
+    ctx.fillStyle = "#000000";
+    ctx.textBaseline = "middle";
+
+    if (showBrand || showIg) {
+      if (showBrand) {
+        ctx.font = "900 13px 'Courier New', Courier, monospace";
+        ctx.textAlign = "left";
+        ctx.fillText("STATIC", 16, y);
+      }
+      if (showIg) {
+        ctx.font = "700 11.5px 'Courier New', Courier, monospace";
+        ctx.textAlign = "right";
+        ctx.fillText("@static._.eg", canvasWidth - 16, y);
+      }
+      y += 18;
+    }
+
+    if (showName) {
+      ctx.font = "900 13.5px 'Courier New', Courier, monospace";
+      ctx.textAlign = "center";
+      let name = item.itemName || "Item";
+      if (name.length > 25) name = name.slice(0, 24) + "…";
+      ctx.fillText(name, canvasWidth / 2, y);
+      y += 18;
+    }
+
+    if (showPrice) {
+      ctx.font = "900 15px 'Courier New', Courier, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(`${money(item.price)} EGP`, canvasWidth / 2, y);
+      y += 20;
+    }
+
+    const barH = 38;
+    let curX = startX;
+    barcodeModules.forEach(m => {
+      const w = m.width * modWidth;
+      if (m.isBlack) {
+        ctx.fillRect(Math.round(curX), y, Math.ceil(w), barH);
+      }
+      curX += w;
+    });
+    y += barH + 12;
+
+    if (showSku) {
+      ctx.font = "700 11px 'Courier New', Courier, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(sku, canvasWidth / 2, y);
+      y += 14;
+    }
+  }
+
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `barcodes-${sku}-x${qty}-cat.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+  }, "image/png");
+}
+
+function downloadReportPng(type, period) {
+  const canvasWidth = 384;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvasWidth;
+  const ctx = canvas.getContext("2d");
+
+  const label   = PERIOD_LABEL[period] || period || "";
+  const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const byStr   = me ? me.username : "Staff";
+  const typeLabel = (type || "Report").replace("-", " ").toUpperCase();
+
+  let totalH = 460;
+  canvas.height = totalH;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvasWidth, totalH);
+
+  ctx.fillStyle = "#000000";
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  let y = 20;
+
+  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  ctx.fillText("****************************************", canvasWidth / 2, y); y += 24;
+  ctx.font = "900 22px 'Courier New', Courier, monospace";
+  ctx.fillText("STATIC", canvasWidth / 2, y); y += 22;
+  ctx.font = "900 16px 'Courier New', Courier, monospace";
+  ctx.fillText(`${typeLabel} REPORT`, canvasWidth / 2, y); y += 20;
+  ctx.font = "700 12px 'Courier New', Courier, monospace";
+  ctx.fillText(`${label} · ${dateStr}`, canvasWidth / 2, y); y += 20;
+  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  ctx.fillText("****************************************", canvasWidth / 2, y); y += 26;
+
+  ctx.font = "700 13px 'Courier New', Courier, monospace";
+  ctx.textAlign = "left";
+  ctx.fillText(`Generated by: ${byStr}`, 16, y); y += 22;
+  ctx.fillText(`Period: ${label}`, 16, y); y += 22;
+  ctx.fillText(`Date: ${dateStr}`, 16, y); y += 26;
+
+  ctx.textAlign = "center";
+  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  ctx.fillText("----------------------------------------", canvasWidth / 2, y); y += 22;
+  ctx.font = "800 13px 'Courier New', Courier, monospace";
+  ctx.fillText("STATIC ARCHIVE & FINANCIAL SYSTEM", canvasWidth / 2, y); y += 20;
+  ctx.fillText("@static._.eg", canvasWidth / 2, y); y += 24;
+
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `report-${type}-${period}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+  }, "image/png");
+}
+
+function downloadStoreSlipPng(storeId) {
+  let store = allStores.find((s) => s.id === storeId) || activeStore;
+  if (!store) return;
+
+  const canvasWidth = 384;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvasWidth;
+  const ctx = canvas.getContext("2d");
+
+  const items = store.items || [];
+  const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const totalUnits = items.reduce((s, it) => s + (Number(it.quantity) || 0), 0);
+  const totalVal = items.reduce((s, it) => s + ((Number(it.quantity) || 0) * (Number(it.price) || 0)), 0);
+
+  let totalH = 340 + (items.length * 28) + 120;
+  canvas.height = totalH;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvasWidth, totalH);
+
+  ctx.fillStyle = "#000000";
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  let y = 20;
+
+  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  ctx.fillText("****************************************", canvasWidth / 2, y); y += 24;
+  ctx.font = "900 22px 'Courier New', Courier, monospace";
+  ctx.fillText("STATIC", canvasWidth / 2, y); y += 22;
+  ctx.font = "900 16px 'Courier New', Courier, monospace";
+  ctx.fillText("CONSIGNMENT DELIVERY SLIP", canvasWidth / 2, y); y += 20;
+  ctx.font = "700 12px 'Courier New', Courier, monospace";
+  ctx.fillText(`${escapeHtml(store.name)} · ${dateStr}`, canvasWidth / 2, y); y += 20;
+  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  ctx.fillText("****************************************", canvasWidth / 2, y); y += 26;
+
+  items.forEach((it) => {
+    const q = Number(it.quantity) || 0;
+    const p = Number(it.price) || 0;
+    ctx.font = "800 13.5px 'Courier New', Courier, monospace";
+    ctx.textAlign = "left";
+    let name = `${q}x ${it.itemName}`;
+    if (name.length > 22) name = name.slice(0, 21) + "…";
+    ctx.fillText(name, 14, y);
+    ctx.font = "900 14px 'Courier New', Courier, monospace";
+    ctx.textAlign = "right";
+    ctx.fillText(`${money(q * p)} EGP`, canvasWidth - 14, y);
+    y += 24;
+  });
+
+  ctx.textAlign = "center";
+  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  ctx.fillText("----------------------------------------", canvasWidth / 2, y); y += 24;
+
+  ctx.font = "900 17px 'Courier New', Courier, monospace";
+  ctx.textAlign = "left";
+  ctx.fillText(`TOTAL UNITS: ${totalUnits} pcs`, 14, y); y += 24;
+  ctx.fillText(`TOTAL VALUE: ${money(totalVal)} EGP`, 14, y); y += 26;
+
+  ctx.textAlign = "center";
+  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  ctx.fillText("----------------------------------------", canvasWidth / 2, y); y += 22;
+  ctx.font = "800 13px 'Courier New', Courier, monospace";
+  ctx.fillText("STATIC PARTNER CONSIGNMENT", canvasWidth / 2, y); y += 20;
+  ctx.fillText("@static._.eg", canvasWidth / 2, y); y += 24;
+
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `storeslip-${store.name}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+  }, "image/png");
+}
+
+function printOrderReceipt(orderId, target = null) {
+  const o = allOrders.find((item) => String(item.id) === String(orderId));
+  if (!o) return;
+
+  const finalTarget = target || currentPrinterTarget || "sc03h";
+
+  executePrint(finalTarget, (section) => {
+    if (finalTarget === "sc03h") {
+      section.innerHTML = renderSc03hReceipt(o);
+    } else {
+      section.innerHTML = renderStandardReceipt(o);
+    }
+  });
 }
 
 /* ─── PRINT DROPDOWN TOGGLES ──────────────────────────────────── */
@@ -5454,3 +6630,8 @@ function renderCustomers(list) {
     });
   }
 })();
+
+// Initialize SC03h-B976 Mini Cat Printer & Standard print target system
+if (typeof initPrinterSystem === "function") {
+  initPrinterSystem();
+}
