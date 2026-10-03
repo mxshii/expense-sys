@@ -2685,16 +2685,20 @@ body.dark .cat-chip-other      { background: rgba(160,165,175,0.18);color: #A0A5
     margin: 0 auto !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   .print-receipt .receipt-paper {
     max-width: 78mm !important;
-    padding: 4mm 2mm 8mm !important;
+    padding: 4mm 2mm 6mm !important;
     margin: 0 auto !important;
     box-shadow: none !important;
     border: none !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 }
 
@@ -2710,51 +2714,71 @@ body.dark .cat-chip-other      { background: rgba(160,165,175,0.18);color: #A0A5
   background: transparent !important;
   page-break-inside: avoid !important;
   break-inside: avoid !important;
+  page-break-after: avoid !important;
+  break-after: avoid !important;
 }
 
 .receipt-paper {
   width: 100%;
-  max-width: 330px;
+  max-width: 320px;
   margin: 0 auto;
-  padding: 14px 14px 20px;
+  padding: 14px 16px 18px;
   background: #ffffff !important;
   color: #000000 !important;
   font-family: 'Courier New', Courier, 'SF Mono', Menlo, Consolas, monospace !important;
-  font-size: 13.5px;
-  line-height: 1.4;
+  font-size: 12.5px;
+  line-height: 1.45;
   letter-spacing: 0.2px;
   box-sizing: border-box;
   border-radius: 0;
   page-break-inside: avoid !important;
   break-inside: avoid !important;
+  page-break-after: avoid !important;
+  break-after: avoid !important;
+  page-break-before: avoid !important;
+  break-before: avoid !important;
+}
+
+.sc03h-cat-logo-wrap,
+.receipt-cat-logo-wrap {
+  text-align: center;
+  margin: 0 auto 6px;
+}
+
+.sc03h-cat-logo,
+.receipt-cat-logo {
+  width: 120px;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
 }
 
 .receipt-stars {
   text-align: center;
-  font-size: 13px;
-  letter-spacing: 1px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
   color: #000000;
   user-select: none;
   overflow: hidden;
   white-space: nowrap;
-  font-weight: 900;
-  line-height: 1.2;
+  font-weight: bold;
 }
 
 .receipt-title {
   text-align: center;
-  font-size: 25px;
+  font-size: 20px;
   font-weight: 900;
   letter-spacing: 3px;
   color: #000000;
-  margin: 4px 0 2px;
+  margin: 4px 0 1px;
   font-family: 'Courier New', Courier, monospace;
 }
 
 .receipt-subtitle {
   text-align: center;
-  font-size: 16px;
-  font-weight: 900;
+  font-size: 13px;
+  font-weight: 700;
   letter-spacing: 4px;
   color: #000000;
   margin-bottom: 4px;
@@ -2764,23 +2788,21 @@ body.dark .cat-chip-other      { background: rgba(160,165,175,0.18);color: #A0A5
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 4px 0;
-  font-size: 13.5px;
-  font-weight: 700;
+  margin: 3px 0;
+  font-size: 11.5px;
   color: #000000;
 }
 
 .receipt-divider-dash {
   text-align: center;
-  font-size: 13px;
-  letter-spacing: 1px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
   margin: 6px 0;
   color: #000000;
   overflow: hidden;
   white-space: nowrap;
   user-select: none;
-  font-weight: 900;
-  line-height: 1.2;
+  font-weight: bold;
 }
 
 .receipt-items-list {
@@ -2794,55 +2816,53 @@ body.dark .cat-chip-other      { background: rgba(160,165,175,0.18);color: #A0A5
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  font-size: 14px;
+  font-size: 12.5px;
   color: #000000;
   gap: 8px;
-  margin: 2px 0;
 }
 
 .receipt-item-name {
-  font-weight: 800;
+  font-weight: 600;
   flex: 1;
   word-break: break-word;
 }
 
 .receipt-item-price {
-  font-weight: 900;
+  font-weight: 700;
   white-space: nowrap;
   text-align: right;
-  font-size: 14.5px;
 }
 
 .receipt-total-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 19px;
+  font-size: 14.5px;
   font-weight: 900;
   color: #000000;
-  margin: 8px 0 6px;
+  margin: 6px 0 4px;
   letter-spacing: 0.5px;
 }
 
 .receipt-thankyou {
   text-align: center;
-  font-size: 14px;
-  font-weight: 900;
-  letter-spacing: 1.5px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
   margin: 10px 0 8px;
   color: #000000;
 }
 
 .receipt-barcode-wrap {
   text-align: center;
-  margin-top: 10px;
+  margin-top: 14px;
   padding-top: 2px;
 }
 
 .receipt-upc-barcode {
-  width: 100% !important;
-  max-width: 100% !important;
-  height: auto !important;
+  width: 220px;
+  max-width: 100%;
+  height: auto;
   display: block;
   margin: 0 auto 5px;
   shape-rendering: crispEdges !important;
@@ -2918,18 +2938,17 @@ body.dark .cat-chip-other      { background: rgba(160,165,175,0.18);color: #A0A5
 }
 
 .receipt-ig-handle {
-  font-size: 13.5px;
-  font-weight: 900;
+  font-size: 11px;
+  font-weight: 700;
   letter-spacing: 1px;
   color: #000000;
   font-family: 'Courier New', Courier, monospace;
 }
 
 .receipt-ig-url {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 9.5px;
+  color: #555555;
   letter-spacing: 0.5px;
-  color: #000000;
   font-family: 'Courier New', Courier, monospace;
 }
 
@@ -3312,24 +3331,24 @@ body.dark .printer-cat-app-tip {
     max-width: 56mm !important;
     margin: 0 auto !important;
     padding: 2mm 1mm 10mm 1mm !important;
-    font-size: 13.5px !important;
-    line-height: 1.35 !important;
+    font-size: 16px !important;
+    line-height: 1.4 !important;
   }
 
   body.print-target-sc03h .receipt-title {
-    font-size: 26px !important;
+    font-size: 32px !important;
   }
   body.print-target-sc03h .receipt-subtitle {
-    font-size: 16px !important;
+    font-size: 20px !important;
   }
   body.print-target-sc03h .receipt-meta-row {
-    font-size: 13.5px !important;
+    font-size: 16px !important;
   }
   body.print-target-sc03h .receipt-item-line {
-    font-size: 14px !important;
+    font-size: 16.5px !important;
   }
   body.print-target-sc03h .receipt-total-row {
-    font-size: 19.5px !important;
+    font-size: 23px !important;
   }
   body.print-target-sc03h .receipt-upc-barcode {
     width: 100% !important;
@@ -3605,66 +3624,67 @@ body.dark .printer-cat-app-tip {
   box-sizing: border-box !important;
 }
 .sc03h-report-title {
-  font-size: 16px;
+  font-size: 26px;
   font-weight: 900;
   text-align: center;
   letter-spacing: 1px;
-  margin: 3px 0;
+  margin: 6px 0;
   text-transform: uppercase;
 }
 .sc03h-report-meta {
-  font-size: 10.5px;
+  font-size: 17px;
   font-weight: 700;
   text-align: center;
-  color: #222222;
-  margin-bottom: 6px;
+  color: #111111;
+  margin-bottom: 10px;
 }
 .sc03h-report-kpis {
-  border: 2px solid #000000;
-  padding: 6px;
-  margin: 6px 0;
+  border: 3px solid #000000;
+  padding: 10px;
+  margin: 10px 0;
 }
 .sc03h-kpi-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11.5px;
-  margin: 2px 0;
+  font-size: 18px;
+  margin: 4px 0;
 }
 .sc03h-kpi-main {
-  font-size: 15px;
+  font-size: 22px;
   font-weight: 900;
-  border-bottom: 1.5px solid #000;
-  padding-bottom: 4px;
-  margin-bottom: 4px;
+  border-bottom: 2.5px solid #000;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
 }
 .sc03h-report-entries {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin: 8px 0;
+  gap: 12px;
+  margin: 12px 0;
 }
 .sc03h-entry-card {
-  border-bottom: 1px dashed #777777;
-  padding-bottom: 4px;
-  font-size: 11px;
+  border-bottom: 2px dashed #444444;
+  padding-bottom: 8px;
+  font-size: 16px;
 }
 .sc03h-entry-header {
   display: flex;
   justify-content: space-between;
-  font-weight: 800;
-  font-size: 12px;
+  font-weight: 900;
+  font-size: 20px;
 }
 .sc03h-entry-sub {
-  color: #222222;
-  margin: 2px 0;
-  font-size: 10.5px;
+  color: #111111;
+  margin: 4px 0;
+  font-size: 17px;
+  line-height: 1.4;
 }
 .sc03h-entry-footer {
   display: flex;
   justify-content: space-between;
   font-weight: 700;
-  font-size: 11px;
+  font-size: 16px;
 }
 
 /* ─── SC03H CONTINUOUS BARCODE STICKER ROLL ─── */

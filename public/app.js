@@ -3558,12 +3558,13 @@ function printStockBarcodesSheet(item, qty, layout, options = {}, target = null)
   const isCat = layout === "cat-roll" || target === "sc03h";
   const finalTarget = isCat ? "sc03h" : (target || "standard");
 
+  if (finalTarget === "sc03h") {
+    downloadBarcodeRollPng(item, qty, options);
+    return;
+  }
+
   executePrint(finalTarget, (section) => {
-    if (finalTarget === "sc03h") {
-      section.innerHTML = renderSc03hBarcodeRoll(item, qty, options);
-    } else {
-      section.innerHTML = renderStandardBarcodeSheet(item, qty, layout, options);
-    }
+    section.innerHTML = renderStandardBarcodeSheet(item, qty, layout, options);
   });
 }
 
@@ -4068,12 +4069,13 @@ async function printStoreSlip(storeId, target = null) {
   }
 
   const finalTarget = target || currentPrinterTarget || "sc03h";
+  if (finalTarget === "sc03h") {
+    downloadStoreSlipPng(store);
+    return;
+  }
+
   executePrint(finalTarget, (section) => {
-    if (finalTarget === "sc03h") {
-      section.innerHTML = renderSc03hStoreSlip(store);
-    } else {
-      section.innerHTML = renderStandardStoreSlip(store);
-    }
+    section.innerHTML = renderStandardStoreSlip(store);
   });
 }
 
@@ -4972,6 +4974,28 @@ function executePrint(target, renderFn) {
         size: auto !important;
         margin: 5mm auto !important;
       }
+      @media print {
+        html, body {
+          height: auto !important;
+          overflow: hidden !important;
+        }
+        #printSection {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          page-break-after: avoid !important;
+          break-after: avoid !important;
+          page-break-before: avoid !important;
+          break-before: avoid !important;
+        }
+        .print-receipt, .receipt-paper {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          page-break-after: avoid !important;
+          break-after: avoid !important;
+          page-break-before: avoid !important;
+          break-before: avoid !important;
+        }
+      }
     `;
   }
 
@@ -5485,16 +5509,17 @@ function renderStandardReport(type, period) {
 function printReport(type, period, target = null) {
   const finalTarget = target || currentPrinterTarget || "sc03h";
 
+  if (finalTarget === "sc03h") {
+    downloadReportPng(type, period);
+    return;
+  }
+
   executePrint(finalTarget, (section) => {
-    if (finalTarget === "sc03h") {
-      section.innerHTML = renderSc03hReport(type, period);
-    } else {
-      section.innerHTML = renderStandardReport(type, period);
-    }
+    section.innerHTML = renderStandardReport(type, period);
   });
 }
 
-/* ─── CUSTOMER RECEIPT RENDERER (NORMAL DESIGN — WORDS BIGGER & BOLDER) ─── */
+/* ─── CUSTOMER RECEIPT RENDERER (NORMAL & THERMAL) ────────── */
 function renderNormalReceipt(o, isCat = false) {
   const itemsSubtotal = (o.items || []).reduce((sum, it) => {
     const q = Number(it.qty ?? it.quantity ?? 1) || 0;
@@ -5530,19 +5555,113 @@ function renderNormalReceipt(o, isCat = false) {
       }).join("")
     : `<div class="receipt-item-line"><span class="receipt-item-name">1 x Custom Order</span><span class="receipt-item-price">${money(grandTotal)} EGP</span></div>`;
 
-  // Continuous high-contrast Code 128 barcode
+  if (isCat) {
+    // Thermal Cat Printer HTML layout (SC03h continuous 58mm roll)
+    const barcodeSvg = generateCode128BarcodeSVG(orderCode, {
+      moduleWidth: 2.15,
+      barHeight: 52,
+      showText: true,
+      displayText: "ORDER #" + orderCode,
+      fontSize: 13,
+      className: "receipt-upc-barcode continuous-barcode",
+    });
+
+    return `
+      <div class="print-receipt target-sc03h-receipt">
+        <div class="receipt-paper sc03h-normal-paper">
+          <div class="sc03h-cat-logo-wrap">
+            <img src="/img/1111-removebg-preview.png" class="sc03h-cat-logo" alt="Static Cat">
+          </div>
+          <div class="receipt-stars">********************************</div>
+          <div class="receipt-title sc03h-title">STATIC</div>
+          <div class="receipt-subtitle sc03h-subtitle">CUSTOMER RECEIPT</div>
+          <div class="receipt-stars">********************************</div>
+
+          <div class="receipt-meta-row">
+            <span>Order #${escapeHtml(orderCode)}</span>
+            <span>${dateFormatted} ${timeFormatted}</span>
+          </div>
+          <div class="receipt-meta-row">
+            <span>Customer:</span>
+            <span style="font-weight:700;">${escapeHtml(o.customerName || "Customer")}</span>
+          </div>
+          ${o.phone ? `
+          <div class="receipt-meta-row">
+            <span>Phone:</span>
+            <span style="font-weight:700;">${escapeHtml(o.phone)}</span>
+          </div>` : ""}
+          ${o.address ? `
+          <div class="receipt-meta-row" style="align-items:flex-start;">
+            <span>Address:</span>
+            <span style="text-align:right;max-width:65%;word-break:break-word;font-weight:600;">${escapeHtml(o.address)}</span>
+          </div>` : ""}
+          <div class="receipt-meta-row">
+            <span>Payment:</span>
+            <span style="font-weight:700;">${paymentStatus}</span>
+          </div>
+
+          <div class="receipt-divider-dash">--------------------------------</div>
+
+          <div class="receipt-items-list">
+            ${itemsRows}
+          </div>
+
+          <div class="receipt-divider-dash">--------------------------------</div>
+
+          <div class="receipt-meta-row">
+            <span>Items Subtotal:</span>
+            <span style="font-weight:700;">${money(itemsSubtotal)} EGP</span>
+          </div>
+          ${discount > 0 ? `
+          <div class="receipt-meta-row" style="color:#c0392b;">
+            <span>Discount:</span>
+            <span style="font-weight:700;">-${money(discount)} EGP</span>
+          </div>` : ""}
+          <div class="receipt-meta-row">
+            <span>Shipping:</span>
+            <span style="font-weight:700;">${shipping > 0 ? `${money(shipping)} EGP` : 'FREE'}</span>
+          </div>
+
+          <div class="receipt-divider-dash">================================</div>
+
+          <div class="receipt-total-row">
+            <span>TOTAL AMOUNT</span>
+            <span>${money(grandTotal)} EGP</span>
+          </div>
+
+          <div class="receipt-divider-dash">================================</div>
+
+          <div class="receipt-thankyou">*** THANK YOU! ***</div>
+
+          <div class="receipt-barcode-wrap">
+            ${barcodeSvg}
+            <div class="receipt-social-link">
+              <div class="receipt-ig-handle">@static._.eg</div>
+              <div class="receipt-ig-url">instagram.com/static._.eg</div>
+            </div>
+          </div>
+          <div class="sc03h-cut-guide">✂ - - - - - - - - - - - - - - - - ✂</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Classic Normal Receipt (A4 / Desktop single page print) - strictly original look
   const barcodeSvg = generateCode128BarcodeSVG(orderCode, {
-    moduleWidth: isCat ? 2.15 : 2.0,
-    barHeight: isCat ? 54 : 48,
+    moduleWidth: 2,
+    barHeight: 46,
     showText: true,
     displayText: "ORDER #" + orderCode,
-    fontSize: isCat ? 13 : 11.5,
-    className: "receipt-upc-barcode continuous-barcode",
+    fontSize: 11,
+    className: "receipt-upc-barcode",
   });
 
   return `
-    <div class="print-receipt ${isCat ? 'target-sc03h-receipt' : ''}">
-      <div class="receipt-paper ${isCat ? 'sc03h-normal-paper' : ''}">
+    <div class="print-receipt">
+      <div class="receipt-paper">
+        <div class="receipt-cat-logo-wrap">
+          <img src="/img/1111-removebg-preview.png" class="receipt-cat-logo" alt="Static Cat">
+        </div>
         <div class="receipt-stars">****************************************</div>
         <div class="receipt-title">RECEIPT</div>
         <div class="receipt-subtitle">STATIC</div>
@@ -5559,12 +5678,12 @@ function renderNormalReceipt(o, isCat = false) {
         ${o.phone ? `
         <div class="receipt-meta-row">
           <span>Phone:</span>
-          <span style="font-weight:700;">${escapeHtml(o.phone)}</span>
+          <span>${escapeHtml(o.phone)}</span>
         </div>` : ""}
         ${o.address ? `
         <div class="receipt-meta-row" style="align-items:flex-start;">
           <span>Address:</span>
-          <span style="text-align:right;max-width:65%;word-break:break-word;font-weight:600;">${escapeHtml(o.address)}</span>
+          <span style="text-align:right;max-width:65%;word-break:break-word;">${escapeHtml(o.address)}</span>
         </div>` : ""}
         <div class="receipt-meta-row">
           <span>Payment:</span>
@@ -5581,16 +5700,16 @@ function renderNormalReceipt(o, isCat = false) {
 
         <div class="receipt-meta-row">
           <span>Items Subtotal:</span>
-          <span style="font-weight:700;">${money(itemsSubtotal)} EGP</span>
+          <span style="font-weight:600;">${money(itemsSubtotal)} EGP</span>
         </div>
         ${discount > 0 ? `
         <div class="receipt-meta-row" style="color:#c0392b;">
           <span>Discount:</span>
-          <span style="font-weight:700;">-${money(discount)} EGP</span>
+          <span style="font-weight:600;">-${money(discount)} EGP</span>
         </div>` : ""}
         <div class="receipt-meta-row">
           <span>Shipping:</span>
-          <span style="font-weight:700;">${shipping > 0 ? `${money(shipping)} EGP` : 'FREE'}</span>
+          <span style="font-weight:600;">${shipping > 0 ? `${money(shipping)} EGP` : 'FREE'}</span>
         </div>
 
         <div class="receipt-divider-dash">----------------------------------------</div>
@@ -5625,6 +5744,39 @@ function renderStandardReceipt(o) {
 }
 
 /* ─── CANVAS IMAGE EXPORTERS (DIRECT PNG FOR CAT PRINTER COMPANION APPS) ─── */
+let cachedCatLogoImg = null;
+let catLogoPromise = null;
+
+function getCatLogoImg() {
+  if (cachedCatLogoImg && cachedCatLogoImg.complete && cachedCatLogoImg.naturalWidth > 0) {
+    return Promise.resolve(cachedCatLogoImg);
+  }
+  if (!catLogoPromise) {
+    catLogoPromise = new Promise((resolve) => {
+      if (typeof window === "undefined" || typeof Image === "undefined") {
+        return resolve(null);
+      }
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        cachedCatLogoImg = img;
+        resolve(img);
+      };
+      img.onerror = () => {
+        console.warn("Could not load cat logo from /img/1111-removebg-preview.png");
+        resolve(null);
+      };
+      img.src = "/img/1111-removebg-preview.png";
+    });
+  }
+  return catLogoPromise;
+}
+
+// Preload cat logo on startup
+if (typeof window !== "undefined") {
+  getCatLogoImg();
+}
+
 function getCode128Modules(rawText) {
   const text = String(rawText || "").trim() || "1001";
   const codes = [104];
@@ -5651,10 +5803,35 @@ function getCode128Modules(rawText) {
   return modules;
 }
 
-function renderReceiptToCanvas(o, canvasWidth = 384) {
+function wrapCanvasText(ctx, text, maxWidth) {
+  if (!text) return [];
+  const words = String(text).split(" ");
+  const lines = [];
+  let cur = "";
+
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    const test = cur ? (cur + " " + w) : w;
+    if (ctx.measureText(test).width > maxWidth && cur) {
+      lines.push(cur);
+      cur = w;
+    } else {
+      cur = test;
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function renderReceiptToCanvas(o, canvasWidth = 384, logoImg = null) {
   const canvas = document.createElement("canvas");
   canvas.width = canvasWidth;
   const ctx = canvas.getContext("2d");
+
+  // Determine active logo image (either passed explicitly or from cache)
+  const activeLogo = (logoImg && logoImg.complete && logoImg.naturalWidth > 0)
+    ? logoImg
+    : (cachedCatLogoImg && cachedCatLogoImg.complete && cachedCatLogoImg.naturalWidth > 0 ? cachedCatLogoImg : null);
 
   const itemsSubtotal = (o.items || []).reduce((sum, it) => {
     const q = Number(it.qty ?? it.quantity ?? 1) || 0;
@@ -5681,33 +5858,81 @@ function renderReceiptToCanvas(o, canvasWidth = 384) {
     : [{ name: "Custom Order", qty: 1, price: grandTotal }];
 
   const padX = 14;
+  const maxContentW = canvasWidth - (padX * 2);
 
-  // Measure dynamic height
-  let totalH = 20;
-  totalH += 22; // stars
-  totalH += 34; // RECEIPT
-  totalH += 24; // STATIC
-  totalH += 22; // stars
-  totalH += 10;
-  totalH += 22; // Order #
-  totalH += 22; // Customer
-  if (o.phone) totalH += 22;
-  if (o.address) totalH += 36;
-  totalH += 22; // Payment
-  totalH += 22; // dashes
-  totalH += items.length * 24; // items
-  totalH += 22; // dashes
-  totalH += 22; // Subtotal
-  if (discount > 0) totalH += 22; // Discount
-  totalH += 22; // Shipping
-  totalH += 22; // dashes
-  totalH += 30; // TOTAL AMOUNT
-  totalH += 22; // dashes
-  totalH += 26; // THANK YOU
-  totalH += 70; // Barcode + text
-  totalH += 24; // IG handle
-  totalH += 20; // IG url
-  totalH += 30; // bottom tear margin
+  // Pre-calculate wrapped lines for items and address
+  const measureCanvas = document.createElement("canvas");
+  const mctx = measureCanvas.getContext("2d");
+
+  mctx.font = "800 20px 'Courier New', Courier, monospace";
+  const wrappedAddress = o.address ? wrapCanvasText(mctx, o.address, maxContentW) : [];
+
+  const preparedItems = items.map((it) => {
+    const q = Number(it.qty ?? it.quantity ?? 1) || 1;
+    const p = Number(it.price ?? it.unitPrice ?? 0);
+    const name = it.name || it.itemName || "Item";
+    const displayName = `${q}x ${name}`;
+    const priceStr = `${money(q * p)} EGP`;
+
+    mctx.font = "900 22px 'Courier New', Courier, monospace";
+    const priceW = mctx.measureText(priceStr).width;
+    const maxNameW = Math.max(120, maxContentW - priceW - 14);
+
+    mctx.font = "800 21px 'Courier New', Courier, monospace";
+    const nameLines = wrapCanvasText(mctx, displayName, maxNameW);
+    return {
+      nameLines: nameLines.length ? nameLines : [displayName],
+      priceStr
+    };
+  });
+
+  const totValStr = `${money(grandTotal)} EGP`;
+  mctx.font = "900 23px 'Courier New', Courier, monospace";
+  const totLblW = mctx.measureText("TOTAL AMOUNT").width;
+  mctx.font = "900 27px 'Courier New', Courier, monospace";
+  const totValW = mctx.measureText(totValStr).width;
+  const totalTwoLines = (totLblW + totValW + 16 > maxContentW);
+
+  // Logo dimensions (518 x 314 px original)
+  const logoW = 150;
+  const logoH = Math.round(logoW * (314 / 518)); // ~91px
+
+  // Measure total canvas height
+  let totalH = 16; // top margin
+  if (activeLogo) {
+    totalH += logoH + 12; // logo + spacing
+  }
+  totalH += 30; // stars
+  totalH += 48; // STATIC
+  totalH += 32; // CUSTOMER RECEIPT
+  totalH += 30; // stars
+  totalH += 14; // gap
+  totalH += 32; // Order #
+  totalH += 28; // Date
+  totalH += 32; // Customer
+  if (o.phone) totalH += 32;
+  if (wrappedAddress.length > 0) totalH += 28 + (wrappedAddress.length * 26);
+  totalH += 32; // Payment
+  totalH += 32; // dashes
+  totalH += 28; // Table header (ITEM / PRICE)
+  totalH += 26; // dashes
+  preparedItems.forEach((it) => {
+    totalH += 30 + ((it.nameLines.length - 1) * 26) + 4;
+  });
+  totalH += 32; // dashes
+  totalH += 32; // Subtotal
+  if (discount > 0) totalH += 32; // Discount
+  totalH += 32; // Shipping
+  totalH += 32; // double divider
+  totalH += totalTwoLines ? 68 : 46; // TOTAL AMOUNT
+  totalH += 32; // double divider
+  totalH += 38; // THANK YOU
+  totalH += 54 + 8; // Barcode
+  totalH += 34; // Barcode caption
+  totalH += 36; // IG handle
+  totalH += 28; // IG url
+  totalH += 32; // Cut guide
+  totalH += 24; // Bottom tear margin
 
   canvas.height = Math.ceil(totalH);
 
@@ -5717,158 +5942,210 @@ function renderReceiptToCanvas(o, canvasWidth = 384) {
   ctx.fillStyle = "#000000";
   ctx.textBaseline = "middle";
 
-  let y = 18;
+  let y = 16;
 
-  // Stars
-  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  // 1. Cat Logo
+  if (activeLogo) {
+    const logoX = Math.round((canvasWidth - logoW) / 2);
+    ctx.drawImage(activeLogo, logoX, y, logoW, logoH);
+    y += logoH + 12;
+  }
+
+  // 2. Stars
+  ctx.font = "900 20px 'Courier New', Courier, monospace";
   ctx.textAlign = "center";
-  ctx.fillText("****************************************", canvasWidth / 2, y);
-  y += 24;
+  ctx.fillText("********************", canvasWidth / 2, y + 10);
+  y += 28;
 
-  // Title RECEIPT
+  // 3. Title STATIC
+  ctx.font = "900 42px 'Courier New', Courier, monospace";
+  ctx.fillText("STATIC", canvasWidth / 2, y + 18);
+  y += 44;
+
+  // 4. Subtitle CUSTOMER RECEIPT
+  ctx.font = "900 20px 'Courier New', Courier, monospace";
+  ctx.fillText("CUSTOMER RECEIPT", canvasWidth / 2, y + 10);
+  y += 28;
+
+  // 5. Stars
+  ctx.font = "900 20px 'Courier New', Courier, monospace";
+  ctx.fillText("********************", canvasWidth / 2, y + 10);
+  y += 34;
+
+  // 6. Order #
   ctx.font = "900 25px 'Courier New', Courier, monospace";
-  ctx.fillText("RECEIPT", canvasWidth / 2, y);
-  y += 26;
+  ctx.textAlign = "left";
+  ctx.fillText(`Order #${orderCode}`, padX, y + 10);
+  y += 30;
 
-  // Subtitle STATIC
-  ctx.font = "900 16px 'Courier New', Courier, monospace";
-  ctx.fillText("STATIC", canvasWidth / 2, y);
-  y += 22;
+  // 7. Date
+  ctx.font = "800 18px 'Courier New', Courier, monospace";
+  ctx.fillText(`Date: ${dateFormatted} ${timeFormatted}`, padX, y + 8);
+  y += 28;
 
-  // Stars
-  ctx.font = "900 13px 'Courier New', Courier, monospace";
-  ctx.fillText("****************************************", canvasWidth / 2, y);
+  // 8. Customer
+  ctx.font = "900 21px 'Courier New', Courier, monospace";
+  ctx.fillText("Customer:", padX, y + 10);
+  const custLblW = ctx.measureText("Customer:").width;
+  let cname = o.customerName || "Customer";
+  const maxCustW = maxContentW - custLblW - 14;
+  while (ctx.measureText(cname).width > maxCustW && cname.length > 3) {
+    cname = cname.slice(0, -2) + "…";
+  }
+  ctx.textAlign = "right";
+  ctx.font = "800 21px 'Courier New', Courier, monospace";
+  ctx.fillText(cname, canvasWidth - padX, y + 10);
+  y += 32;
+
+  // 9. Phone
+  if (o.phone) {
+    ctx.textAlign = "left";
+    ctx.font = "900 21px 'Courier New', Courier, monospace";
+    ctx.fillText("Phone:", padX, y + 10);
+    ctx.textAlign = "right";
+    ctx.font = "800 21px 'Courier New', Courier, monospace";
+    ctx.fillText(o.phone, canvasWidth - padX, y + 10);
+    y += 32;
+  }
+
+  // 10. Address
+  if (wrappedAddress.length > 0) {
+    ctx.textAlign = "left";
+    ctx.font = "900 21px 'Courier New', Courier, monospace";
+    ctx.fillText("Address:", padX, y + 10);
+    y += 26;
+    ctx.font = "800 19px 'Courier New', Courier, monospace";
+    wrappedAddress.forEach((al) => {
+      ctx.fillText(al, padX + 8, y + 8);
+      y += 26;
+    });
+    y += 4;
+  }
+
+  // 11. Payment
+  ctx.textAlign = "left";
+  ctx.font = "900 21px 'Courier New', Courier, monospace";
+  ctx.fillText("Payment:", padX, y + 10);
+  ctx.textAlign = "right";
+  ctx.font = "900 23px 'Courier New', Courier, monospace";
+  ctx.fillText(paymentStatus, canvasWidth - padX, y + 10);
+  y += 32;
+
+  // 12. Divider dash
+  ctx.font = "900 20px 'Courier New', Courier, monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("--------------------", canvasWidth / 2, y + 10);
+  y += 28;
+
+  // 13. Table Header
+  ctx.font = "900 19px 'Courier New', Courier, monospace";
+  ctx.textAlign = "left";
+  ctx.fillText("ITEM", padX, y + 8);
+  ctx.textAlign = "right";
+  ctx.fillText("PRICE", canvasWidth - padX, y + 8);
   y += 24;
 
-  // Order Code & Date
-  ctx.font = "700 13.5px 'Courier New', Courier, monospace";
-  ctx.textAlign = "left";
-  ctx.fillText(`Order #${orderCode}`, padX, y);
-  ctx.textAlign = "right";
-  ctx.fillText(`${dateFormatted} ${timeFormatted}`, canvasWidth - padX, y);
-  y += 22;
-
-  // Customer
-  ctx.textAlign = "left";
-  ctx.fillText("Customer:", padX, y);
-  ctx.textAlign = "right";
-  ctx.font = "900 14px 'Courier New', Courier, monospace";
-  ctx.fillText(o.customerName || "Customer", canvasWidth - padX, y);
-  y += 22;
-
-  // Phone
-  if (o.phone) {
-    ctx.font = "700 13.5px 'Courier New', Courier, monospace";
-    ctx.textAlign = "left";
-    ctx.fillText("Phone:", padX, y);
-    ctx.textAlign = "right";
-    ctx.fillText(o.phone, canvasWidth - padX, y);
-    y += 22;
-  }
-
-  // Address
-  if (o.address) {
-    ctx.font = "700 13.5px 'Courier New', Courier, monospace";
-    ctx.textAlign = "left";
-    ctx.fillText("Address:", padX, y);
-    ctx.textAlign = "right";
-    let addr = String(o.address).trim();
-    if (addr.length > 25) addr = addr.slice(0, 24) + "…";
-    ctx.fillText(addr, canvasWidth - padX, y);
-    y += 22;
-  }
-
-  // Payment
-  ctx.font = "700 13.5px 'Courier New', Courier, monospace";
-  ctx.textAlign = "left";
-  ctx.fillText("Payment:", padX, y);
-  ctx.textAlign = "right";
-  ctx.font = "900 14px 'Courier New', Courier, monospace";
-  ctx.fillText(paymentStatus, canvasWidth - padX, y);
-  y += 22;
-
-  // Divider dash
-  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  // 14. Divider dash
+  ctx.font = "900 20px 'Courier New', Courier, monospace";
   ctx.textAlign = "center";
-  ctx.fillText("----------------------------------------", canvasWidth / 2, y);
-  y += 22;
+  ctx.fillText("--------------------", canvasWidth / 2, y + 8);
+  y += 24;
 
-  // Items
-  items.forEach((it) => {
-    const q = Number(it.qty ?? it.quantity ?? 1) || 1;
-    const p = Number(it.price ?? it.unitPrice ?? 0);
-    const name = it.name || it.itemName || "Item";
-    let displayName = `${q} x ${name}`;
-    if (displayName.length > 22) displayName = displayName.slice(0, 21) + "…";
-
-    ctx.font = "800 14px 'Courier New', Courier, monospace";
+  // 15. Items
+  preparedItems.forEach((it) => {
+    ctx.font = "800 21px 'Courier New', Courier, monospace";
     ctx.textAlign = "left";
-    ctx.fillText(displayName, padX, y);
+    ctx.fillText(it.nameLines[0], padX, y + 10);
 
-    ctx.font = "900 14.5px 'Courier New', Courier, monospace";
+    ctx.font = "900 22px 'Courier New', Courier, monospace";
     ctx.textAlign = "right";
-    ctx.fillText(`${money(q * p)} EGP`, canvasWidth - padX, y);
-    y += 22;
+    ctx.fillText(it.priceStr, canvasWidth - padX, y + 10);
+    y += 28;
+
+    for (let l = 1; l < it.nameLines.length; l++) {
+      ctx.font = "800 20px 'Courier New', Courier, monospace";
+      ctx.textAlign = "left";
+      ctx.fillText(it.nameLines[l], padX + 12, y + 8);
+      y += 26;
+    }
+    y += 4;
   });
 
-  // Divider dash
-  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  // 16. Divider dash
+  ctx.font = "900 20px 'Courier New', Courier, monospace";
   ctx.textAlign = "center";
-  ctx.fillText("----------------------------------------", canvasWidth / 2, y);
-  y += 22;
+  ctx.fillText("--------------------", canvasWidth / 2, y + 10);
+  y += 30;
 
-  // Subtotal
-  ctx.font = "700 13.5px 'Courier New', Courier, monospace";
+  // 17. Subtotal
+  ctx.font = "900 21px 'Courier New', Courier, monospace";
   ctx.textAlign = "left";
-  ctx.fillText("Items Subtotal:", padX, y);
+  ctx.fillText("Subtotal:", padX, y + 10);
   ctx.textAlign = "right";
-  ctx.fillText(`${money(itemsSubtotal)} EGP`, canvasWidth - padX, y);
-  y += 22;
+  ctx.font = "800 21px 'Courier New', Courier, monospace";
+  ctx.fillText(`${money(itemsSubtotal)} EGP`, canvasWidth - padX, y + 10);
+  y += 32;
 
-  // Discount
+  // 18. Discount
   if (discount > 0) {
+    ctx.font = "900 21px 'Courier New', Courier, monospace";
     ctx.textAlign = "left";
-    ctx.fillText("Discount:", padX, y);
+    ctx.fillText("Discount:", padX, y + 10);
     ctx.textAlign = "right";
-    ctx.fillText(`-${money(discount)} EGP`, canvasWidth - padX, y);
-    y += 22;
+    ctx.font = "900 21px 'Courier New', Courier, monospace";
+    ctx.fillText(`-${money(discount)} EGP`, canvasWidth - padX, y + 10);
+    y += 32;
   }
 
-  // Shipping
+  // 19. Shipping
+  ctx.font = "900 21px 'Courier New', Courier, monospace";
   ctx.textAlign = "left";
-  ctx.fillText("Shipping:", padX, y);
+  ctx.fillText("Shipping:", padX, y + 10);
   ctx.textAlign = "right";
-  ctx.fillText(shipping > 0 ? `${money(shipping)} EGP` : "FREE", canvasWidth - padX, y);
-  y += 22;
+  ctx.font = "800 21px 'Courier New', Courier, monospace";
+  ctx.fillText(shipping > 0 ? `${money(shipping)} EGP` : "FREE", canvasWidth - padX, y + 10);
+  y += 32;
 
-  // Divider dash
-  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  // 20. Double divider
+  ctx.font = "900 20px 'Courier New', Courier, monospace";
   ctx.textAlign = "center";
-  ctx.fillText("----------------------------------------", canvasWidth / 2, y);
-  y += 24;
+  ctx.fillText("====================", canvasWidth / 2, y + 10);
+  y += 30;
 
-  // Total
-  ctx.font = "900 18.5px 'Courier New', Courier, monospace";
-  ctx.textAlign = "left";
-  ctx.fillText("TOTAL AMOUNT", padX, y);
-  ctx.textAlign = "right";
-  ctx.fillText(`${money(grandTotal)} EGP`, canvasWidth - padX, y);
-  y += 26;
+  // 21. TOTAL AMOUNT (Zero Merging Guaranteed)
+  if (totalTwoLines) {
+    ctx.font = "900 23px 'Courier New', Courier, monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("TOTAL AMOUNT", padX, y + 10);
+    y += 30;
+    ctx.font = "900 27px 'Courier New', Courier, monospace";
+    ctx.textAlign = "right";
+    ctx.fillText(totValStr, canvasWidth - padX, y + 12);
+    y += 38;
+  } else {
+    ctx.font = "900 23px 'Courier New', Courier, monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("TOTAL AMOUNT", padX, y + 12);
+    ctx.textAlign = "right";
+    ctx.font = "900 27px 'Courier New', Courier, monospace";
+    ctx.fillText(totValStr, canvasWidth - padX, y + 12);
+    y += 42;
+  }
 
-  // Divider dash
-  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  // 22. Double divider
+  ctx.font = "900 20px 'Courier New', Courier, monospace";
   ctx.textAlign = "center";
-  ctx.fillText("----------------------------------------", canvasWidth / 2, y);
-  y += 22;
+  ctx.fillText("====================", canvasWidth / 2, y + 10);
+  y += 34;
 
-  // Thank You
-  ctx.font = "900 14px 'Courier New', Courier, monospace";
-  ctx.fillText("********** THANK YOU! **********", canvasWidth / 2, y);
-  y += 24;
+  // 23. Thank You
+  ctx.font = "900 22px 'Courier New', Courier, monospace";
+  ctx.fillText("*** THANK YOU! ***", canvasWidth / 2, y + 10);
+  y += 38;
 
-  // Barcode
-  const barcodeY = y + 2;
-  const barcodeH = 46;
+  // 24. Barcode
+  const barcodeY = y + 4;
+  const barcodeH = 52;
   const modWidth = 2.15;
   const barcodeModules = getCode128Modules(orderCode);
 
@@ -5885,29 +6162,35 @@ function renderReceiptToCanvas(o, canvasWidth = 384) {
     curX += w;
   });
 
-  y = barcodeY + barcodeH + 14;
+  y = barcodeY + barcodeH + 20;
 
-  // Barcode caption
-  ctx.font = "900 13px 'Courier New', Courier, monospace";
+  // 25. Barcode caption
+  ctx.font = "900 20px 'Courier New', Courier, monospace";
   ctx.textAlign = "center";
-  ctx.fillText(`ORDER #${orderCode}`, canvasWidth / 2, y);
-  y += 22;
+  ctx.fillText(`ORDER #${orderCode}`, canvasWidth / 2, y + 8);
+  y += 34;
 
-  // Social link
-  ctx.font = "800 13.5px 'Courier New', Courier, monospace";
-  ctx.fillText("@static._.eg", canvasWidth / 2, y);
-  y += 18;
+  // 26. Social links
+  ctx.font = "900 23px 'Courier New', Courier, monospace";
+  ctx.fillText("@static._.eg", canvasWidth / 2, y + 10);
+  y += 32;
 
-  ctx.font = "700 11px 'Courier New', Courier, monospace";
-  ctx.fillText("instagram.com/static._.eg", canvasWidth / 2, y);
+  ctx.font = "800 17px 'Courier New', Courier, monospace";
+  ctx.fillText("instagram.com/static._.eg", canvasWidth / 2, y + 6);
+  y += 28;
+
+  // 27. Cut guide
+  ctx.font = "700 15px 'Courier New', Courier, monospace";
+  ctx.fillText("✂ - - - - - - - - - - - - - - - - ✂", canvasWidth / 2, y + 8);
 
   return canvas;
 }
 
-function downloadReceiptPng(orderId) {
+async function downloadReceiptPng(orderId) {
   const o = allOrders.find((item) => String(item.id) === String(orderId));
   if (!o) return;
-  const canvas = renderReceiptToCanvas(o, 384);
+  const logo = await getCatLogoImg();
+  const canvas = renderReceiptToCanvas(o, 384, logo);
   const orderCode = formatOrderId(o.id);
   canvas.toBlob((blob) => {
     if (!blob) return;
@@ -5924,7 +6207,7 @@ function downloadReceiptPng(orderId) {
 
 function downloadBarcodeRollPng(item, qty = 10, options = {}) {
   const canvasWidth = 384;
-  const stickerH = 150;
+  const stickerH = 195;
   const totalH = stickerH * qty;
   const canvas = document.createElement("canvas");
   canvas.width = canvasWidth;
@@ -5950,12 +6233,12 @@ function downloadBarcodeRollPng(item, qty = 10, options = {}) {
 
   for (let i = 0; i < qty; i++) {
     const topY = i * stickerH;
-    let y = topY + 16;
+    let y = topY + 20;
 
     if (showBorder) {
       ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(10, topY + 4, canvasWidth - 20, stickerH - 16);
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(10, topY + 4, canvasWidth - 20, stickerH - 14);
     }
 
     ctx.fillStyle = "#000000";
@@ -5963,35 +6246,35 @@ function downloadBarcodeRollPng(item, qty = 10, options = {}) {
 
     if (showBrand || showIg) {
       if (showBrand) {
-        ctx.font = "900 13px 'Courier New', Courier, monospace";
+        ctx.font = "900 22px 'Courier New', Courier, monospace";
         ctx.textAlign = "left";
         ctx.fillText("STATIC", 16, y);
       }
       if (showIg) {
-        ctx.font = "700 11.5px 'Courier New', Courier, monospace";
+        ctx.font = "800 18px 'Courier New', Courier, monospace";
         ctx.textAlign = "right";
         ctx.fillText("@static._.eg", canvasWidth - 16, y);
       }
-      y += 18;
+      y += 28;
     }
 
     if (showName) {
-      ctx.font = "900 13.5px 'Courier New', Courier, monospace";
+      ctx.font = "900 22px 'Courier New', Courier, monospace";
       ctx.textAlign = "center";
       let name = item.itemName || "Item";
-      if (name.length > 25) name = name.slice(0, 24) + "…";
+      if (name.length > 17) name = name.slice(0, 16) + "…";
       ctx.fillText(name, canvasWidth / 2, y);
-      y += 18;
+      y += 26;
     }
 
     if (showPrice) {
-      ctx.font = "900 15px 'Courier New', Courier, monospace";
+      ctx.font = "900 28px 'Courier New', Courier, monospace";
       ctx.textAlign = "center";
       ctx.fillText(`${money(item.price)} EGP`, canvasWidth / 2, y);
-      y += 20;
+      y += 30;
     }
 
-    const barH = 38;
+    const barH = 48;
     let curX = startX;
     barcodeModules.forEach(m => {
       const w = m.width * modWidth;
@@ -6000,13 +6283,13 @@ function downloadBarcodeRollPng(item, qty = 10, options = {}) {
       }
       curX += w;
     });
-    y += barH + 12;
+    y += barH + 18;
 
     if (showSku) {
-      ctx.font = "700 11px 'Courier New', Courier, monospace";
+      ctx.font = "800 18px 'Courier New', Courier, monospace";
       ctx.textAlign = "center";
       ctx.fillText(sku, canvasWidth / 2, y);
-      y += 14;
+      y += 18;
     }
   }
 
@@ -6023,66 +6306,453 @@ function downloadBarcodeRollPng(item, qty = 10, options = {}) {
   }, "image/png");
 }
 
-function downloadReportPng(type, period) {
-  const canvasWidth = 384;
-  const canvas = document.createElement("canvas");
-  canvas.width = canvasWidth;
-  const ctx = canvas.getContext("2d");
-
-  const label   = PERIOD_LABEL[period] || period || "";
+function renderSc03hReportToCanvas(type, period, canvasWidth = 384) {
+  const label   = PERIOD_LABEL[period] || period || "All Time";
   const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   const byStr   = me ? me.username : "Staff";
-  const typeLabel = (type || "Report").replace("-", " ").toUpperCase();
+  const padX    = 12;
+  const maxContentW = canvasWidth - (padX * 2);
 
-  let totalH = 460;
-  canvas.height = totalH;
+  let reportTitle = "REPORT SUMMARY";
+  let mainKpiLabel = "TOTAL:";
+  let mainKpiVal = "0.00 EGP";
+  let subKpis = [];
+  let entries = [];
+
+  if (type === "orders") {
+    reportTitle = "ORDERS SUMMARY";
+    const data = filterByPeriod(allOrders, period);
+    const totalRev = data.reduce((s, o) =>
+      s + Math.max(0, (o.items || []).reduce((si, it) => si + Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0), 0) + Number(o.shippingPrice || 0) - Number(o.discount || 0)), 0);
+    const paid = data.filter((o) => o.paymentStatus === "paid").length;
+    const delivered = data.filter((o) => o.deliveryStatus === "delivered").length;
+
+    mainKpiLabel = "TOTAL REVENUE:";
+    mainKpiVal = `${money(totalRev)} EGP`;
+    subKpis = [
+      { label: "Total Orders:", val: String(data.length) },
+      { label: "Paid Orders:", val: String(paid) },
+      { label: "Delivered:", val: String(delivered) }
+    ];
+
+    entries = data.map((o, idx) => {
+      const tot = Math.max(0, (o.items || []).reduce((s, it) => s + Number(it.qty ?? it.quantity ?? 1) * Number(it.price || 0), 0) + Number(o.shippingPrice || 0) - Number(o.discount || 0));
+      const itemsList = (o.items || []).map((it) => `${it.qty ?? it.quantity ?? 1}x ${it.name || it.itemName}`).join(", ") || "—";
+      const code = formatOrderId(o.id);
+      return {
+        line1L: `#${idx + 1} · ORD-${code}`,
+        line1R: `${money(tot)} EGP`,
+        line2: `${o.customerName || "Customer"}${o.phone ? ` (${o.phone})` : ""}`,
+        line3: itemsList,
+        line4L: `${(o.paymentStatus || "").toUpperCase()} · ${(o.deliveryStatus || "").toUpperCase()}`,
+        line4R: formatDate12h(o.createdAt),
+      };
+    });
+  } else if (type === "expenses") {
+    reportTitle = "EXPENSES SUMMARY";
+    const data = filterByPeriod(allExpenses, period);
+    const cats = ["Ads", "Printing", "Packaging", "Delivery"];
+    const totals = { all: 0 };
+    cats.forEach((c) => (totals[c] = 0));
+    data.forEach((e) => {
+      totals.all += Number(e.amount || 0);
+      if (totals[e.category] !== undefined) totals[e.category] += Number(e.amount || 0);
+    });
+
+    mainKpiLabel = "TOTAL SPENT:";
+    mainKpiVal = `${money(totals.all)} EGP`;
+    subKpis = [
+      { label: "Ads:", val: `${money(totals.Ads)} EGP` },
+      { label: "Printing:", val: `${money(totals.Printing)} EGP` },
+      { label: "Packaging:", val: `${money(totals.Packaging)} EGP` },
+      { label: "Delivery:", val: `${money(totals.Delivery)} EGP` }
+    ];
+
+    entries = data.slice().reverse().map((e, idx) => ({
+      line1L: `#${idx + 1} [${e.category}]`,
+      line1R: `${money(e.amount)} EGP`,
+      line2: `${e.description || ""}${e.note ? ` · ${e.note}` : ""}`,
+      line3: null,
+      line4L: `By: ${e.loggedBy || "—"}`,
+      line4R: formatDate12h(e.createdAt),
+    }));
+  } else if (type === "brand-expenses") {
+    reportTitle = "BRAND EXPENSES";
+    const data = filterByPeriod(allBrandExpenses, period);
+    const cats = ["Ads", "Printing", "Packaging", "Delivery", "Operations", "Other"];
+    const totals = { all: 0 };
+    cats.forEach((c) => (totals[c] = 0));
+    data.forEach((e) => {
+      totals.all += Number(e.amount || 0);
+      if (totals[e.category] !== undefined) totals[e.category] += Number(e.amount || 0);
+    });
+
+    mainKpiLabel = "TOTAL BRAND:";
+    mainKpiVal = `${money(totals.all)} EGP`;
+    subKpis = [
+      { label: "Ads:", val: `${money(totals.Ads)} EGP` },
+      { label: "Printing:", val: `${money(totals.Printing)} EGP` },
+      { label: "Packaging:", val: `${money(totals.Packaging)} EGP` },
+      { label: "Delivery:", val: `${money(totals.Delivery)} EGP` },
+      { label: "Operations:", val: `${money(totals.Operations)} EGP` }
+    ];
+
+    entries = data.slice().reverse().map((e, idx) => ({
+      line1L: `#${idx + 1} [${e.category}]`,
+      line1R: `${money(e.amount)} EGP`,
+      line2: `${e.description || ""}${e.note ? ` · ${e.note}` : ""}`,
+      line3: null,
+      line4L: `By: ${e.loggedBy || "—"}`,
+      line4R: formatDate12h(e.createdAt),
+    }));
+  } else if (type === "revenue") {
+    reportTitle = "REVENUE SUMMARY";
+    const data = filterByPeriod(allRevenue, period);
+    const totals = { all: 0, Stickers: 0, Posters: 0, "Mail Subscription": 0, Other: 0 };
+    data.forEach((r) => {
+      totals.all += Number(r.amount || 0);
+      if (totals[r.category] !== undefined) totals[r.category] += Number(r.amount || 0);
+    });
+
+    mainKpiLabel = "TOTAL REVENUE:";
+    mainKpiVal = `${money(totals.all)} EGP`;
+    subKpis = [
+      { label: "Stickers:", val: `${money(totals.Stickers)} EGP` },
+      { label: "Posters:", val: `${money(totals.Posters)} EGP` },
+      { label: "Mail Sub:", val: `${money(totals["Mail Subscription"])} EGP` },
+      { label: "Other:", val: `${money(totals.Other)} EGP` }
+    ];
+
+    entries = data.slice().reverse().map((r, idx) => ({
+      line1L: `#${idx + 1} [${r.category}]`,
+      line1R: `${money(r.amount)} EGP`,
+      line2: `${r.description || ""}${r.note ? ` · ${r.note}` : ""}`,
+      line3: null,
+      line4L: `By: ${r.collectedBy || "—"}`,
+      line4R: formatDate12h(r.createdAt),
+    }));
+  } else if (type === "brand-funds") {
+    reportTitle = "TREASURY & BRAND FUNDS";
+    const revData = filterByPeriod(allRevenue, period);
+    const expData = filterByPeriod(allBrandExpenses, period);
+    const totalRev = revData.reduce((s, r) => s + Number(r.amount || 0), 0);
+    const totalExp = expData.reduce((s, e) => s + Number(e.amount || 0), 0);
+    const netFunds = totalRev - totalExp;
+
+    mainKpiLabel = "NET FUNDS:";
+    mainKpiVal = `${money(netFunds)} EGP`;
+    subKpis = [
+      { label: "Total Inflow (+):", val: `${money(totalRev)} EGP` },
+      { label: "Total Outflow (−):", val: `${money(totalExp)} EGP` }
+    ];
+
+    const txs = [
+      ...revData.map((r) => ({ type: "Inflow", ...r })),
+      ...expData.map((e) => ({ type: "Outflow", ...e }))
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    entries = txs.map((t, idx) => ({
+      line1L: `#${idx + 1} ${t.type === 'Inflow' ? '[+]' : '[−]'} ${t.category}`,
+      line1R: `${t.type === 'Inflow' ? '+' : '−'}${money(Math.abs(t.amount))} EGP`,
+      line2: t.description || "",
+      line3: null,
+      line4L: t.collectedBy || t.loggedBy || "—",
+      line4R: formatDate12h(t.createdAt),
+    }));
+  }
+
+  // Measure text wrapping lines using scratch measurement context with extra large fonts
+  const measureCanvas = document.createElement("canvas");
+  const mctx = measureCanvas.getContext("2d");
+
+  entries.forEach((en) => {
+    mctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+    en.wrappedLine2 = en.line2 ? wrapCanvasText(mctx, en.line2, maxContentW) : [];
+
+    mctx.font = "700 21px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+    en.wrappedLine3 = en.line3 ? wrapCanvasText(mctx, en.line3, maxContentW) : [];
+
+    mctx.font = "800 18.5px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+    const w4L = mctx.measureText(en.line4L || "").width;
+    const w4R = mctx.measureText(en.line4R || "").width;
+    en.line4Split = (w4L + w4R + 14 > maxContentW);
+  });
+
+  // Split main KPI into 2 stacked lines matching the original receipt design:
+  // Line 1: "TOTAL" (left) ... "2,665.00" (right)
+  // Line 2: "REVENUE:" (left) ... "EGP" (right)
+  let mainLblL1 = mainKpiLabel;
+  let mainLblL2 = "";
+  const lblParts = mainKpiLabel.trim().split(" ");
+  if (lblParts.length >= 2) {
+    mainLblL1 = lblParts[0];
+    mainLblL2 = lblParts.slice(1).join(" ");
+  }
+
+  let mainValL1 = mainKpiVal;
+  let mainValL2 = "";
+  const valParts = mainKpiVal.trim().split(" ");
+  if (valParts.length >= 2) {
+    mainValL1 = valParts.slice(0, -1).join(" ");
+    mainValL2 = valParts[valParts.length - 1]; // e.g. "EGP"
+  }
+
+  // Calculate dynamic roll height for SC03h thermal roll
+  const kpiBoxH = 26 + 32 + 30 + 16 + (subKpis.length * 36) + 14;
+
+  let totalH = 30;
+  totalH += 52; // STATIC (46px font)
+  totalH += 40; // TITLE (32px font)
+  totalH += 34; // period · date (22px font)
+  totalH += 32; // Generated by (20px font)
+  totalH += 18; // gap
+  totalH += 14; // solid bar
+  totalH += 22; // gap
+  totalH += kpiBoxH; // KPI Box (never overlaps)
+  totalH += 26; // gap
+  totalH += 36; // ====================
+  totalH += 42; // RECORDED ENTRIES (28px font)
+  totalH += 36; // --------------------
+
+  if (entries.length === 0) {
+    totalH += 56;
+  } else {
+    entries.forEach((en) => {
+      totalH += 38; // line 1 (header: #1 · ORD-1022 & price)
+      if (en.wrappedLine2.length > 0) {
+        totalH += en.wrappedLine2.length * 30;
+      }
+      if (en.wrappedLine3.length > 0) {
+        totalH += en.wrappedLine3.length * 28;
+      }
+      totalH += en.line4Split ? 56 : 34; // line 4 (status & date)
+      totalH += 28; // dashed divider
+    });
+  }
+
+  totalH += 36; // ====================
+  totalH += 105; // barcode + caption
+  totalH += 40; // STATIC ARCHIVE
+  totalH += 36; // @static._.eg
+  totalH += 50; // bottom tear margin
+
+  const canvas = document.createElement("canvas");
+  canvas.width = canvasWidth;
+  canvas.height = Math.ceil(totalH);
+  const ctx = canvas.getContext("2d");
+
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvasWidth, totalH);
+  ctx.fillRect(0, 0, canvasWidth, canvas.height);
 
   ctx.fillStyle = "#000000";
   ctx.textBaseline = "middle";
+  let y = 30;
+
+  // Header
   ctx.textAlign = "center";
-  let y = 20;
+  ctx.font = "900 46px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+  ctx.fillText("STATIC", canvasWidth / 2, y); y += 46;
 
-  ctx.font = "900 13px 'Courier New', Courier, monospace";
-  ctx.fillText("****************************************", canvasWidth / 2, y); y += 24;
-  ctx.font = "900 22px 'Courier New', Courier, monospace";
-  ctx.fillText("STATIC", canvasWidth / 2, y); y += 22;
-  ctx.font = "900 16px 'Courier New', Courier, monospace";
-  ctx.fillText(`${typeLabel} REPORT`, canvasWidth / 2, y); y += 20;
-  ctx.font = "700 12px 'Courier New', Courier, monospace";
-  ctx.fillText(`${label} · ${dateStr}`, canvasWidth / 2, y); y += 20;
-  ctx.font = "900 13px 'Courier New', Courier, monospace";
-  ctx.fillText("****************************************", canvasWidth / 2, y); y += 26;
+  ctx.font = "900 32px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+  ctx.fillText(reportTitle, canvasWidth / 2, y); y += 36;
 
-  ctx.font = "700 13px 'Courier New', Courier, monospace";
+  ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+  ctx.fillText(`${label} · ${dateStr}`, canvasWidth / 2, y); y += 28;
+  ctx.font = "800 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+  ctx.fillText(`Generated by ${byStr}`, canvasWidth / 2, y); y += 28;
+
+  // Solid bar
+  ctx.fillRect(padX, y, canvasWidth - (padX * 2), 6);
+  y += 20;
+
+  // KPI box
+  const kpiBoxY = y;
+  ctx.lineWidth = 3.5;
+  ctx.strokeStyle = "#000000";
+  ctx.strokeRect(padX, kpiBoxY, canvasWidth - (padX * 2), kpiBoxH);
+
+  y += 28;
+  // Line 1: "TOTAL" (left) ... "2,665.00" (right)
   ctx.textAlign = "left";
-  ctx.fillText(`Generated by: ${byStr}`, 16, y); y += 22;
-  ctx.fillText(`Period: ${label}`, 16, y); y += 22;
-  ctx.fillText(`Date: ${dateStr}`, 16, y); y += 26;
+  ctx.font = "900 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+  ctx.fillText(mainLblL1, padX + 14, y);
+  ctx.textAlign = "right";
+  ctx.font = "900 27px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+  ctx.fillText(mainValL1, canvasWidth - padX - 14, y);
+  y += 32;
 
+  // Line 2: "REVENUE:" (left) ... "EGP" (right)
+  ctx.textAlign = "left";
+  ctx.font = "900 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+  ctx.fillText(mainLblL2, padX + 14, y);
+  ctx.textAlign = "right";
+  ctx.font = "900 24px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+  ctx.fillText(mainValL2, canvasWidth - padX - 14, y);
+  y += 22;
+
+  // Divider inside KPI box
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(padX + 8, y);
+  ctx.lineTo(canvasWidth - padX - 8, y);
+  ctx.stroke();
+  y += 24;
+
+  // Sub KPIs
+  subKpis.forEach((sk) => {
+    ctx.font = "800 21px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(sk.label, padX + 14, y);
+    ctx.textAlign = "right";
+    ctx.font = "900 23px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+    ctx.fillText(sk.val, canvasWidth - padX - 14, y);
+    y += 36;
+  });
+
+  y = kpiBoxY + kpiBoxH + 24;
+
+  // Dividers & Title
   ctx.textAlign = "center";
-  ctx.font = "900 13px 'Courier New', Courier, monospace";
-  ctx.fillText("----------------------------------------", canvasWidth / 2, y); y += 22;
-  ctx.font = "800 13px 'Courier New', Courier, monospace";
-  ctx.fillText("STATIC ARCHIVE & FINANCIAL SYSTEM", canvasWidth / 2, y); y += 20;
-  ctx.fillText("@static._.eg", canvasWidth / 2, y); y += 24;
+  ctx.font = "900 24px 'Courier New', Courier, monospace";
+  ctx.fillText("====================", canvasWidth / 2, y); y += 34;
+
+  ctx.font = "900 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+  ctx.fillText("RECORDED ENTRIES", canvasWidth / 2, y); y += 32;
+
+  ctx.font = "900 24px 'Courier New', Courier, monospace";
+  ctx.fillText("--------------------", canvasWidth / 2, y); y += 32;
+
+  // Entries
+  if (entries.length === 0) {
+    ctx.font = "800 21px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+    ctx.fillText("No entries recorded for this period.", canvasWidth / 2, y);
+    y += 40;
+  } else {
+    entries.forEach((en) => {
+      ctx.font = "900 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+      const w1R = ctx.measureText(en.line1R).width;
+      const maxL1LW = maxContentW - w1R - 14;
+      let line1L = en.line1L;
+      while (ctx.measureText(line1L).width > maxL1LW && line1L.length > 4) {
+        line1L = line1L.slice(0, -2) + "…";
+      }
+
+      ctx.textAlign = "left";
+      ctx.fillText(line1L, padX, y);
+
+      ctx.textAlign = "right";
+      ctx.font = "900 23px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+      ctx.fillText(en.line1R, canvasWidth - padX, y);
+      y += 34;
+
+      if (en.wrappedLine2 && en.wrappedLine2.length > 0) {
+        ctx.textAlign = "left";
+        ctx.font = "800 21px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+        en.wrappedLine2.forEach((l2) => {
+          ctx.fillText(l2, padX, y);
+          y += 30;
+        });
+      }
+
+      if (en.wrappedLine3 && en.wrappedLine3.length > 0) {
+        ctx.textAlign = "left";
+        ctx.font = "700 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+        en.wrappedLine3.forEach((l3) => {
+          ctx.fillText(l3, padX, y);
+          y += 28;
+        });
+      }
+
+      ctx.font = "800 18.5px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+      if (en.line4Split) {
+        ctx.textAlign = "left";
+        ctx.fillText(en.line4L, padX, y);
+        y += 26;
+        ctx.textAlign = "left";
+        ctx.fillText(en.line4R, padX, y);
+        y += 28;
+      } else {
+        ctx.textAlign = "left";
+        ctx.fillText(en.line4L, padX, y);
+        ctx.textAlign = "right";
+        ctx.fillText(en.line4R, canvasWidth - padX, y);
+        y += 32;
+      }
+
+      ctx.font = "900 20px 'Courier New', Courier, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("- - - - - - - - - - -", canvasWidth / 2, y);
+      y += 28;
+    });
+  }
+
+  // End divider
+  ctx.textAlign = "center";
+  ctx.font = "900 24px 'Courier New', Courier, monospace";
+  ctx.fillText("====================", canvasWidth / 2, y); y += 34;
+
+  // Barcode
+  const barcodeCode = "RPT-" + type.toUpperCase().slice(0, 4) + "-" + period.toUpperCase();
+  const barcodeMods = getCode128Modules(barcodeCode);
+  const modW = 2.15;
+  const barH = 54;
+  const totalModW = barcodeMods.reduce((s, m) => s + (m.width * modW), 0);
+  const startBX = Math.max(8, (canvasWidth - totalModW) / 2);
+
+  let curX = startBX;
+  barcodeMods.forEach((m) => {
+    const w = m.width * modW;
+    if (m.isBlack) ctx.fillRect(curX, y, w, barH);
+    curX += w;
+  });
+  y += barH + 24;
+
+  ctx.font = "800 19px 'Courier New', Courier, monospace";
+  ctx.fillText(`* STATIC SYSTEM · ${dateStr} *`, canvasWidth / 2, y);
+  y += 34;
+
+  // Footer
+  ctx.font = "900 25px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+  ctx.fillText("STATIC ARCHIVE & REPORT", canvasWidth / 2, y); y += 30;
+  ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+  ctx.fillText("@static._.eg", canvasWidth / 2, y);
+
+  return canvas;
+}
+
+function downloadReportPng(type, period) {
+  const cleanType = String(type || "orders").toLowerCase();
+  const cleanPeriod = String(period || "all").toLowerCase();
+  const filename = `${cleanType}-summary-${cleanPeriod}-sc03h.png`;
+
+  const canvas = renderSc03hReportToCanvas(cleanType, cleanPeriod, 384);
+  if (!canvas) {
+    alert("Could not generate report image.");
+    return;
+  }
 
   canvas.toBlob((blob) => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `report-${type}-${period}.png`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 3000);
+    showSystemToast({
+      title: "SC03h-B976 Image Ready",
+      message: `Downloaded ${filename} (384px). Drag & drop directly into your Cat Printer app!`,
+      duration: 5000,
+    });
   }, "image/png");
 }
 
-function downloadStoreSlipPng(storeId) {
-  let store = allStores.find((s) => s.id === storeId) || activeStore;
+function downloadStoreSlipPng(storeOrId) {
+  let store = (typeof storeOrId === "object" && storeOrId !== null)
+    ? storeOrId
+    : (allStores.find((s) => s.id === storeOrId) || activeStore);
   if (!store) return;
 
   const canvasWidth = 384;
@@ -6095,7 +6765,7 @@ function downloadStoreSlipPng(storeId) {
   const totalUnits = items.reduce((s, it) => s + (Number(it.quantity) || 0), 0);
   const totalVal = items.reduce((s, it) => s + ((Number(it.quantity) || 0) * (Number(it.price) || 0)), 0);
 
-  let totalH = 340 + (items.length * 28) + 120;
+  let totalH = 460 + (items.length * 44) + 150;
   canvas.height = totalH;
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvasWidth, totalH);
@@ -6103,59 +6773,66 @@ function downloadStoreSlipPng(storeId) {
   ctx.fillStyle = "#000000";
   ctx.textBaseline = "middle";
   ctx.textAlign = "center";
-  let y = 20;
+  let y = 30;
 
-  ctx.font = "900 13px 'Courier New', Courier, monospace";
-  ctx.fillText("****************************************", canvasWidth / 2, y); y += 24;
-  ctx.font = "900 22px 'Courier New', Courier, monospace";
-  ctx.fillText("STATIC", canvasWidth / 2, y); y += 22;
-  ctx.font = "900 16px 'Courier New', Courier, monospace";
-  ctx.fillText("CONSIGNMENT DELIVERY SLIP", canvasWidth / 2, y); y += 20;
-  ctx.font = "700 12px 'Courier New', Courier, monospace";
-  ctx.fillText(`${escapeHtml(store.name)} · ${dateStr}`, canvasWidth / 2, y); y += 20;
-  ctx.font = "900 13px 'Courier New', Courier, monospace";
-  ctx.fillText("****************************************", canvasWidth / 2, y); y += 26;
+  ctx.font = "900 24px 'Courier New', Courier, monospace";
+  ctx.fillText("********************", canvasWidth / 2, y); y += 38;
+  ctx.font = "900 46px 'Courier New', Courier, monospace";
+  ctx.fillText("STATIC", canvasWidth / 2, y); y += 46;
+  ctx.font = "900 28px 'Courier New', Courier, monospace";
+  ctx.fillText("CONSIGNMENT SLIP", canvasWidth / 2, y); y += 34;
+  ctx.font = "800 22px 'Courier New', Courier, monospace";
+  ctx.fillText(`${escapeHtml(store.name)} · ${dateStr}`, canvasWidth / 2, y); y += 30;
+  ctx.font = "900 24px 'Courier New', Courier, monospace";
+  ctx.fillText("********************", canvasWidth / 2, y); y += 38;
 
   items.forEach((it) => {
     const q = Number(it.quantity) || 0;
     const p = Number(it.price) || 0;
-    ctx.font = "800 13.5px 'Courier New', Courier, monospace";
+    ctx.font = "900 22px 'Courier New', Courier, monospace";
     ctx.textAlign = "left";
     let name = `${q}x ${it.itemName}`;
-    if (name.length > 22) name = name.slice(0, 21) + "…";
+    if (name.length > 15) name = name.slice(0, 14) + "…";
     ctx.fillText(name, 14, y);
-    ctx.font = "900 14px 'Courier New', Courier, monospace";
+    ctx.font = "900 24px 'Courier New', Courier, monospace";
     ctx.textAlign = "right";
     ctx.fillText(`${money(q * p)} EGP`, canvasWidth - 14, y);
-    y += 24;
+    y += 36;
   });
 
   ctx.textAlign = "center";
-  ctx.font = "900 13px 'Courier New', Courier, monospace";
-  ctx.fillText("----------------------------------------", canvasWidth / 2, y); y += 24;
+  ctx.font = "900 24px 'Courier New', Courier, monospace";
+  ctx.fillText("--------------------", canvasWidth / 2, y); y += 34;
 
-  ctx.font = "900 17px 'Courier New', Courier, monospace";
+  ctx.font = "900 26px 'Courier New', Courier, monospace";
   ctx.textAlign = "left";
-  ctx.fillText(`TOTAL UNITS: ${totalUnits} pcs`, 14, y); y += 24;
-  ctx.fillText(`TOTAL VALUE: ${money(totalVal)} EGP`, 14, y); y += 26;
+  ctx.fillText(`TOTAL UNITS: ${totalUnits} pcs`, 14, y); y += 36;
+  ctx.fillText(`TOTAL VALUE: ${money(totalVal)} EGP`, 14, y); y += 38;
 
   ctx.textAlign = "center";
-  ctx.font = "900 13px 'Courier New', Courier, monospace";
-  ctx.fillText("----------------------------------------", canvasWidth / 2, y); y += 22;
-  ctx.font = "800 13px 'Courier New', Courier, monospace";
-  ctx.fillText("STATIC PARTNER CONSIGNMENT", canvasWidth / 2, y); y += 20;
-  ctx.fillText("@static._.eg", canvasWidth / 2, y); y += 24;
+  ctx.font = "900 24px 'Courier New', Courier, monospace";
+  ctx.fillText("--------------------", canvasWidth / 2, y); y += 34;
+  ctx.font = "900 24px 'Courier New', Courier, monospace";
+  ctx.fillText("STATIC CONSIGNMENT", canvasWidth / 2, y); y += 30;
+  ctx.font = "800 20px 'Courier New', Courier, monospace";
+  ctx.fillText("@static._.eg", canvasWidth / 2, y); y += 34;
 
   canvas.toBlob((blob) => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `storeslip-${store.name}.png`;
+    const storeSlug = (store.name || "partner").toLowerCase().replace(/[^a-z0-9_-]+/g, "_");
+    a.download = `storeslip-${storeSlug}-sc03h.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 3000);
+    showSystemToast({
+      title: "SC03h-B976 Slip Ready",
+      message: `Downloaded storeslip-${storeSlug}-sc03h.png (384px). Drag & drop directly into your Cat Printer app!`,
+      duration: 4000,
+    });
   }, "image/png");
 }
 
@@ -6165,12 +6842,18 @@ function printOrderReceipt(orderId, target = null) {
 
   const finalTarget = target || currentPrinterTarget || "sc03h";
 
+  if (finalTarget === "sc03h") {
+    downloadReceiptPng(orderId);
+    showSystemToast({
+      title: "SC03h-B976 Receipt Ready",
+      message: `Downloaded receipt-${formatOrderId(orderId)}.png (384px). Drag & drop directly into your Cat Printer app!`,
+      duration: 4000,
+    });
+    return;
+  }
+
   executePrint(finalTarget, (section) => {
-    if (finalTarget === "sc03h") {
-      section.innerHTML = renderSc03hReceipt(o);
-    } else {
-      section.innerHTML = renderStandardReceipt(o);
-    }
+    section.innerHTML = renderStandardReceipt(o);
   });
 }
 
